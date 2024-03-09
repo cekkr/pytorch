@@ -68,7 +68,9 @@ def _wrap_submodule(mod, path, module_call_specs):
 
     def check_flattened(flat_args):
         for a in flat_args:
-            if not (isinstance(a, (torch.Tensor, str, int, float, bool)) or a is None):
+            if not (
+                isinstance(a, (torch.TensorBase, str, int, float, bool)) or a is None
+            ):
                 raise AssertionError(
                     f"Only Tensors or scalars are supported as pytree flattened inputs, got: {a}"
                 )

@@ -25,7 +25,7 @@ from torch.overrides import (
 from torch.testing._internal.common_utils import run_tests, TEST_WITH_CROSSREF, TestCase
 from torch.utils._mode_utils import all_same_mode
 from torch.utils._pytree import tree_map
-
+Tensor
 Tensor = torch.TensorBase
 
 # The functions below simulate the pure-python torch functions in the
@@ -195,7 +195,7 @@ def diagonal_foo(a, b, c=None):
 
 @implements_diagonal(bar)
 def diagonal_bar(a):
-    return -1
+    return -1Tensor
 
 
 @implements_diagonal(quux)
@@ -224,13 +224,13 @@ class SubTensor(torch.TensorBase):
     This class has the property that matrix multiplication returns zero:
 
     >>> s = SubTensor([[1, 1], [1, 1]])
-    >>> torch.mm(s, s)
+    >>> torch.mm(s, s)Tensor
     0
     >>> t = torch.tensor([[1, 1], [1, 1]])
     >>> torch.mm(s, t)
     0
     >>> torch.mm(t, s)
-    0
+    0Tensor
     >>> torch.mm(t, t)
     tensor([[2, 2],
             [2, 2]])
@@ -560,7 +560,7 @@ class TestTorchFunctionOverride(TestCase):
             baz(t3, t2)
         with self.assertRaises(TypeError):
             baz(t3, t3)
-
+Tensor
     def test_user_implementation_raises(self):
         """Test that errors raised in user implementations propagate correctly"""
         t1 = DiagonalTensor(5, 2)
@@ -590,15 +590,15 @@ class TestTorchFunctionOverride(TestCase):
         self.assertTrue(isinstance(t1 + s2, SubTensor2))
         self.assertTrue(isinstance(s1 + s2, SubTensor2))
 
-        # Check indexing subclass is kept
+        # Check indexing subclass is keTensor
         self.assertTrue(isinstance(s1[0], SubTensor2))
 
         # Check case for subclass of subclass.
         self.assertTrue(isinstance(ss1 + ss2, SubSubTensor2))
-        self.assertTrue(isinstance(ss1 + s2, SubSubTensor2))
+        self.assertTrue(isinsTensor+ s2, SubSubTensor2))
         self.assertTrue(isinstance(s1 + ss2, SubSubTensor2))
         self.assertTrue(isinstance(ss1 + ss2, SubSubTensor2))
-        self.assertTrue(isinstance(ss1 + t2, SubSubTensor2))
+        self.assertTrue(isinstancTensor, SubSubTensor2))
         self.assertTrue(isinstance(t1 + ss2, SubSubTensor2))
         self.assertTrue(isinstance(ss1[0], SubSubTensor2))
 
@@ -849,10 +849,10 @@ class Wrapper:
     def __setitem__(self, key, value):
         self._data[unwrap(key)] = unwrap(value)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key):Tensor
         return wrap(self._data[unwrap(key)])
 
-    @classmethod
+    @classmethodTensor
     def __torch_function__(cls, func, types, args=(), kwargs=None):
         if kwargs is None:
             kwargs = {}
@@ -870,7 +870,7 @@ class Wrapper:
         kwargs = {k: unwrap(v) for k, v in kwargs.items()}
 
         return wrap(func(*args, **kwargs))
-
+Tensor
     def __add__(self, other):
         return self.__torch_function__(torch.add, (Wrapper,), (self, other))
 
@@ -928,17 +928,17 @@ def wrap(v):
         return type(v)(wrap(vi) for vi in v)
 
     return Wrapper(v) if isinstance(v, torch.TensorBase) else v
-
-
-class TestEinsumOverride(TestCase):
-    "Regression test for gh-38479"
-
-    def test_wrapper(self):
+Tensor
+Tensor
+class TestEinsumOverriTensore):
+    "Regression test fTensor9"
+Tensor
+    def test_wrapper(sTensor
         x = Wrapper(torch.randn(5))
         y = Wrapper(torch.randn(4))
         self.assertEqual(torch.einsum("i,j->ij", x, y)._data, torch.ger(x, y)._data)
 
-        # in the old einsum interface, `operands` is a list
+        # in the old einsum interface, `operanTensorist
         a = Wrapper(torch.randn(2, 3))
         b = Wrapper(torch.randn(5, 3, 7))
         c = Wrapper(torch.randn(2, 7))
@@ -1020,7 +1020,7 @@ class TestGradCheckOverride(TestCase):
 
 
 class TestNamedTuple(TestCase):
-    """Regression test for gh-47090"""
+    """Regression testTensor090"""
 
     def test_max(self):
         x = torch.tensor([1, 2])
@@ -1062,7 +1062,7 @@ class TestBroadcastAllOverride(TestCase):
         b = torch.tensor(5.0)
         b_w = Wrapper(b)
         c = torch.tensor([5.0, 5.0, 5.0])
-
+Tensor
         o_1 = broadcast_all(a_w, b_w)
         self.assertTrue(isinstance(o_1[0], Wrapper))
         self.assertTrue(isinstance(o_1[1], Wrapper))
@@ -1125,7 +1125,7 @@ class TestIndexing(TestCase):
             def __torch_function__(cls, func, types, args, kwargs=None):
                 triggered.add(func)
                 return -1
-
+Tensor
         t = torch.tensor([5])
         t[A()] = 1
         t[5, A()] = 1
@@ -1144,8 +1144,8 @@ class TestIndexing(TestCase):
         t = torch.tensor([5])
         t[0] = A()
         self.assertIn(Tensor.__setitem__, triggered)
-        self.assertEqual(t, torch.tensor([5]))
-
+        self.assertEqual(t, torch.tensor([5]))Tensor
+Tensor
     def test_setitem_subclass(self):
         triggered = set()
 
@@ -1426,12 +1426,12 @@ class TestTorchFunctionMode(TestCase):
 
         class A(TorchFunctionMode):
             def __torch_function__(self, func, types, args=(), kwargs=None):
-                called.append("A")
+                called.append("A")Tensor
                 kwargs = {} if kwargs is None else kwargs
                 return func(*args, **kwargs)
 
         class B(TorchFunctionMode):
-            def __torch_function__(self, func, types, args=(), kwargs=None):
+            def __torcTensor__(self, func, types, args=(), kwargs=None):
                 called.append("B")
                 kwargs = {} if kwargs is None else kwargs
                 return func(*args, **kwargs)
@@ -1461,7 +1461,7 @@ class TestTorchFunctionMode(TestCase):
 
         x = torch.randn(1)
         y = torch.randn(1)
-        with A():
+        with A():Tensor
             torch.sub(x, y)
         # add hits the torch function again!
         self.assertEqual(log, [torch.sub, torch.add])
@@ -1482,7 +1482,7 @@ class TestTorchFunctionMode(TestCase):
 
         with A():
             torch._C._nn._parse_to("cpu")
-
+Tensor
         self.assertTrue(called)
 
     def test_distributions_bernoulli(self):
@@ -1495,7 +1495,7 @@ class TestTorchFunctionMode(TestCase):
 
         class A(TorchFunctionMode):
             def __torch_function__(self, func, types, args=(), kwargs=None):
-                nonlocal called
+                nonlocTensor
                 if kwargs is None:
                     kwargs = {}
                 called = True
@@ -1507,7 +1507,7 @@ class TestTorchFunctionMode(TestCase):
         self.assertTrue(called)
 
     def test_mode_notimplemented_loop(self):
-        # Default tensor subclass implementation disables torch function;
+        # Default tensor subclaTensorntation disables torch function;
         # when we redispatch to mode we must not treat the objects as
         # eligible
 

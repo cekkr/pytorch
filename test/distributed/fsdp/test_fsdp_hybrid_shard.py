@@ -363,7 +363,7 @@ class TestFSDPHybridShard(FSDPTest):
         torch.manual_seed(global_pg.rank() + 1)
         for _ in range(5):
             inp = fsdp_model.module.get_input(torch.device("cuda"))
-            losses: List[torch.Tensor] = []
+            losses: List[torch.TensorBase] = []
             for model, optim in ((fsdp_model, fsdp_optim), (hsdp_model, hsdp_optim)):
                 optim.zero_grad()
                 loss = model(*inp).sum()

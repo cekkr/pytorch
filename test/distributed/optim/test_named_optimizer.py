@@ -49,7 +49,7 @@ class NamedOptimizerTest(unittest.TestCase):
                 err_msg = (
                     f"{key} state not equal" if assert_equal else f"{key} state equal"
                 )
-                if isinstance(val, torch.Tensor):
+                if isinstance(val, torch.TensorBase):
                     fn = self.assertTrue if assert_equal else self.assertFalse
                     fn(torch.allclose(val, named_group[key]), err_msg)
                 else:

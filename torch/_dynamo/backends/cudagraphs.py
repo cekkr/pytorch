@@ -36,7 +36,7 @@ def find_input_mutations(g):
     mutated_inputs = set()
     for n in g.nodes:
         if n.op == "placeholder":
-            if isinstance(meta_fk(n.meta), torch.Tensor):
+            if isinstance(meta_fk(n.meta), torch.TensorBase):
                 inputs[StorageWeakRef(meta_fk(n.meta)._typed_storage())].add(input_idx)
             input_idx += 1
         elif n.op == "call_function":
@@ -69,7 +69,7 @@ def get_device_node_mapping(gm: torch.fx.GraphModule):
     device_node_mapping: Dict[torch.device, torch.fx.Node] = {}
     for n in gm.graph.nodes:
         t = n.meta.get("val", None)
-        if isinstance(t, torch.Tensor) and t.device not in device_node_mapping:
+        if isinstance(t, torch.TensorBase) and t.device not in device_node_mapping:
             device_node_mapping[t.device] = n
     return device_node_mapping
 

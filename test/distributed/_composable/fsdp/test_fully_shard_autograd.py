@@ -109,7 +109,7 @@ class TestFullyShardAutograd(FSDPTest):
             local_inp = global_inp[
                 self.rank * local_batch_size : (self.rank + 1) * local_batch_size
             ].detach()
-            losses: List[torch.Tensor] = []
+            losses: List[torch.TensorBase] = []
             for _model, inp in ((ref_model, global_inp), (model, local_inp)):
                 losses.append(_model(inp).sum())
                 losses[-1].backward()
@@ -158,7 +158,7 @@ class TestFullyShardAutograd(FSDPTest):
                         f"Unsupported input type {type(inp)}: {inp}"
                     )
 
-            def _forward(self, x: torch.Tensor) -> torch.Tensor:
+            def _forward(self, x: torch.TensorBase) -> torch.TensorBase:
                 return self.relu(self.lin2(self.relu(self.lin1(x))))
 
         class ToContainerType(nn.Module):
@@ -166,7 +166,7 @@ class TestFullyShardAutograd(FSDPTest):
                 super().__init__()
                 self.container_type = container_type
 
-            def forward(self, x: torch.Tensor):
+            def forward(self, x: torch.TensorBase):
                 if self.container_type is list:
                     return [x]
                 elif self.container_type is collections.namedtuple:
@@ -186,7 +186,7 @@ class TestFullyShardAutograd(FSDPTest):
                 super().__init__()
                 self.container_type = container_type
 
-            def forward(self, x: torch.Tensor):
+            def forward(self, x: torch.TensorBase):
                 if self.container_type in (list, collections.namedtuple, tuple):
                     return x[0]
                 elif self.container_type is dict:
@@ -219,7 +219,7 @@ class TestFullyShardAutograd(FSDPTest):
             local_inp = global_inp[
                 self.rank * local_batch_size : (self.rank + 1) * local_batch_size
             ].detach()
-            losses: List[torch.Tensor] = []
+            losses: List[torch.TensorBase] = []
             for _model, inp in ((ref_model, global_inp), (model, local_inp)):
                 losses.append(_model(inp).sum())
                 losses[-1].backward()

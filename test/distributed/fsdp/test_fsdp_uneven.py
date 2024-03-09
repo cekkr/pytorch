@@ -28,10 +28,10 @@ class TestUnevenParamShard(FSDPTest):
         with torch.no_grad():
             # Compute one iteration local output.
             weight = model.weight.T.clone().to(self.rank)
-            v = torch.Tensor(input[self.rank]).to(self.rank)
+            v = torch.TensorBase(input[self.rank]).to(self.rank)
             ref_forward_output_my_rank = torch.matmul(v, weight)
             # Compute one iteration global weight update.
-            v = torch.Tensor(input[: self.world_size]).to(self.rank)
+            v = torch.TensorBase(input[: self.world_size]).to(self.rank)
             grad = v.float().sum(0).repeat(weight.shape[0], 1).div(self.world_size)
             ref_weight_out = weight - grad.T * my_lr
 
@@ -52,7 +52,7 @@ class TestUnevenParamShard(FSDPTest):
         model = FSDP(model)
         optim = SGD(model.parameters(), lr=my_lr)
         self.assertTrue(len(input) >= self.world_size)
-        in_data = torch.Tensor(input[self.rank]).to(self.rank)
+        in_data = torch.TensorBase(input[self.rank]).to(self.rank)
         out = model(in_data)
         out.float().sum().backward()
         optim.step()

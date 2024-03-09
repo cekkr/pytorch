@@ -131,9 +131,9 @@ def gen_allowed_objs_and_ids(record=False, c_binding_only=True) -> AllowedObject
                 types.WrapperDescriptorType,
             ),
         ) or is_special_functions(obj):
-            torch_name_rule_map[
-                f"{module.__name__}.{name}"
-            ] = TorchInGraphFunctionVariable
+            torch_name_rule_map[f"{module.__name__}.{name}"] = (
+                TorchInGraphFunctionVariable
+            )
             if c_binding_only:
                 if not hasattr(obj, "__code__"):
                     c_binding_in_graph_functions.add(obj)
@@ -353,7 +353,7 @@ class TraceRuleTests(torch._dynamo.test_case.TestCase):
     def test_force_inline_torch_function(self):
         # `torch._dynamo.utils.istype` is skipped by default
         def fn(x):
-            if istype(x, torch.Tensor):
+            if istype(x, torch.TensorBase):
                 return x + 1
             else:
                 return x - 1
@@ -394,9 +394,9 @@ class TraceRuleTests(torch._dynamo.test_case.TestCase):
 
         _manual_torch_name_rule_map = manual_torch_name_rule_map.copy()
         # Force inline `mod.func` by setting trace rule.
-        _manual_torch_name_rule_map[
-            f"{mod.__name__}.{func.__name__}"
-        ] = UserFunctionVariable
+        _manual_torch_name_rule_map[f"{mod.__name__}.{func.__name__}"] = (
+            UserFunctionVariable
+        )
 
         _torch_name_rule_map = [
             _manual_torch_name_rule_map,

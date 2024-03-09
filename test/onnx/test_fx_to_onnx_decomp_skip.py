@@ -32,7 +32,7 @@ class TestDynamoExportDecompSkip(pytorch_test_common.ExportTestCase):
         assert_op_in_onnx_model(onnx_program.model_proto, "Resize")
 
     def test_upsample_bilinear2d_output_size(self):
-        def func(x: torch.Tensor):
+        def func(x: torch.TensorBase):
             return torch.nn.functional.interpolate(x, size=(4, 4), mode="bilinear")
 
         onnx_program = torch.onnx.dynamo_export(func, torch.randn(1, 1, 2, 2))
@@ -40,7 +40,7 @@ class TestDynamoExportDecompSkip(pytorch_test_common.ExportTestCase):
         assert_op_in_onnx_model(onnx_program.model_proto, "Resize")
 
     def test_instance_norm(self):
-        def func(x: torch.Tensor):
+        def func(x: torch.TensorBase):
             return torch.nn.functional.instance_norm(x)
 
         onnx_program = torch.onnx.dynamo_export(func, torch.randn(1, 1, 2, 2))

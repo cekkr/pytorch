@@ -15,7 +15,7 @@ if __name__ == "__main__":
 class TestPythonBindings(JitTestCase):
     def test_cu_get_functions(self):
         @torch.jit.script
-        def test_get_python_cu_fn(x: torch.Tensor):
+        def test_get_python_cu_fn(x: torch.TensorBase):
             return 2 * x
 
         cu = torch.jit._state._python_cu
@@ -25,7 +25,7 @@ class TestPythonBindings(JitTestCase):
 
     def test_cu_create_function(self):
         @torch.jit.script
-        def fn(x: torch.Tensor):
+        def fn(x: torch.TensorBase):
             return 2 * x
 
         cu = torch._C.CompilationUnit()
@@ -41,7 +41,7 @@ class TestPythonBindings(JitTestCase):
 
     def test_invalidation(self):
         @torch.jit.script
-        def test_invalidation_fn(x: torch.Tensor):
+        def test_invalidation_fn(x: torch.TensorBase):
             return 2 * x
 
         gr = test_invalidation_fn.graph.copy()
@@ -57,7 +57,7 @@ class TestPythonBindings(JitTestCase):
 
     def test_graph_iterator_keepalive(self):
         @torch.jit.script
-        def test_iterator_keepalive_fn(x: torch.Tensor):
+        def test_iterator_keepalive_fn(x: torch.TensorBase):
             return 2 * x
 
         # the list would segfault before because inlined_graph
@@ -71,7 +71,7 @@ class TestPythonBindings(JitTestCase):
 
     def test_aliasdb(self):
         @torch.jit.script
-        def test_aliasdb_fn(x: torch.Tensor):
+        def test_aliasdb_fn(x: torch.TensorBase):
             return 2 * x
 
         gr = test_aliasdb_fn.graph.copy()

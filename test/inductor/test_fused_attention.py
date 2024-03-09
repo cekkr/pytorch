@@ -29,7 +29,7 @@ class TestSDPAPatternRewriterTemplate(TestCase):
 
     def _clone_inputs(self, inputs):
         def clone(x):
-            if not isinstance(x, torch.Tensor):
+            if not isinstance(x, torch.TensorBase):
                 return x
             return x.clone()
 
@@ -61,7 +61,7 @@ class TestSDPAPatternRewriterTemplate(TestCase):
 
         for training in [False, True] if check_train else [False]:
             for x in itertools.chain(args1[:], args2[:]):
-                if isinstance(x, torch.Tensor) and x.is_floating_point():
+                if isinstance(x, torch.TensorBase) and x.is_floating_point():
                     x.requires_grad = training
 
             if not self.use_static_shapes:
@@ -98,7 +98,7 @@ class TestSDPAPatternRewriterTemplate(TestCase):
                 result2.sum().backward()
                 for arg1, arg2 in zip(args1, args2):
                     if (
-                        isinstance(arg1, torch.Tensor)
+                        isinstance(arg1, torch.TensorBase)
                         and arg1.is_floating_point()
                         and (not has_dropout or override_check_equal)
                     ):
@@ -107,8 +107,8 @@ class TestSDPAPatternRewriterTemplate(TestCase):
     @skipIfRocm
     def _test_sdpa_rewriter_1(self):
         def dot_prod_attention(
-            query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
-        ) -> torch.Tensor:
+            query: torch.TensorBase, key: torch.TensorBase, value: torch.TensorBase
+        ) -> torch.TensorBase:
             """Input tensors assumed to have shape (batch_size, n_head, seq_len, embed_dim)"""
             return (
                 torch.matmul(query, key.transpose(-2, -1))
@@ -139,8 +139,8 @@ class TestSDPAPatternRewriterTemplate(TestCase):
 
         @torch.compile(fullgraph=True)
         def dot_prod_attention(
-            query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
-        ) -> torch.Tensor:
+            query: torch.TensorBase, key: torch.TensorBase, value: torch.TensorBase
+        ) -> torch.TensorBase:
             attn_weights = (
                 torch.matmul(query, key.transpose(-2, -1))
                 .div(math.sqrt(key.shape[-1]))
@@ -160,8 +160,8 @@ class TestSDPAPatternRewriterTemplate(TestCase):
     @skipIfRocm
     def _test_sdpa_rewriter_2(self):
         def dot_prod_attention(
-            query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
-        ) -> torch.Tensor:
+            query: torch.TensorBase, key: torch.TensorBase, value: torch.TensorBase
+        ) -> torch.TensorBase:
             return (
                 torch.matmul(query, key.transpose(-2, -1))
                 .mul(1.0 / math.sqrt(key.shape[-1]))
@@ -174,8 +174,11 @@ class TestSDPAPatternRewriterTemplate(TestCase):
 
     def _test_sdpa_rewriter_3(self):
         def dot_prod_attention(
-            query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, training: bool
-        ) -> torch.Tensor:
+            query: torch.TensorBase,
+            key: torch.TensorBase,
+            value: torch.TensorBase,
+            training: bool,
+        ) -> torch.TensorBase:
             return torch.nn.functional.dropout(
                 torch.matmul(query, key.transpose(-2, -1)).div(3.0).softmax(dim=-1),
                 p=0.4,
@@ -190,11 +193,11 @@ class TestSDPAPatternRewriterTemplate(TestCase):
 
     def _test_sdpa_rewriter_4(self):
         def dot_prod_attention(
-            query: torch.Tensor,
-            key: torch.Tensor,
-            value: torch.Tensor,
+            query: torch.TensorBase,
+            key: torch.TensorBase,
+            value: torch.TensorBase,
             training: bool,
-        ) -> torch.Tensor:
+        ) -> torch.TensorBase:
             return torch.nn.functional.dropout(
                 torch.matmul(query, key.transpose(-2, -1)).mul(0.4).softmax(dim=-1),
                 p=0.2,
@@ -402,7 +405,7 @@ class TestSDPAPatternRewriterTemplate(TestCase):
                 super().__init__()
                 self.is_inv_factor = is_inv_factor
 
-            def forward(self, query, key, value, scale_factor) -> torch.Tensor:
+            def forward(self, query, key, value, scale_factor) -> torch.TensorBase:
                 y = torch.matmul(query, key.transpose(-2, -1))
                 if self.is_inv_factor:
                     y = y.div(scale_factor)
@@ -435,7 +438,7 @@ class TestSDPAPatternRewriterTemplate(TestCase):
             ):
                 super().__init__()
 
-            def forward(self, query, key, value, attn_mask) -> torch.Tensor:
+            def forward(self, query, key, value, attn_mask) -> torch.TensorBase:
                 attn_weight = torch.softmax(
                     query @ key.transpose(-2, -1) / math.sqrt(query.size(-1))
                     + attn_mask,
@@ -465,8 +468,8 @@ class TestSDPAPatternRewriterTemplate(TestCase):
     @skipIfRocm
     def _test_sdpa_rewriter_11(self):
         def dot_prod_attention(
-            query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
-        ) -> torch.Tensor:
+            query: torch.TensorBase, key: torch.TensorBase, value: torch.TensorBase
+        ) -> torch.TensorBase:
             """Input tensors assumed to have shape (batch_size, seq_len, n_head, embed_dim)"""
             q = query.transpose(1, 2)
             k = key.transpose(1, 2)
@@ -482,11 +485,11 @@ class TestSDPAPatternRewriterTemplate(TestCase):
 
     def _test_sdpa_rewriter_12(self):
         def dot_prod_attention(
-            query: torch.Tensor,
-            key: torch.Tensor,
-            value: torch.Tensor,
+            query: torch.TensorBase,
+            key: torch.TensorBase,
+            value: torch.TensorBase,
             training: bool,
-        ) -> torch.Tensor:
+        ) -> torch.TensorBase:
             """Input tensors assumed to have shape (batch_size, seq_len, n_head, embed_dim)"""
             q = query.transpose(1, 2)
             k = key.transpose(1, 2)
@@ -506,8 +509,8 @@ class TestSDPAPatternRewriterTemplate(TestCase):
     @skipIfRocm
     def _test_sdpa_prev_13(self):
         def dot_prod_attention(
-            query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
-        ) -> torch.Tensor:
+            query: torch.TensorBase, key: torch.TensorBase, value: torch.TensorBase
+        ) -> torch.TensorBase:
             """Input tensors assumed to have shape (batch_size, n_head, seq_len, embed_dim)"""
             return (
                 torch.matmul(query, key.transpose(-2, -1))
@@ -523,8 +526,8 @@ class TestSDPAPatternRewriterTemplate(TestCase):
     @skipIfRocm
     def _test_sdpa_prev_14(self):
         def dot_prod_attention(
-            query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
-        ) -> torch.Tensor:
+            query: torch.TensorBase, key: torch.TensorBase, value: torch.TensorBase
+        ) -> torch.TensorBase:
             return (
                 torch.matmul(query, key.transpose(-2, -1))
                 .mul(1.0 / math.sqrt(key.shape[-1]))
@@ -539,8 +542,8 @@ class TestSDPAPatternRewriterTemplate(TestCase):
     @skipIfRocm
     def _test_sdpa_prev_15(self):
         def dot_prod_attention(
-            query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
-        ) -> torch.Tensor:
+            query: torch.TensorBase, key: torch.TensorBase, value: torch.TensorBase
+        ) -> torch.TensorBase:
             """Input tensors assumed to have shape (batch_size, seq_len, n_head, embed_dim)"""
             q = query.transpose(1, 2)
             k = key.transpose(1, 2)
@@ -558,11 +561,11 @@ class TestSDPAPatternRewriterTemplate(TestCase):
     @skipIfRocm
     def _test_sdpa_rewriter_13(self, dtype):
         def dot_prod_attention(
-            query: torch.Tensor,
-            key: torch.Tensor,
-            value: torch.Tensor,
+            query: torch.TensorBase,
+            key: torch.TensorBase,
+            value: torch.TensorBase,
             training: bool,
-        ) -> torch.Tensor:
+        ) -> torch.TensorBase:
             """Input tensors assumed to have shape (batch_size, seq_len, n_head, embed_dim)"""
             attn_weight = torch.bmm(query, key.transpose(1, 2)).softmax(dim=-1)
             attn_weight = torch.nn.functional.dropout(
@@ -590,8 +593,8 @@ class TestSDPAPatternRewriterTemplate(TestCase):
     @skipIfRocm
     def _test_sdpa_rewriter_14(self):
         def dot_prod_attention(
-            query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
-        ) -> torch.Tensor:
+            query: torch.TensorBase, key: torch.TensorBase, value: torch.TensorBase
+        ) -> torch.TensorBase:
             """Input tensors assumed to have shape (batch_size, seq_len, n_head, embed_dim)"""
             attn_mask = torch.ones(
                 query.size(1), key.size(1), dtype=torch.bool, device=query.device
@@ -613,8 +616,8 @@ class TestSDPAPatternRewriterTemplate(TestCase):
     @skipIfRocm
     def _test_sdpa_rewriter_15(self):
         def dot_prod_attention(
-            query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
-        ) -> torch.Tensor:
+            query: torch.TensorBase, key: torch.TensorBase, value: torch.TensorBase
+        ) -> torch.TensorBase:
             """Input tensors assumed to have shape (batch_size, seq_len, n_head, embed_dim)"""
             q = query.transpose(1, 2)
             k = key.transpose(1, 2)
@@ -635,8 +638,11 @@ class TestSDPAPatternRewriterTemplate(TestCase):
     @skipIfRocm
     def _test_sdpa_rewriter_16(self):
         def dot_prod_attention(
-            query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, training
-        ) -> torch.Tensor:
+            query: torch.TensorBase,
+            key: torch.TensorBase,
+            value: torch.TensorBase,
+            training,
+        ) -> torch.TensorBase:
             """Input tensors assumed to have shape (batch_size, seq_len, n_head, embed_dim)"""
             attn_mask = torch.ones(
                 query.size(1), key.size(1), dtype=torch.bool, device=query.device
@@ -672,8 +678,11 @@ class TestSDPAPatternRewriterTemplate(TestCase):
     @skipIfRocm
     def _test_sdpa_rewriter_16_fp32_mask(self):
         def dot_prod_attention(
-            query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, training
-        ) -> torch.Tensor:
+            query: torch.TensorBase,
+            key: torch.TensorBase,
+            value: torch.TensorBase,
+            training,
+        ) -> torch.TensorBase:
             """Input tensors assumed to have shape (batch_size, seq_len, n_head, embed_dim)"""
             attn_mask = torch.randn(
                 query.size(1), key.size(1), dtype=torch.float, device=query.device
@@ -706,8 +715,11 @@ class TestSDPAPatternRewriterTemplate(TestCase):
     @skipIfRocm
     def _test_sdpa_rewriter_17(self):
         def dot_prod_attention(
-            query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, training
-        ) -> torch.Tensor:
+            query: torch.TensorBase,
+            key: torch.TensorBase,
+            value: torch.TensorBase,
+            training,
+        ) -> torch.TensorBase:
             """Input tensors assumed to have shape (batch_size, seq_len, n_head, embed_dim)"""
             q = query.transpose(1, 2)
             k = key.transpose(1, 2)

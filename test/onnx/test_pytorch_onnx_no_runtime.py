@@ -19,7 +19,7 @@ import pytorch_test_common
 
 import torch
 import torch.nn.functional as F
-from torch import Tensor
+from torch import TensorBase
 from torch.onnx import OperatorExportTypes, symbolic_helper, utils
 from torch.onnx._internal import registration
 from torch.testing._internal import common_quantization, common_utils, jit_utils
@@ -27,7 +27,7 @@ from torch.testing._internal import common_quantization, common_utils, jit_utils
 
 def export_to_onnx(
     model: Union[torch.nn.Module, torch.jit.ScriptFunction],
-    input: Union[torch.Tensor, Tuple[torch.Tensor]],
+    input: Union[torch.TensorBase, Tuple[torch.TensorBase]],
     custom_ops: Optional[
         Iterable[Union[contextlib.AbstractContextManager, contextlib.ContextDecorator]]
     ] = None,
@@ -360,7 +360,7 @@ class TestONNXExport(pytorch_test_common.ExportTestCase):
 
     def test_export_dict(self):
         class DictModule(torch.nn.Module):
-            def forward(self, x_in: torch.Tensor) -> Dict[str, torch.Tensor]:
+            def forward(self, x_in: torch.TensorBase) -> Dict[str, torch.TensorBase]:
                 return {"test_key_out": x_in}
 
         x_in = torch.tensor(1)
@@ -442,7 +442,7 @@ class TestONNXExport(pytorch_test_common.ExportTestCase):
         )
         self.assertAtenOp(onnx_model, "clamp", "Tensor")
 
-    def _helper_test_to_(self, cast_fn: Callable[[torch.Tensor], torch.Tensor]):
+    def _helper_test_to_(self, cast_fn: Callable[[torch.TensorBase], torch.TensorBase]):
         """Helper to test aten::to(device) variants.
 
         `cast_fn` is converted into a `torch.jit.script`. It wraps `aten::to`
@@ -457,13 +457,13 @@ class TestONNXExport(pytorch_test_common.ExportTestCase):
             self.assertNotEqual(n.op_type, "Cast")
 
     def test_to__cpu_string(self):
-        def cast_cpu_string(src: torch.Tensor) -> torch.Tensor:
+        def cast_cpu_string(src: torch.TensorBase) -> torch.TensorBase:
             return src.to("cpu")
 
         self._helper_test_to_(cast_cpu_string)
 
     def test_to__device_cpu_string(self):
-        def cast_device_cpu_string(src: torch.Tensor) -> torch.Tensor:
+        def cast_device_cpu_string(src: torch.TensorBase) -> torch.TensorBase:
             return src.to(device="cpu")
 
         self._helper_test_to_(cast_device_cpu_string)
@@ -473,7 +473,9 @@ class TestONNXExport(pytorch_test_common.ExportTestCase):
             def __init__(self, bbox_xform_clip: float) -> None:
                 self.bbox_xform_clip = bbox_xform_clip
 
-            def decode(self, rel_codes: Tensor, boxes: List[Tensor]) -> Tensor:
+            def decode(
+                self, rel_codes: TensorBase, boxes: List[TensorBase]
+            ) -> TensorBase:
                 boxes = torch.cat(boxes, dim=0)
                 pred_ctr_x = (
                     torch.clamp(rel_codes[:, 0::4], max=self.bbox_xform_clip)
@@ -490,7 +492,7 @@ class TestONNXExport(pytorch_test_common.ExportTestCase):
                 super().__init__()
                 self.box_coder = BoxCoder(1.4)
 
-            def forward(self, box_regression: Tensor, proposals: List[Tensor]):
+            def forward(self, box_regression: TensorBase, proposals: List[TensorBase]):
                 return self.box_coder.decode(box_regression, proposals)
 
         model = torch.jit.script(MyModule())
@@ -1097,7 +1099,7 @@ class TestONNXExport(pytorch_test_common.ExportTestCase):
     def test_cat_with_empty_tensor(self):
         class NoopConcat(torch.nn.Module):
             def forward(self, x):
-                return torch.cat((torch.Tensor([]), x))
+                return torch.cat((torch.TensorBase([]), x))
 
         x = torch.randn(4, 5, 6)
         # TODO: Parametrize this test for opset_version
@@ -1157,7 +1159,7 @@ class TestONNXExport(pytorch_test_common.ExportTestCase):
         from torch_scatter import scatter_max  # type: ignore[import]
 
         class MyModel(torch.nn.Module):
-            def forward(self, src: torch.Tensor, idx: torch.Tensor):
+            def forward(self, src: torch.TensorBase, idx: torch.TensorBase):
                 return scatter_max(src, idx)
 
         m = MyModel().eval()

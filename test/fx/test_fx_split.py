@@ -1,7 +1,7 @@
 # Owner(s): ["module: fx"]
 
 from collections import defaultdict
-from typing import List, Tuple, Dict
+from typing import Dict, List, Tuple
 
 import torch
 from torch.fx.passes.split_utils import split_by_tags
@@ -40,6 +40,7 @@ class TestFXSplit(TestCase):
                 self.assertIn("name", node.meta)
                 self.assertEqual(node.meta["name"], node.name)
 
+
 class TestSplitByTags(TestCase):
     class TestModule(torch.nn.Module):
         def __init__(self) -> None:
@@ -51,10 +52,10 @@ class TestSplitByTags(TestCase):
 
         def forward(
             self,
-            x1: torch.Tensor,
-            x2: torch.Tensor,
-            x3: torch.Tensor,
-        ) -> torch.Tensor:
+            x1: torch.TensorBase,
+            x2: torch.TensorBase,
+            x3: torch.TensorBase,
+        ) -> torch.TensorBase:
             v1 = self.linear1(x1)
             v2 = self.linear2(x2)
             v3 = self.linear3(x3)

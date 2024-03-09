@@ -11,7 +11,7 @@ import torch
 import torch._prims as prims
 import torch._prims_common as utils
 import torch.nn.functional as F
-from torch import sym_float, sym_int, Tensor
+from torch import sym_float, sym_int, TensorBase
 from torch._decomp import register_decomposition
 from torch._higher_order_ops.out_dtype import out_dtype
 from torch._prims_common import IntLike, NumberType, TensorLike, TensorSequenceType
@@ -50,7 +50,9 @@ def type_casts(
     @functools.wraps(f)
     def inner(*args, **kwargs):
         flat_args = [
-            x for x in pytree.arg_tree_leaves(*args, **kwargs) if isinstance(x, Tensor)
+            x
+            for x in pytree.arg_tree_leaves(*args, **kwargs)
+            if isinstance(x, TensorBase)
         ]
         computation_dtype, result_dtype = utils.elementwise_dtypes(
             *flat_args, type_promotion_kind=type_promotion
@@ -58,13 +60,13 @@ def type_casts(
 
         # TODO: pretty sure this is not quite right
         def increase_prec(x):
-            if isinstance(x, Tensor):
+            if isinstance(x, TensorBase):
                 return x.to(computation_dtype)
             else:
                 return x
 
         def decrease_prec(x):
-            if isinstance(x, Tensor):
+            if isinstance(x, TensorBase):
                 return x.to(result_dtype)
             else:
                 return x
@@ -92,7 +94,7 @@ pw_cast_for_int_to_real = partial(
 
 
 # This expands x until x.dim() == dim. Might be useful as an operator
-def _unsqueeze_to_dim(x: Tensor, dim: int) -> Tensor:
+def _unsqueeze_to_dim(x: TensorBase, dim: int) -> TensorBase:
     for _ in range(dim - x.dim()):
         x = x.unsqueeze(-1)
     return x
@@ -101,21 +103,23 @@ def _unsqueeze_to_dim(x: Tensor, dim: int) -> Tensor:
 @register_decomposition(aten.tanh_backward)
 @out_wrapper("grad_input")
 @pw_cast_for_opmath
-def tanh_backward(out_grad: Tensor, y: Tensor):
+def tanh_backward(out_grad: TensorBase, y: TensorBase):
     return out_grad * (1 - y * y).conj_physical()
 
 
 @register_decomposition(aten.sigmoid_backward)
 @out_wrapper("grad_input")
 @pw_cast_for_opmath
-def sigmoid_backward(out_grad: Tensor, y: Tensor):
+def sigmoid_backward(out_grad: TensorBase, y: TensorBase):
     return out_grad * (y * (1 - y)).conj_physical()
 
 
 @register_decomposition(aten.softplus_backward)
 @out_wrapper("grad_input")
 @pw_cast_for_opmath
-def softplus_backward(out_grad: Tensor, x: Tensor, beta: float, threshold: float):
+def softplus_backward(
+    out_grad: TensorBase, x: TensorBase, beta: float, threshold: float
+):
     z = (x * beta).exp()
     return torch.where((x * beta) > threshold, out_grad, out_grad * z / (z + 1.0))
 
@@ -124,12 +128,12 @@ def softplus_backward(out_grad: Tensor, x: Tensor, beta: float, threshold: float
 @out_wrapper("grad_input")
 @pw_cast_for_opmath
 def elu_backward(
-    grad_output: Tensor,
+    grad_output: TensorBase,
     alpha: float,
     scale: float,
     input_scale: float,
     is_result: bool,
-    self_or_result: Tensor,
+    self_or_result: TensorBase,
 ):
     negcoef = alpha * scale
     poscoef = scale
@@ -154,7 +158,7 @@ def fill_scalar(self, value):
 
 
 @register_decomposition([aten.fill.Tensor])
-def fill_tensor(self, value: Tensor):
+def fill_tensor(self, value: TensorBase):
     torch._check(
         value.dim() == 0,
         lambda: f"fill only supports 0-dimension value tensor but got tensor with {value.dim()} dimensions",
@@ -165,14 +169,14 @@ def fill_tensor(self, value: Tensor):
 @register_decomposition(aten.hardsigmoid)
 @out_wrapper()
 @pw_cast_for_opmath
-def hardsigmoid(self: Tensor) -> Tensor:
+def hardsigmoid(self: TensorBase) -> TensorBase:
     return torch.clamp(torch.clamp(self + 3, min=0), max=6) / 6
 
 
 @register_decomposition(aten.hardsigmoid_backward)
 @out_wrapper("grad_input")
 @pw_cast_for_opmath
-def hardsigmoid_backward(grad_output: Tensor, self: Tensor):
+def hardsigmoid_backward(grad_output: TensorBase, self: TensorBase):
     return torch.where(
         (self > -3.0) & (self < 3.0),
         grad_output * (1.0 / 6.0),
@@ -183,7 +187,7 @@ def hardsigmoid_backward(grad_output: Tensor, self: Tensor):
 @register_decomposition(aten.hardtanh_backward)
 @out_wrapper("grad_input")
 def hardtanh_backward(
-    grad_output: Tensor, self: Tensor, min_val: float, max_val: float
+    grad_output: TensorBase, self: TensorBase, min_val: float, max_val: float
 ):
     return torch.where((self <= min_val) | (self >= max_val), 0.0, grad_output)
 
@@ -191,14 +195,14 @@ def hardtanh_backward(
 @register_decomposition(aten.hardswish)
 @out_wrapper()
 @pw_cast_for_opmath
-def hardswish(self: Tensor) -> Tensor:
+def hardswish(self: TensorBase) -> TensorBase:
     return self * torch.clamp(torch.clamp(self + 3, min=0), max=6) / 6
 
 
 @register_decomposition(aten.hardswish_backward)
 @out_wrapper()
 @pw_cast_for_opmath
-def hardswish_backward(grad_output: Tensor, self: Tensor) -> Tensor:
+def hardswish_backward(grad_output: TensorBase, self: TensorBase) -> TensorBase:
     return torch.where(
         self < -3,
         0.0,
@@ -208,7 +212,7 @@ def hardswish_backward(grad_output: Tensor, self: Tensor) -> Tensor:
 
 @register_decomposition(aten.threshold_backward)
 @out_wrapper("grad_input")
-def threshold_backward(grad_output: Tensor, self: Tensor, threshold: float):
+def threshold_backward(grad_output: TensorBase, self: TensorBase, threshold: float):
     return torch.where(self <= threshold, 0, grad_output)
 
 
@@ -216,7 +220,10 @@ def threshold_backward(grad_output: Tensor, self: Tensor, threshold: float):
 @out_wrapper("grad_input")
 @pw_cast_for_opmath
 def leaky_relu_backward(
-    grad_output: Tensor, self: Tensor, negative_slope: float, self_is_result: bool
+    grad_output: TensorBase,
+    self: TensorBase,
+    negative_slope: float,
+    self_is_result: bool,
 ):
     return torch.where(self > 0, grad_output, grad_output * negative_slope)
 
@@ -224,7 +231,7 @@ def leaky_relu_backward(
 @register_decomposition(aten.gelu_backward)
 @out_wrapper("grad_input")
 @pw_cast_for_opmath
-def gelu_backward(grad: Tensor, self: Tensor, approximate: str = "none"):
+def gelu_backward(grad: TensorBase, self: TensorBase, approximate: str = "none"):
     M_SQRT2 = 1.41421356237309504880
     M_SQRT1_2 = 0.70710678118654752440
     M_2_SQRTPI = 1.12837916709551257390
@@ -256,7 +263,7 @@ def gelu_backward(grad: Tensor, self: Tensor, approximate: str = "none"):
 
 @register_decomposition(aten.mish_backward)
 @pw_cast_for_opmath
-def mish_backward(grad_output: Tensor, input: Tensor):
+def mish_backward(grad_output: TensorBase, input: TensorBase):
     input_tanh_softplus = torch.tanh(F.softplus(input))
     input_sigmoid = torch.sigmoid(input)
     out = input * input_sigmoid * (1 - input_tanh_softplus * input_tanh_softplus)
@@ -266,29 +273,29 @@ def mish_backward(grad_output: Tensor, input: Tensor):
 @register_decomposition(aten.silu)
 @out_wrapper()
 @pw_cast_for_opmath
-def silu(self: Tensor) -> Tensor:
+def silu(self: TensorBase) -> TensorBase:
     return self * torch.sigmoid(self)
 
 
 @register_decomposition(aten.silu_backward)
 @out_wrapper("grad_input")
 @pw_cast_for_opmath
-def silu_backward(grad_output: Tensor, self: Tensor) -> Tensor:
+def silu_backward(grad_output: TensorBase, self: TensorBase) -> TensorBase:
     sigmoid = 1 / (1 + torch.exp(-self))
     return grad_output * sigmoid * (1 + self * (1 - sigmoid))
 
 
 @register_decomposition(aten._prelu_kernel)
-def _prelu_kernel(self: Tensor, weight: Tensor) -> Tensor:
+def _prelu_kernel(self: TensorBase, weight: TensorBase) -> TensorBase:
     return torch.where(self > 0, self, weight * self)
 
 
 @register_decomposition(aten._prelu_kernel_backward)
 def _prelu_kernel_backward(
-    grad_output: Tensor,
-    self: Tensor,
-    weight: Tensor,
-) -> Tuple[Tensor, Tensor]:
+    grad_output: TensorBase,
+    self: TensorBase,
+    weight: TensorBase,
+) -> Tuple[TensorBase, TensorBase]:
     input_grad = torch.where(self > 0, grad_output, weight * grad_output)
     weight_grad = torch.where(self > 0, 0.0, self * grad_output)
     return (input_grad, weight_grad)
@@ -299,13 +306,13 @@ def _prelu_kernel_backward(
 @out_wrapper()
 @pw_cast_for_opmath
 def rrelu_with_noise(
-    self: Tensor,
-    noise: Tensor,
+    self: TensorBase,
+    noise: TensorBase,
     lower: float = 0.125,
     upper: float = 0.3333333333333333,
     training: bool = False,
     generator: Optional[torch.Generator] = None,
-) -> Tensor:
+) -> TensorBase:
     assert generator is None
     if training:
         not_positive = self <= 0
@@ -322,13 +329,13 @@ def rrelu_with_noise(
 @aten.rrelu_with_noise_.default.py_impl(DispatchKey.AutogradCUDA)
 @pw_cast_for_opmath
 def rrelu_with_noise_(
-    self: Tensor,
-    noise: Tensor,
+    self: TensorBase,
+    noise: TensorBase,
     lower: float,
     upper: float,
     training: bool = False,
     generator: Optional[torch.Generator] = None,
-) -> Tensor:
+) -> TensorBase:
     return self.copy_(rrelu_with_noise(self, noise, lower, upper, training, generator))
 
 
@@ -336,14 +343,14 @@ def rrelu_with_noise_(
 @out_wrapper()
 @pw_cast_for_opmath
 def rrelu_with_noise_backward(
-    grad_output: Tensor,
-    self: Tensor,
-    noise: Tensor,
+    grad_output: TensorBase,
+    self: TensorBase,
+    noise: TensorBase,
     lower: float,
     upper: float,
     training: bool,
     self_is_result: bool,
-) -> Tensor:
+) -> TensorBase:
     if training and upper - lower > 1e-6:
         return grad_output.mul(noise)
     else:
@@ -356,7 +363,9 @@ def rrelu_with_noise_backward(
 @register_decomposition(aten.log_sigmoid_backward)
 @out_wrapper("grad_input")
 @pw_cast_for_opmath
-def log_sigmoid_backward(grad_output: Tensor, self: Tensor, buffer: Tensor) -> Tensor:
+def log_sigmoid_backward(
+    grad_output: TensorBase, self: TensorBase, buffer: TensorBase
+) -> TensorBase:
     in_negative = self < 0
     max_deriv = torch.where(in_negative, 1, 0)
     sign = torch.where(in_negative, 1, -1)
@@ -366,7 +375,7 @@ def log_sigmoid_backward(grad_output: Tensor, self: Tensor, buffer: Tensor) -> T
     # return (max_deriv - sign * (buffer / (1 + buffer))) * grad_output
 
 
-def apply_loss_reduction(loss: Tensor, reduction: int):
+def apply_loss_reduction(loss: TensorBase, reduction: int):
     if reduction == Reduction.MEAN.value:
         return torch.mean(loss)
     elif reduction == Reduction.SUM.value:
@@ -394,8 +403,8 @@ def to_real_dtype(dtype: torch.dtype):
 @out_wrapper()
 @pw_cast_for_opmath
 def mse_loss(
-    self: Tensor, target: Tensor, reduction: int = Reduction.MEAN.value
-) -> Tensor:
+    self: TensorBase, target: TensorBase, reduction: int = Reduction.MEAN.value
+) -> TensorBase:
     loss = (self - target) ** 2
     return apply_loss_reduction(loss, reduction)
 
@@ -404,7 +413,7 @@ def mse_loss(
 @out_wrapper("grad_input")
 @pw_cast_for_opmath
 def mse_loss_backward(
-    grad_output: Tensor, input: Tensor, target: Tensor, reduction: int
+    grad_output: TensorBase, input: TensorBase, target: TensorBase, reduction: int
 ):
     norm = 2.0 / input.numel() if reduction == Reduction.MEAN.value else 2.0
     return norm * (input - target) * grad_output
@@ -414,8 +423,8 @@ def mse_loss_backward(
 @out_wrapper()
 @pw_cast_for_opmath
 def smooth_l1_loss(
-    self: Tensor,
-    target: Tensor,
+    self: TensorBase,
+    target: TensorBase,
     reduction: int = Reduction.MEAN.value,
     beta: float = 1.0,
 ):
@@ -427,7 +436,11 @@ def smooth_l1_loss(
 @register_decomposition(aten.smooth_l1_loss_backward.default)
 @pw_cast_for_opmath
 def smooth_l1_loss_backward(
-    grad_output: Tensor, self: Tensor, target: Tensor, reduction: int, beta: float
+    grad_output: TensorBase,
+    self: TensorBase,
+    target: TensorBase,
+    reduction: int,
+    beta: float,
 ):
     norm = 1.0 / self.numel() if reduction == Reduction.MEAN.value else 1.0
     x = self - target
@@ -443,12 +456,12 @@ def smooth_l1_loss_backward(
 @register_decomposition(aten.smooth_l1_loss_backward.grad_input)
 @pw_cast_for_opmath
 def smooth_l1_loss_backward_out(
-    grad_output: Tensor,
-    self: Tensor,
-    target: Tensor,
+    grad_output: TensorBase,
+    self: TensorBase,
+    target: TensorBase,
     reduction: int,
     beta: float,
-    grad_input: Tensor,
+    grad_input: TensorBase,
 ):
     result = smooth_l1_loss_backward(grad_output, self, target, reduction, beta)
     _maybe_resize_out(grad_input, result.shape)
@@ -458,7 +471,11 @@ def smooth_l1_loss_backward_out(
 @register_decomposition(aten.huber_loss_backward.default)
 @pw_cast_for_opmath
 def huber_loss_backward(
-    grad_output: Tensor, self: Tensor, target: Tensor, reduction: int, delta: float
+    grad_output: TensorBase,
+    self: TensorBase,
+    target: TensorBase,
+    reduction: int,
+    delta: float,
 ):
     norm = 1.0 / self.numel() if reduction == Reduction.MEAN.value else 1.0
     x = self - target
@@ -473,12 +490,12 @@ def huber_loss_backward(
 @register_decomposition(aten.huber_loss_backward.out)
 @pw_cast_for_opmath
 def huber_loss_backward_out(
-    grad_output: Tensor,
-    self: Tensor,
-    target: Tensor,
+    grad_output: TensorBase,
+    self: TensorBase,
+    target: TensorBase,
     reduction: int,
     delta: float,
-    grad_input: Tensor,
+    grad_input: TensorBase,
 ):
     result = huber_loss_backward(grad_output, self, target, reduction, delta)
     _maybe_resize_out(grad_input, result.shape)
@@ -486,14 +503,14 @@ def huber_loss_backward_out(
 
 
 def _nll_loss_backward(
-    grad_output: Tensor,
-    self: Tensor,
-    target: Tensor,
-    weight: Optional[Tensor],
+    grad_output: TensorBase,
+    self: TensorBase,
+    target: TensorBase,
+    weight: Optional[TensorBase],
     reduction: int,
     ignore_index: int,
-    total_weight: Tensor,
-) -> Tensor:
+    total_weight: TensorBase,
+) -> TensorBase:
     channel_dim = 0 if self.dim() < 2 else 1
     if reduction == Reduction.MEAN.value:
         grad_output = grad_output / total_weight
@@ -520,7 +537,7 @@ def _nll_loss_backward(
 @register_decomposition(aten.glu_backward)
 @out_wrapper("grad_input")
 @pw_cast_for_opmath
-def glu_backward(grad_output: Tensor, self: Tensor, dim: int) -> Tensor:
+def glu_backward(grad_output: TensorBase, self: TensorBase, dim: int) -> TensorBase:
     assert self.dim() > 0, "glu does not support 0-dimensional tensors"
     wrap_dim = utils.canonicalize_dim(self.dim(), dim)
     nIn = self.size(wrap_dim)
@@ -541,14 +558,14 @@ def glu_backward(grad_output: Tensor, self: Tensor, dim: int) -> Tensor:
 @register_decomposition(aten.nll_loss_backward)
 @out_wrapper("grad_input")
 def nll_loss_backward(
-    grad_output: Tensor,
-    self: Tensor,
-    target: Tensor,
-    weight: Optional[Tensor],
+    grad_output: TensorBase,
+    self: TensorBase,
+    target: TensorBase,
+    weight: Optional[TensorBase],
     reduction: int,
     ignore_index: int,
-    total_weight: Tensor,
-) -> Tensor:
+    total_weight: TensorBase,
+) -> TensorBase:
     assert 0 <= self.dim() <= 2, "input tensor should be 1D or 2D"
     assert (
         target.dim() <= 1
@@ -585,14 +602,14 @@ def nll_loss_backward(
 @register_decomposition(aten.nll_loss2d_backward)
 @out_wrapper("grad_input")
 def nll_loss2d_backward(
-    grad_output: Tensor,
-    self: Tensor,
-    target: Tensor,
-    weight: Optional[Tensor],
+    grad_output: TensorBase,
+    self: TensorBase,
+    target: TensorBase,
+    weight: Optional[TensorBase],
     reduction: int,
     ignore_index: int,
-    total_weight: Tensor,
-) -> Tensor:
+    total_weight: TensorBase,
+) -> TensorBase:
     assert (
         self.dim() == 4
     ), f"only batches of spatial inputs supported (4D tensors), but got input of dimension: {self.dim()}"
@@ -621,11 +638,11 @@ def nll_loss2d_backward(
 @out_wrapper()
 @pw_cast_for_opmath
 def binary_cross_entropy(
-    self: Tensor,
-    target: Tensor,
-    weight: Optional[Tensor] = None,
+    self: TensorBase,
+    target: TensorBase,
+    weight: Optional[TensorBase] = None,
     reduction: int = Reduction.MEAN.value,
-) -> Tensor:
+) -> TensorBase:
     # We cannot currently model this without introducing data-dependent control flow
     # TORCH_CHECK(
     #     (input_val >= 0) && (input_val <= 1),
@@ -643,12 +660,12 @@ def binary_cross_entropy(
 @out_wrapper("grad_input")
 @pw_cast_for_opmath
 def binary_cross_entropy_backward(
-    grad_output: Tensor,
-    self: Tensor,
-    target: Tensor,
-    weight: Optional[Tensor] = None,
+    grad_output: TensorBase,
+    self: TensorBase,
+    target: TensorBase,
+    weight: Optional[TensorBase] = None,
     reduction: int = Reduction.MEAN.value,
-) -> Tensor:
+) -> TensorBase:
     EPSILON = 1e-12
     result = grad_output * (self - target) / torch.clamp(self * (1 - self), min=EPSILON)
     if weight is not None:
@@ -662,10 +679,10 @@ def binary_cross_entropy_backward(
 @out_wrapper()
 @pw_cast_for_opmath
 def soft_margin_loss(
-    input: Tensor,
-    target: Tensor,
+    input: TensorBase,
+    target: TensorBase,
     reduction: int = Reduction.MEAN.value,
-) -> Tensor:
+) -> TensorBase:
     loss = torch.log1p(torch.exp(-input * target))
     return apply_loss_reduction(loss, reduction)
 
@@ -674,11 +691,11 @@ def soft_margin_loss(
 @out_wrapper("grad_input")
 @pw_cast_for_opmath
 def soft_margin_loss_backward(
-    grad_output: Tensor,
-    self: Tensor,
-    target: Tensor,
+    grad_output: TensorBase,
+    self: TensorBase,
+    target: TensorBase,
     reduction: int = Reduction.MEAN.value,
-) -> Tensor:
+) -> TensorBase:
     grad_input = target * grad_output * (torch.sigmoid(target * self) - 1)
     if reduction == Reduction.MEAN.value:
         grad_input = grad_input / self.numel()
@@ -687,13 +704,13 @@ def soft_margin_loss_backward(
 
 @register_decomposition(aten.dist)
 @out_wrapper()
-def dist(input: Tensor, other: Tensor, p: float = 2):
+def dist(input: TensorBase, other: TensorBase, p: float = 2):
     return aten.norm(input - other, p=p)
 
 
 @register_decomposition(aten._euclidean_dist)
 @out_wrapper()
-def _euclidean_dist(x1: Tensor, x2: Tensor) -> Tensor:
+def _euclidean_dist(x1: TensorBase, x2: TensorBase) -> TensorBase:
     x1_norm = x1.pow(2).sum(-1, True)
     x1_pad = torch.ones_like(x1_norm, memory_format=torch.contiguous_format)
     x2_norm = x2.pow(2).sum(-1, True)
@@ -707,7 +724,7 @@ def _euclidean_dist(x1: Tensor, x2: Tensor) -> Tensor:
 @register_decomposition(aten.slice_backward)
 @out_wrapper()
 def slice_backward(
-    grad_output: Tensor,
+    grad_output: TensorBase,
     input_sizes: List[int],
     dim: int,
     start: int,
@@ -721,7 +738,7 @@ def slice_backward(
 @register_decomposition(aten.slice.Tensor)
 def slice_forward(
     # Tensor(a) self, int dim=0, SymInt? start=None, SymInt? end=None, SymInt step=1
-    self: Tensor,
+    self: TensorBase,
     dim: int = 0,
     start: Optional[int] = None,
     end: Optional[int] = None,
@@ -771,7 +788,9 @@ def slice_forward(
 
 @register_decomposition(aten.select_backward)
 @out_wrapper()
-def select_backward(grad_output: Tensor, input_sizes: List[int], dim: int, index: int):
+def select_backward(
+    grad_output: TensorBase, input_sizes: List[int], dim: int, index: int
+):
     grad_input = grad_output.new_zeros(input_sizes)
     return torch.select_scatter(grad_input, grad_output, dim, index)
 
@@ -779,14 +798,14 @@ def select_backward(grad_output: Tensor, input_sizes: List[int], dim: int, index
 @register_decomposition(aten.diagonal_backward)
 @out_wrapper()
 def diagonal_backward(
-    grad_output: Tensor, input_sizes: List[int], offset: int, dim1: int, dim2: int
+    grad_output: TensorBase, input_sizes: List[int], offset: int, dim1: int, dim2: int
 ):
     grad_input = grad_output.new_zeros(input_sizes)
     return torch.diagonal_scatter(grad_input, grad_output, offset, dim1, dim2)
 
 
 def _cast_grad_to_input_dtype(
-    grad_output: Tensor, grad_input: Tensor, input_dtype: torch.dtype
+    grad_output: TensorBase, grad_input: TensorBase, input_dtype: torch.dtype
 ):
     if grad_output.dtype != input_dtype:
         grad_input = grad_input.to(input_dtype)
@@ -797,7 +816,7 @@ def _cast_grad_to_input_dtype(
 @out_wrapper("grad_input")
 @compute_only_pw_cast_for_opmath
 def _softmax_backward_data(
-    grad_output: Tensor, output: Tensor, dim: int, input_dtype: torch.dtype
+    grad_output: TensorBase, output: TensorBase, dim: int, input_dtype: torch.dtype
 ):
     new_grad_output = grad_output * output
     grad_input = new_grad_output - output * torch.sum(
@@ -815,7 +834,7 @@ def _softmax_backward_data(
 @out_wrapper()
 @compute_only_pw_cast_for_opmath
 def _log_softmax_backward_data(
-    grad_output: Tensor, output: Tensor, dim: int, input_dtype: torch.dtype
+    grad_output: TensorBase, output: TensorBase, dim: int, input_dtype: torch.dtype
 ):
     grad_input = grad_output - torch.exp(output) * torch.sum(
         grad_output, dim=dim, keepdim=True
@@ -846,12 +865,12 @@ def _im2col_col2im_indices_along_dim(
 @out_wrapper()
 @pw_cast_for_opmath
 def im2col(
-    input: Tensor,
+    input: TensorBase,
     kernel_size: List[int],
     dilation: List[int],
     padding: List[int],
     stride: List[int],
-) -> Tensor:
+) -> TensorBase:
     torch._check(len(kernel_size) == 2, lambda: "im2col(): only 2D kernel supported")
     torch._check(len(dilation) == 2, lambda: "im2col(): only 2D dilation supported")
     torch._check(len(padding) == 2, lambda: "im2col(): only 2D padding supported")
@@ -929,13 +948,13 @@ def im2col(
 @out_wrapper()
 @pw_cast_for_opmath
 def col2im(
-    input: Tensor,
+    input: TensorBase,
     output_size: List[int],
     kernel_size: List[int],
     dilation: List[int],
     padding: List[int],
     stride: List[int],
-) -> Tensor:
+) -> TensorBase:
     torch._check(len(output_size) == 2, lambda: "only 2D output_size supported")
     torch._check(len(kernel_size) == 2, lambda: "only 2D kernel supported")
     torch._check(len(dilation) == 2, lambda: "only 2D dilation supported")
@@ -1026,7 +1045,7 @@ def col2im(
 
 @register_decomposition(aten.native_dropout_backward)
 @out_wrapper()
-def native_dropout_backward(grad_output: Tensor, mask: Tensor, scale: float):
+def native_dropout_backward(grad_output: TensorBase, mask: TensorBase, scale: float):
     # According to the CUDA kernel implementation we should have this test;
     # but it seems to fail tests!
     # torch._check(mask.dtype == torch.bool, lambda: f"Mask should be Bool Scalar Type {mask.dtype}")
@@ -1042,8 +1061,8 @@ def native_dropout_backward(grad_output: Tensor, mask: Tensor, scale: float):
 @register_decomposition(aten.unfold_backward)
 @out_wrapper()
 def unfold_backward(
-    grad: Tensor, input_size: List[int], dimension: int, size: int, step: int
-) -> Tensor:
+    grad: TensorBase, input_size: List[int], dimension: int, size: int, step: int
+) -> TensorBase:
     if len(input_size) == 0:
         return torch.squeeze_copy(grad, 0)
     dim = utils.canonicalize_dim(len(input_size), dimension)
@@ -1061,8 +1080,8 @@ def unfold_backward(
 @register_decomposition(aten.logit_backward.default)
 @pw_cast_for_opmath
 def logit_backward(
-    grad_output: Tensor, self: Tensor, eps: Optional[float] = None
-) -> Tensor:
+    grad_output: TensorBase, self: TensorBase, eps: Optional[float] = None
+) -> TensorBase:
     if eps is not None:
         lo = eps
         hi = 1.0 - lo
@@ -1082,7 +1101,7 @@ def logit_backward(
 @register_decomposition(aten.dropout)
 @aten.dropout.default.py_impl(DispatchKey.CompositeImplicitAutograd)
 @aten.dropout.default.py_impl(DispatchKey.Autograd)
-def dropout(input: Tensor, p: float, train: Optional[bool]):
+def dropout(input: TensorBase, p: float, train: Optional[bool]):
     if train and p != 0:
         return aten.native_dropout(input, p, train)[0]
     else:
@@ -1091,7 +1110,7 @@ def dropout(input: Tensor, p: float, train: Optional[bool]):
 
 @register_decomposition(aten.native_dropout)
 @out_wrapper("out0", "out1")
-def native_dropout(input: Tensor, p: float, train: Optional[bool]):
+def native_dropout(input: TensorBase, p: float, train: Optional[bool]):
     if train and p != 0:
         if p == 1:
             return (torch.zeros_like(input), torch.zeros_like(input, dtype=torch.bool))
@@ -1108,7 +1127,7 @@ def native_dropout(input: Tensor, p: float, train: Optional[bool]):
 
 @register_decomposition(aten._softmax)
 @out_wrapper()
-def _softmax(x: Tensor, dim: int, half_to_float: bool):
+def _softmax(x: TensorBase, dim: int, half_to_float: bool):
     # eager softmax returns a contiguous tensor. Ensure that decomp also returns
     # a contiguous tensor.
     x = x.contiguous()
@@ -1131,7 +1150,7 @@ def _softmax(x: Tensor, dim: int, half_to_float: bool):
 
 @register_decomposition(aten._log_softmax)
 @out_wrapper()
-def _log_softmax(x: Tensor, dim: int, half_to_float: bool):
+def _log_softmax(x: TensorBase, dim: int, half_to_float: bool):
     # eager log_softmax returns a contiguous tensor. Ensure that decomp also
     # returns a contiguous tensor.
     x = x.contiguous()
@@ -1156,12 +1175,12 @@ def _log_softmax(x: Tensor, dim: int, half_to_float: bool):
 @register_decomposition(aten.embedding)
 @out_wrapper()
 def embedding(
-    weight: Tensor,
-    indices: Tensor,
+    weight: TensorBase,
+    indices: TensorBase,
     padding_idx: int = -1,
     scale_grad_by_freq: bool = False,
     sparse: bool = False,
-) -> Tensor:
+) -> TensorBase:
     assert weight.dim() == 2, "'weight' must be 2-D"
     # Nb. scale_grad_by_freq is not used in the forward
     if indices.ndim <= 1:
@@ -1177,8 +1196,8 @@ def embedding(
 @register_decomposition(aten.embedding_dense_backward)
 @out_wrapper()
 def embedding_dense_backward(
-    grad_output: Tensor,
-    indices: Tensor,
+    grad_output: TensorBase,
+    indices: TensorBase,
     num_weights: int,
     padding_idx: int,
     scale_grad_by_freq: bool,
@@ -1213,10 +1232,10 @@ def prod(x: List[int]):
 
 
 def _pad_chunk(
-    tensors: List[Tensor],
+    tensors: List[TensorBase],
     dim: int,
     num_chunks: int,
-) -> List[Tensor]:
+) -> List[TensorBase]:
     padded_tensors = []
     for tensor in tensors:
         tensor_size = tensor.size()
@@ -1233,7 +1252,7 @@ def _pad_chunk(
     return padded_tensors
 
 
-def have_same_ndims(tensors: List[Tensor]):
+def have_same_ndims(tensors: List[TensorBase]):
     ndim = tensors[0].ndim
     for tensor in tensors:
         if tensor.ndim != ndim:
@@ -1241,7 +1260,7 @@ def have_same_ndims(tensors: List[Tensor]):
     return True
 
 
-def leading_dimension_matches(tensors: List[Tensor], dim: int):
+def leading_dimension_matches(tensors: List[TensorBase], dim: int):
     leading_dim_sizes = tensors[0].size()[:dim]
     for tensor in tensors:
         torch._check(
@@ -1251,7 +1270,7 @@ def leading_dimension_matches(tensors: List[Tensor], dim: int):
 
 
 def _preprocess_chunk_cat_inputs(
-    tensors: List[Tensor],
+    tensors: List[TensorBase],
     dim: int,
     num_chunks: int,
 ):
@@ -1289,11 +1308,11 @@ def _preprocess_chunk_cat_inputs(
 
 @register_decomposition([aten._chunk_cat.default, aten._chunk_cat.out])
 def _chunk_cat(
-    tensors: List[Tensor],
+    tensors: List[TensorBase],
     dim: int,
     num_chunks: int,
-    out: Optional[Tensor] = None,
-) -> Tensor:
+    out: Optional[TensorBase] = None,
+) -> TensorBase:
     dim = _preprocess_chunk_cat_inputs(tensors, dim, num_chunks)
     padded_tensors = _pad_chunk(tensors, dim, num_chunks)
     if out is None:
@@ -1305,8 +1324,8 @@ def _chunk_cat(
 
 @register_decomposition(aten.split_with_sizes)
 def split_with_sizes(
-    self: Tensor, split_sizes: List[int], dim: int = 0
-) -> List[Tensor]:
+    self: TensorBase, split_sizes: List[int], dim: int = 0
+) -> List[TensorBase]:
     # NB: Perform the check_is_size tests first so that the
     # sum test does not try to do a replacement
     for i in range(len(split_sizes)):
@@ -1341,11 +1360,11 @@ def split_with_sizes(
     [aten.split_with_sizes_copy.default, aten.split_with_sizes_copy.out]
 )
 def split_with_sizes_copy(
-    self: Tensor,
+    self: TensorBase,
     split_sizes: List[int],
     dim: int = 0,
-    out: Optional[List[Tensor]] = None,
-) -> Optional[List[Tensor]]:
+    out: Optional[List[TensorBase]] = None,
+) -> Optional[List[TensorBase]]:
     splits = split_with_sizes(self, split_sizes, dim=dim)
     if out is None:
         return [s.clone(memory_format=torch.contiguous_format) for s in splits]
@@ -1357,19 +1376,21 @@ def split_with_sizes_copy(
 
 
 @register_decomposition(aten.unsafe_split.Tensor)
-def unsafe_split(input: Tensor, split_size: int, dim: int = 0) -> Tuple[Tensor, ...]:
+def unsafe_split(
+    input: TensorBase, split_size: int, dim: int = 0
+) -> Tuple[TensorBase, ...]:
     return aten.split.Tensor(input, split_size, dim)
 
 
 @register_decomposition(aten.unsafe_split_with_sizes.default)
 def unsafe_split_with_sizes(
-    input: Tensor, split_sizes: List[int], dim: int = 0
-) -> Tuple[Tensor, ...]:
+    input: TensorBase, split_sizes: List[int], dim: int = 0
+) -> Tuple[TensorBase, ...]:
     return aten.split_with_sizes.default(input, split_sizes, dim)
 
 
 @register_decomposition(aten.split.Tensor)
-def split(self: Tensor, split_size: int, dim: int = 0) -> Tuple[Tensor, ...]:
+def split(self: TensorBase, split_size: int, dim: int = 0) -> Tuple[TensorBase, ...]:
     input_sizes = self.shape
     dim_size = input_sizes[dim]
     if split_size == 0:
@@ -1390,10 +1411,10 @@ def split(self: Tensor, split_size: int, dim: int = 0) -> Tuple[Tensor, ...]:
     DispatchKey.CompositeImplicitAutograd
 )
 def tensor_split_tensor_indices_or_sections_py_impl(
-    self: Tensor,
-    tensor_indices_or_sections: Tensor,
+    self: TensorBase,
+    tensor_indices_or_sections: TensorBase,
     dim: int = 0,
-) -> Tuple[Tensor, ...]:
+) -> Tuple[TensorBase, ...]:
     assert tensor_indices_or_sections.device.type == "cpu"
     assert tensor_indices_or_sections.dtype == torch.int64
     split_dim = tensor_indices_or_sections.dim()
@@ -1415,7 +1436,9 @@ def tensor_split_tensor_indices_or_sections_py_impl(
 @register_decomposition(aten.addmm)
 @out_wrapper()
 @pw_cast_for_opmath
-def addmm(self: Tensor, mat1: Tensor, mat2: Tensor, beta: int = 1, alpha: int = 1):
+def addmm(
+    self: TensorBase, mat1: TensorBase, mat2: TensorBase, beta: int = 1, alpha: int = 1
+):
     if not self.is_floating_point() and not self.is_complex():
         beta = int(beta)
         alpha = int(alpha)
@@ -1436,9 +1459,9 @@ def addmm(self: Tensor, mat1: Tensor, mat2: Tensor, beta: int = 1, alpha: int = 
 @out_wrapper()
 @pw_cast_for_opmath
 def _addmm_activation(
-    self: Tensor,
-    mat1: Tensor,
-    mat2: Tensor,
+    self: TensorBase,
+    mat1: TensorBase,
+    mat2: TensorBase,
     beta: int = 1,
     alpha: int = 1,
     use_gelu: bool = False,
@@ -1455,7 +1478,9 @@ def _addmm_activation(
 @register_decomposition(aten.addmv)
 @out_wrapper()
 @pw_cast_for_opmath
-def addmv(self: Tensor, mat1: Tensor, vec: Tensor, beta: int = 1, alpha: int = 1):
+def addmv(
+    self: TensorBase, mat1: TensorBase, vec: TensorBase, beta: int = 1, alpha: int = 1
+):
     if not self.is_floating_point() and not self.is_complex():
         beta = int(beta)
         alpha = int(alpha)
@@ -1468,17 +1493,17 @@ def addmv(self: Tensor, mat1: Tensor, vec: Tensor, beta: int = 1, alpha: int = 1
 @register_decomposition(aten.native_group_norm_backward.default)
 @pw_cast_for_opmath
 def native_group_norm_backward(
-    grad_output: Tensor,
-    input: Tensor,
-    mean: Tensor,
-    rstd: Tensor,
-    gamma: Optional[Tensor],
+    grad_output: TensorBase,
+    input: TensorBase,
+    mean: TensorBase,
+    rstd: TensorBase,
+    gamma: Optional[TensorBase],
     N: int,
     C: int,
     HxW: int,
     group: int,
     output_mask: List[bool],
-) -> Tuple[Optional[Tensor], Optional[Tensor], Optional[Tensor]]:
+) -> Tuple[Optional[TensorBase], Optional[TensorBase], Optional[TensorBase]]:
     utils.check_same_device(
         grad_output, input, mean, rstd, allow_cpu_scalar_tensors=False
     )
@@ -1507,9 +1532,9 @@ def native_group_norm_backward(
     ds = torch.mul(grad_output, input).view(N, C, HxW).sum(dim=[2])
     db = grad_output.view(N, C, HxW).sum(dim=[2])
 
-    d_input: Optional[Tensor] = None
-    d_gamma: Optional[Tensor] = None
-    d_bias: Optional[Tensor] = None
+    d_input: Optional[TensorBase] = None
+    d_gamma: Optional[TensorBase] = None
+    d_bias: Optional[TensorBase] = None
     if output_mask[0]:
         s = 1.0 / (HxW * cpg)
         if gamma is not None:
@@ -1556,21 +1581,21 @@ def native_group_norm_backward(
 # out_wrapper currently does not allow optional outputs
 @register_decomposition(aten.native_group_norm_backward.out)
 def native_group_norm_backward_out(
-    grad_output: Tensor,
-    input: Tensor,
-    mean: Tensor,
-    rstd: Tensor,
-    gamma: Optional[Tensor],
+    grad_output: TensorBase,
+    input: TensorBase,
+    mean: TensorBase,
+    rstd: TensorBase,
+    gamma: Optional[TensorBase],
     N: int,
     C: int,
     HxW: int,
     group: int,
     output_mask: List[bool],
     *,
-    out0: torch.Tensor,
-    out1: torch.Tensor,
-    out2: torch.Tensor,
-) -> Tuple[Optional[Tensor], Optional[Tensor], Optional[Tensor]]:
+    out0: torch.TensorBase,
+    out1: torch.TensorBase,
+    out2: torch.TensorBase,
+) -> Tuple[Optional[TensorBase], Optional[TensorBase], Optional[TensorBase]]:
     result = native_group_norm_backward(
         grad_output, input, mean, rstd, gamma, N, C, HxW, group, output_mask
     )
@@ -1583,7 +1608,7 @@ def native_group_norm_backward_out(
     return grad_input
 
 
-def _maybe_cast(x: Optional[Tensor], dtype) -> Optional[Tensor]:
+def _maybe_cast(x: Optional[TensorBase], dtype) -> Optional[TensorBase]:
     if x is not None:
         return x.to(dtype)
     return x
@@ -1592,15 +1617,15 @@ def _maybe_cast(x: Optional[Tensor], dtype) -> Optional[Tensor]:
 # TODO: Take a closer look at the type promotion semantics
 @register_decomposition(aten.native_layer_norm_backward.default)
 def native_layer_norm_backward(
-    grad_out: Tensor,
-    input: Tensor,
+    grad_out: TensorBase,
+    input: TensorBase,
     normalized_shape: List[int],
-    mean: Tensor,
-    rstd: Tensor,
-    weight: Optional[Tensor],
-    bias: Optional[Tensor],
+    mean: TensorBase,
+    rstd: TensorBase,
+    weight: Optional[TensorBase],
+    bias: Optional[TensorBase],
     output_mask: List[bool],
-) -> Tuple[Optional[Tensor], Optional[Tensor], Optional[Tensor]]:
+) -> Tuple[Optional[TensorBase], Optional[TensorBase], Optional[TensorBase]]:
     input_shape = input.shape
     input_ndim = input.dim()
     computation_dtype = utils.get_computation_dtype(input.dtype)
@@ -1643,9 +1668,9 @@ def native_layer_norm_backward(
     c3 = torch.mul(x_hat, c2)
 
     inner = a - b - c3
-    d_input: Optional[Tensor] = None
-    d_weight: Optional[Tensor] = None
-    d_bias: Optional[Tensor] = None
+    d_input: Optional[TensorBase] = None
+    d_weight: Optional[TensorBase] = None
+    d_bias: Optional[TensorBase] = None
     if output_mask[0]:
         d_input = (rstd / N) * inner
 
@@ -1671,19 +1696,19 @@ def native_layer_norm_backward(
 # out_wrapper currently does not allow optional outputs
 @register_decomposition(aten.native_layer_norm_backward.out)
 def native_layer_norm_backward_out(
-    grad_out: Tensor,
-    input: Tensor,
+    grad_out: TensorBase,
+    input: TensorBase,
     normalized_shape: List[int],
-    mean: Tensor,
-    rstd: Tensor,
-    weight: Optional[Tensor],
-    bias: Optional[Tensor],
+    mean: TensorBase,
+    rstd: TensorBase,
+    weight: Optional[TensorBase],
+    bias: Optional[TensorBase],
     output_mask: List[bool],
     *,
-    out0: torch.Tensor,
-    out1: torch.Tensor,
-    out2: torch.Tensor,
-) -> Tuple[Optional[Tensor], Optional[Tensor], Optional[Tensor]]:
+    out0: torch.TensorBase,
+    out1: torch.TensorBase,
+    out2: torch.TensorBase,
+) -> Tuple[Optional[TensorBase], Optional[TensorBase], Optional[TensorBase]]:
     result = native_layer_norm_backward(
         grad_out, input, normalized_shape, mean, rstd, weight, bias, output_mask
     )
@@ -1697,16 +1722,18 @@ def native_layer_norm_backward_out(
 
 
 def native_batch_norm_helper(
-    input: Tensor,
-    weight: Optional[Tensor],
-    bias: Optional[Tensor],
-    running_mean: Optional[Tensor],
-    running_var: Optional[Tensor],
+    input: TensorBase,
+    weight: Optional[TensorBase],
+    bias: Optional[TensorBase],
+    running_mean: Optional[TensorBase],
+    running_var: Optional[TensorBase],
     training: bool,
     momentum: float,
     eps: float,
     functional: bool,
-) -> Tuple[Tensor, Tensor, Tensor, Optional[Tensor], Optional[Tensor]]:
+) -> Tuple[
+    TensorBase, TensorBase, TensorBase, Optional[TensorBase], Optional[TensorBase]
+]:
     reduction_dims = [0] + list(range(2, input.dim()))
     computation_dtype = utils.get_computation_dtype(input.dtype)
     new_running_mean = running_mean
@@ -1781,15 +1808,15 @@ def native_batch_norm_helper(
 @register_decomposition(aten.native_batch_norm)
 @out_wrapper("out", "save_mean", "save_invstd")
 def native_batch_norm(
-    input: Tensor,
-    weight: Optional[Tensor],
-    bias: Optional[Tensor],
-    running_mean: Optional[Tensor],
-    running_var: Optional[Tensor],
+    input: TensorBase,
+    weight: Optional[TensorBase],
+    bias: Optional[TensorBase],
+    running_mean: Optional[TensorBase],
+    running_var: Optional[TensorBase],
     training: bool,
     momentum: float,
     eps: float,
-) -> Tuple[Tensor, Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase, TensorBase]:
     output, save_mean, save_rstd, _, _ = native_batch_norm_helper(
         input, weight, bias, running_mean, running_var, training, momentum, eps, False
     )
@@ -1809,15 +1836,15 @@ def native_batch_norm(
 @aten.native_batch_norm.default.py_impl(DispatchKey.Autograd)
 @aten.native_batch_norm.default.py_impl(DispatchKey.CompositeImplicitAutograd)
 def native_batch_norm_decomposition(
-    input: Tensor,
-    weight: Optional[Tensor],
-    bias: Optional[Tensor],
-    running_mean: Optional[Tensor],
-    running_var: Optional[Tensor],
+    input: TensorBase,
+    weight: Optional[TensorBase],
+    bias: Optional[TensorBase],
+    running_mean: Optional[TensorBase],
+    running_var: Optional[TensorBase],
     training: bool,
     momentum: float,
     eps: float,
-) -> Tuple[Tensor, Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase, TensorBase]:
     if running_mean is None and running_var is None:
         return aten._native_batch_norm_legit(
             input, weight, bias, training, momentum, eps
@@ -1844,7 +1871,7 @@ def native_batch_norm_decomposition(
 
 
 @aten.unsafe_chunk.default.py_impl(DispatchKey.CompositeImplicitAutograd)
-def unsafe_chunk_py_impl(tensor, chunks, dim=0) -> List[Tensor]:
+def unsafe_chunk_py_impl(tensor, chunks, dim=0) -> List[TensorBase]:
     dim_size = tensor.size(dim)
     split_size = (dim_size + chunks - 1) // chunks
 
@@ -1857,14 +1884,14 @@ def unsafe_chunk_py_impl(tensor, chunks, dim=0) -> List[Tensor]:
 
 @register_decomposition(aten._native_batch_norm_legit_no_training.default)
 def _native_batch_norm_legit_no_training(
-    input: Tensor,
-    weight: Optional[Tensor],
-    bias: Optional[Tensor],
-    running_mean: Tensor,
-    running_var: Tensor,
+    input: TensorBase,
+    weight: Optional[TensorBase],
+    bias: Optional[TensorBase],
+    running_mean: TensorBase,
+    running_var: TensorBase,
     momentum: float,
     eps: float,
-) -> Tuple[Tensor, Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase, TensorBase]:
     return aten._native_batch_norm_legit.default(
         input,
         weight,
@@ -1879,15 +1906,15 @@ def _native_batch_norm_legit_no_training(
 
 @register_decomposition(aten._native_batch_norm_legit.default)
 def _native_batch_norm_legit(
-    input: Tensor,
-    weight: Optional[Tensor],
-    bias: Optional[Tensor],
-    running_mean: Tensor,
-    running_var: Tensor,
+    input: TensorBase,
+    weight: Optional[TensorBase],
+    bias: Optional[TensorBase],
+    running_mean: TensorBase,
+    running_var: TensorBase,
     training: bool,
     momentum: float,
     eps: float,
-) -> Tuple[Tensor, Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase, TensorBase]:
     output, save_mean, save_rstd, _, _ = native_batch_norm_helper(
         input, weight, bias, running_mean, running_var, training, momentum, eps, False
     )
@@ -1896,13 +1923,13 @@ def _native_batch_norm_legit(
 
 @register_decomposition(aten._native_batch_norm_legit.no_stats)
 def _native_batch_norm_legit_no_stats(
-    input: Tensor,
-    weight: Optional[Tensor],
-    bias: Optional[Tensor],
+    input: TensorBase,
+    weight: Optional[TensorBase],
+    bias: Optional[TensorBase],
     training: bool,
     momentum: float,
     eps: float,
-) -> Tuple[Tensor, Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase, TensorBase]:
     output, save_mean, save_rstd, _, _ = native_batch_norm_helper(
         input, weight, bias, None, None, training, momentum, eps, False
     )
@@ -1911,15 +1938,15 @@ def _native_batch_norm_legit_no_stats(
 
 @register_decomposition(aten._native_batch_norm_legit_functional.default)
 def _native_batch_norm_legit_functional(
-    input: Tensor,
-    weight: Optional[Tensor],
-    bias: Optional[Tensor],
-    running_mean: Tensor,
-    running_var: Tensor,
+    input: TensorBase,
+    weight: Optional[TensorBase],
+    bias: Optional[TensorBase],
+    running_mean: TensorBase,
+    running_var: TensorBase,
     training: bool,
     momentum: float,
     eps: float,
-) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase, TensorBase, TensorBase, TensorBase]:
     (
         output,
         save_mean,
@@ -1935,14 +1962,14 @@ def _native_batch_norm_legit_functional(
 
 
 def _get_batch_norm_reserve_tensor(
-    input: Tensor,
-    weight: Optional[Tensor],
-    bias: Optional[Tensor],
-    running_mean: Tensor,
-    running_var: Tensor,
+    input: TensorBase,
+    weight: Optional[TensorBase],
+    bias: Optional[TensorBase],
+    running_mean: TensorBase,
+    running_var: TensorBase,
     eps: float,
     training: bool,
-) -> Tensor:
+) -> TensorBase:
     """
     Return a reserve tensor for batch norm, used only by cudnn to pass forward state to the
     backward pass. This is needed for `_batch_norm_with_update` and `_batch_norm_no_update`,
@@ -1963,14 +1990,14 @@ def _get_batch_norm_reserve_tensor(
 
 @register_decomposition(aten._batch_norm_with_update.default)
 def _batch_norm_with_update(
-    input: Tensor,
-    weight: Optional[Tensor],
-    bias: Optional[Tensor],
-    running_mean: Tensor,
-    running_var: Tensor,
+    input: TensorBase,
+    weight: Optional[TensorBase],
+    bias: Optional[TensorBase],
+    running_mean: TensorBase,
+    running_var: TensorBase,
     momentum: float,
     eps: float,
-) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase, TensorBase, TensorBase]:
     output, save_mean, save_rstd, _, _ = native_batch_norm_helper(
         input,
         weight,
@@ -1990,14 +2017,14 @@ def _batch_norm_with_update(
 
 @register_decomposition(aten._batch_norm_with_update_functional.default)
 def _batch_norm_with_update_functional(
-    input: Tensor,
-    weight: Optional[Tensor],
-    bias: Optional[Tensor],
-    running_mean: Tensor,
-    running_var: Tensor,
+    input: TensorBase,
+    weight: Optional[TensorBase],
+    bias: Optional[TensorBase],
+    running_mean: TensorBase,
+    running_var: TensorBase,
     momentum: float,
     eps: float,
-) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase, TensorBase, TensorBase, TensorBase, TensorBase]:
     (
         output,
         save_mean,
@@ -2017,14 +2044,14 @@ def _batch_norm_with_update_functional(
 
 @register_decomposition(aten._batch_norm_no_update.default)
 def _batch_norm_no_update(
-    input: Tensor,
-    weight: Optional[Tensor],
-    bias: Optional[Tensor],
-    running_mean: Tensor,
-    running_var: Tensor,
+    input: TensorBase,
+    weight: Optional[TensorBase],
+    bias: Optional[TensorBase],
+    running_mean: TensorBase,
+    running_var: TensorBase,
     momentum: float,
     eps: float,
-) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase, TensorBase, TensorBase]:
     output, save_mean, save_rstd, _, _ = native_batch_norm_helper(
         input,
         weight,
@@ -2062,7 +2089,7 @@ def device_hint(tensor):
 @register_decomposition(aten._to_copy)
 @out_wrapper()
 def _to_copy(
-    x: Tensor,
+    x: TensorBase,
     *,
     dtype: Optional[torch.dtype] = None,
     layout=None,
@@ -2109,11 +2136,11 @@ def nop_decomposition(x):
 @register_decomposition(aten.cudnn_batch_norm)
 @out_wrapper("out0", "out1", "out2", "out3")
 def cudnn_batch_norm(
-    input: Tensor,
-    weight: Tensor,
-    bias: Optional[Tensor],
-    running_mean: Optional[Tensor],
-    running_var: Optional[Tensor],
+    input: TensorBase,
+    weight: TensorBase,
+    bias: Optional[TensorBase],
+    running_mean: Optional[TensorBase],
+    running_var: Optional[TensorBase],
     training: bool,
     exponential_average_factor: float,
     epsilon: float,
@@ -2148,18 +2175,18 @@ def _broadcast_batch_norm_backward(x, broadcast_mask):
 
 @register_decomposition(aten.batch_norm_backward.default)
 def batch_norm_backward(
-    grad_out: Tensor,
-    input: Tensor,
-    weight: Optional[Tensor],
-    running_mean: Optional[Tensor],
-    running_var: Optional[Tensor],
-    save_mean: Optional[Tensor],
-    save_invstd: Optional[Tensor],
+    grad_out: TensorBase,
+    input: TensorBase,
+    weight: Optional[TensorBase],
+    running_mean: Optional[TensorBase],
+    running_var: Optional[TensorBase],
+    save_mean: Optional[TensorBase],
+    save_invstd: Optional[TensorBase],
     train: bool,
     eps: float,
     output_mask: List[bool],
-    reserve: Tensor,
-) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor]]:
+    reserve: TensorBase,
+) -> Tuple[TensorBase, Optional[TensorBase], Optional[TensorBase]]:
     return native_batch_norm_backward(
         grad_out,
         input,
@@ -2176,17 +2203,17 @@ def batch_norm_backward(
 
 @register_decomposition(aten.native_batch_norm_backward.default)
 def native_batch_norm_backward(
-    grad_out: Tensor,
-    input: Tensor,
-    weight: Optional[Tensor],
-    running_mean: Optional[Tensor],
-    running_var: Optional[Tensor],
-    save_mean: Optional[Tensor],
-    save_invstd: Optional[Tensor],
+    grad_out: TensorBase,
+    input: TensorBase,
+    weight: Optional[TensorBase],
+    running_mean: Optional[TensorBase],
+    running_var: Optional[TensorBase],
+    save_mean: Optional[TensorBase],
+    save_invstd: Optional[TensorBase],
     train: bool,
     eps: float,
     output_mask: List[bool],
-) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor]]:
+) -> Tuple[TensorBase, Optional[TensorBase], Optional[TensorBase]]:
     input_dtype = input.dtype
     if weight is not None:
         weight_dtype = weight.dtype
@@ -2277,21 +2304,21 @@ def native_batch_norm_backward(
 # out_wrapper currently does not allow optional outputs
 @register_decomposition(aten.native_batch_norm_backward.out)
 def native_batch_norm_backward_out(
-    grad_out: Tensor,
-    input: Tensor,
-    weight: Optional[Tensor],
-    running_mean: Optional[Tensor],
-    running_var: Optional[Tensor],
-    save_mean: Optional[Tensor],
-    save_invstd: Optional[Tensor],
+    grad_out: TensorBase,
+    input: TensorBase,
+    weight: Optional[TensorBase],
+    running_mean: Optional[TensorBase],
+    running_var: Optional[TensorBase],
+    save_mean: Optional[TensorBase],
+    save_invstd: Optional[TensorBase],
     train: bool,
     eps: float,
     output_mask: List[bool],
     *,
-    out0: torch.Tensor,
-    out1: torch.Tensor,
-    out2: torch.Tensor,
-) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor]]:
+    out0: torch.TensorBase,
+    out1: torch.TensorBase,
+    out2: torch.TensorBase,
+) -> Tuple[TensorBase, Optional[TensorBase], Optional[TensorBase]]:
     result = native_batch_norm_backward(
         grad_out,
         input,
@@ -2316,15 +2343,15 @@ def native_batch_norm_backward_out(
 @register_decomposition(aten.cudnn_batch_norm_backward)
 @out_wrapper("out0", "out1", "out2")
 def cudnn_batch_norm_backward(
-    input: Tensor,
-    grad_output: Tensor,
-    weight: Tensor,
-    running_mean: Optional[Tensor],
-    running_var: Optional[Tensor],
-    save_mean: Optional[Tensor],
-    save_var: Optional[Tensor],
+    input: TensorBase,
+    grad_output: TensorBase,
+    weight: TensorBase,
+    running_mean: Optional[TensorBase],
+    running_var: Optional[TensorBase],
+    save_mean: Optional[TensorBase],
+    save_var: Optional[TensorBase],
     epsilon: float,
-    reserveSpace: Tensor,
+    reserveSpace: TensorBase,
 ):
     return aten.native_batch_norm_backward(
         grad_output,
@@ -2343,7 +2370,7 @@ def cudnn_batch_norm_backward(
 @register_decomposition(aten._adaptive_avg_pool2d)
 @out_wrapper()
 @pw_cast_for_opmath
-def adaptive_avg_pool2d(input: Tensor, output_size: Tuple[int, int]):
+def adaptive_avg_pool2d(input: TensorBase, output_size: Tuple[int, int]):
     # Preconditions
     device = input.device
     shape = input.shape
@@ -2573,7 +2600,7 @@ def _index_copy(
 @register_decomposition(aten.log_sigmoid_forward)
 @out_wrapper("output", "buffer")
 @pw_cast_for_opmath
-def log_sigmoid_forward(self: Tensor) -> Tuple[Tensor, Tensor]:
+def log_sigmoid_forward(self: TensorBase) -> Tuple[TensorBase, TensorBase]:
     min = torch.minimum(self.new_zeros(()), self)
     z = torch.exp(-torch.abs(self))
     if self.is_cuda:
@@ -2586,7 +2613,7 @@ def log_sigmoid_forward(self: Tensor) -> Tuple[Tensor, Tensor]:
 @register_decomposition(aten.uniform)
 @out_wrapper()
 def uniform(
-    x: Tensor,
+    x: TensorBase,
     low: Union[bool, int, float] = 0.0,
     high: Union[bool, int, float] = 1.0,
     generator: Optional[torch.Generator] = None,
@@ -2745,10 +2772,10 @@ def _compute_upsample_nearest_indices(input, output_size, scales, exact=False):
 @aten.upsample_nearest1d.default.py_impl(DispatchKey.Autograd)
 @pw_cast_for_opmath
 def upsample_nearest1d(
-    input: Tensor,
+    input: TensorBase,
     output_size: List[int],
     scales: Optional[float] = None,
-) -> Tensor:
+) -> TensorBase:
     (l_indices,) = _compute_upsample_nearest_indices(input, output_size, (scales,))
     return aten._unsafe_index(input, (None, None, l_indices))
 
@@ -2757,10 +2784,10 @@ def upsample_nearest1d(
 @aten._upsample_nearest_exact1d.default.py_impl(DispatchKey.Autograd)
 @pw_cast_for_opmath
 def _upsample_nearest_exact1d(
-    input: Tensor,
+    input: TensorBase,
     output_size: List[int],
     scales: Optional[float] = None,
-) -> Tensor:
+) -> TensorBase:
     (l_indices,) = _compute_upsample_nearest_indices(
         input, output_size, (scales,), exact=True
     )
@@ -2786,11 +2813,11 @@ def _upsample_nearest2d_common(input, h_indices, w_indices):
 @aten.upsample_nearest2d.default.py_impl(DispatchKey.Autograd)
 @pw_cast_for_opmath
 def upsample_nearest2d(
-    input: Tensor,
+    input: TensorBase,
     output_size: List[int],
     scales_h: Optional[float] = None,
     scales_w: Optional[float] = None,
-) -> Tensor:
+) -> TensorBase:
     h_indices, w_indices = _compute_upsample_nearest_indices(
         input, output_size, (scales_h, scales_w)
     )
@@ -2801,11 +2828,11 @@ def upsample_nearest2d(
 @aten._upsample_nearest_exact2d.default.py_impl(DispatchKey.Autograd)
 @pw_cast_for_opmath
 def _upsample_nearest_exact2d(
-    input: Tensor,
+    input: TensorBase,
     output_size: List[int],
     scales_h: Optional[float] = None,
     scales_w: Optional[float] = None,
-) -> Tensor:
+) -> TensorBase:
     h_indices, w_indices = _compute_upsample_nearest_indices(
         input, output_size, (scales_h, scales_w), exact=True
     )
@@ -2816,12 +2843,12 @@ def _upsample_nearest_exact2d(
 @aten.upsample_nearest3d.default.py_impl(DispatchKey.Autograd)
 @pw_cast_for_opmath
 def upsample_nearest3d(
-    input: Tensor,
+    input: TensorBase,
     output_size: List[int],
     scales_d: Optional[float] = None,
     scales_h: Optional[float] = None,
     scales_w: Optional[float] = None,
-) -> Tensor:
+) -> TensorBase:
     d_indices, h_indices, w_indices = _compute_upsample_nearest_indices(
         input, output_size, (scales_d, scales_h, scales_w)
     )
@@ -2834,12 +2861,12 @@ def upsample_nearest3d(
 @aten._upsample_nearest_exact3d.default.py_impl(DispatchKey.Autograd)
 @pw_cast_for_opmath
 def _upsample_nearest_exact3d(
-    input: Tensor,
+    input: TensorBase,
     output_size: List[int],
     scales_d: Optional[float] = None,
     scales_h: Optional[float] = None,
     scales_w: Optional[float] = None,
-) -> Tensor:
+) -> TensorBase:
     d_indices, h_indices, w_indices = _compute_upsample_nearest_indices(
         input, output_size, (scales_d, scales_h, scales_w), exact=True
     )
@@ -2904,7 +2931,7 @@ def one_layer_rnn_data(
     hh_bias = params[3] if has_biases else None
 
     step_output = []
-    hiddens: List[torch.Tensor] = []
+    hiddens: List[torch.TensorBase] = []
 
     last_batch_size = batch_sizes[-1] if reverse else batch_sizes[0]
     cur_hidden = hidden.narrow(0, 0, last_batch_size)
@@ -3541,11 +3568,11 @@ def _upsample_linear_vec(input, output_size, align_corners, scale_factors):
 @register_decomposition([aten.upsample_linear1d.default, aten.upsample_linear1d.out])
 @out_wrapper()
 def upsample_linear1d(
-    input: Tensor,
+    input: TensorBase,
     output_size: List[int],
     align_corners: bool,
     scales_w: Optional[float] = None,
-) -> Tensor:
+) -> TensorBase:
     return _upsample_linear(input, output_size, align_corners, [scales_w])
 
 
@@ -3555,12 +3582,12 @@ def upsample_linear1d(
 @aten.upsample_bilinear2d.default.py_impl(DispatchKey.Autograd)
 @out_wrapper()
 def upsample_bilinear2d(
-    input: Tensor,
+    input: TensorBase,
     output_size: List[int],
     align_corners: bool,
     scales_h: Optional[float] = None,
     scales_w: Optional[float] = None,
-) -> Tensor:
+) -> TensorBase:
     return _upsample_linear(input, output_size, align_corners, [scales_h, scales_w])
 
 
@@ -3569,13 +3596,13 @@ def upsample_bilinear2d(
 )
 @out_wrapper()
 def upsample_trilinear3d(
-    input: Tensor,
+    input: TensorBase,
     output_size: List[int],
     align_corners: bool,
     scales_d: Optional[float] = None,
     scales_h: Optional[float] = None,
     scales_w: Optional[float] = None,
-) -> Tensor:
+) -> TensorBase:
     return _upsample_linear(
         input, output_size, align_corners, [scales_d, scales_h, scales_w]
     )
@@ -3597,11 +3624,11 @@ def _compute_source_index(scale, dst_index, align_corners):
 
 @pw_cast_for_opmath
 def _upsample_linear(
-    input: Tensor,
+    input: TensorBase,
     output_size: List[int],
     align_corners: bool,
     scales: List[Optional[float]],
-) -> Tensor:
+) -> TensorBase:
     # get dimensions of original image
     n_batch, n_channels = input.shape[:2]
     inp_sizes = input.shape[2:]
@@ -3658,7 +3685,7 @@ def _upsample_linear(
     if input.device.type == "cuda" and n_channels < 16:
         memory_format = torch.contiguous_format
 
-    assert isinstance(result, torch.Tensor)
+    assert isinstance(result, torch.TensorBase)
 
     result = result.contiguous(memory_format=memory_format)
 
@@ -3670,7 +3697,7 @@ def _upsample_linear(
 
 # We should be applying decompositions after all transformations
 @register_decomposition(aten.is_same_size.default)
-def is_same_size(a: Tensor, b: Tensor) -> bool:
+def is_same_size(a: TensorBase, b: TensorBase) -> bool:
     return a.shape == b.shape
 
 
@@ -3686,12 +3713,12 @@ def _index(x, indices):
 
 
 def _nll_loss_forward(
-    self: Tensor,
-    target: Tensor,
-    weight: Optional[Tensor],
+    self: TensorBase,
+    target: TensorBase,
+    weight: Optional[TensorBase],
     reduction: int,
     ignore_index: int,
-) -> Tuple[Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase]:
     # self can be [N, C] or [C]
     # target can be [N] or []
 
@@ -3741,12 +3768,12 @@ def _nll_loss_forward(
 @register_decomposition(aten.nll_loss_forward)
 @out_wrapper("output", "total_weight")
 def nll_loss_forward(
-    self: Tensor,
-    target: Tensor,
-    weight: Optional[Tensor],
+    self: TensorBase,
+    target: TensorBase,
+    weight: Optional[TensorBase],
     reduction: int,
     ignore_index: int,
-) -> Tuple[Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase]:
     assert self.dim() > 0 and self.dim() <= 2, "input tensor should be 1D or 2D"
     assert (
         target.dim() <= 1
@@ -3769,26 +3796,26 @@ def nll_loss_forward(
 @register_decomposition(aten.nll_loss2d_forward)
 @out_wrapper("output", "total_weight")
 def nll_loss2d_forward(
-    self: Tensor,
-    target: Tensor,
-    weight: Optional[Tensor],
+    self: TensorBase,
+    target: TensorBase,
+    weight: Optional[TensorBase],
     reduction: int,
     ignore_index: int,
-) -> Tuple[Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase]:
     return _nll_loss_forward(self, target, weight, reduction, ignore_index)
 
 
 # These are adapted from aten/src/ATen/native/UpSample.h, wich is based on
 # https://en.wikipedia.org/wiki/Bicubic_interpolation#Bicubic_convolution_algorithm
-def _upsample_cubic_convolution1(x: Tensor, A: float) -> Tensor:
+def _upsample_cubic_convolution1(x: TensorBase, A: float) -> TensorBase:
     return ((A + 2) * x - (A + 3)) * x * x + 1
 
 
-def _upsample_cubic_convolution2(x: Tensor, A: float) -> Tensor:
+def _upsample_cubic_convolution2(x: TensorBase, A: float) -> TensorBase:
     return ((A * x - 5 * A) * x + 8 * A) * x - 4 * A
 
 
-def _upsample_get_cubic_coefficients(t: Tensor) -> TensorSequenceType:
+def _upsample_get_cubic_coefficients(t: TensorBase) -> TensorSequenceType:
     A = -0.75
     return (
         _upsample_cubic_convolution2(t + 1.0, A),
@@ -3798,13 +3825,13 @@ def _upsample_get_cubic_coefficients(t: Tensor) -> TensorSequenceType:
     )
 
 
-def _upsample_cubic_interp1d(coeffs: TensorSequenceType, ts: Tensor) -> Tensor:
+def _upsample_cubic_interp1d(coeffs: TensorSequenceType, ts: TensorBase) -> TensorBase:
     coeffs2 = _upsample_get_cubic_coefficients(ts)
     return _sum_tensors(c1 * c2 for (c1, c2) in zip(coeffs, coeffs2))
 
 
 # Need this instead of just sum() to keep mypy happy
-def _sum_tensors(ts: Iterable[Tensor]) -> Tensor:
+def _sum_tensors(ts: Iterable[TensorBase]) -> TensorBase:
     return reduce(torch.add, ts)
 
 
@@ -3818,7 +3845,7 @@ def _linspace_from_neg_one(
     return torch.linspace(-a, a, steps=num_steps, device=device, dtype=dtype)
 
 
-def _make_base_grid_4d(theta: Tensor, h: int, w: int, align_corners: bool):
+def _make_base_grid_4d(theta: TensorBase, h: int, w: int, align_corners: bool):
     dtype = theta.dtype
     device = theta.device
 
@@ -3835,7 +3862,7 @@ def _make_base_grid_4d(theta: Tensor, h: int, w: int, align_corners: bool):
     return grid_x + grid_y + grid_one
 
 
-def _make_base_grid_5d(theta: Tensor, d: int, h: int, w: int, align_corners: bool):
+def _make_base_grid_5d(theta: TensorBase, d: int, h: int, w: int, align_corners: bool):
     dtype = theta.dtype
     device = theta.device
 
@@ -3852,7 +3879,7 @@ def _make_base_grid_5d(theta: Tensor, d: int, h: int, w: int, align_corners: boo
     return grid_x + grid_y + grid_z + grid_one
 
 
-def _affine_grid_generator_4d(theta: Tensor, size: List[int], align_corners: bool):
+def _affine_grid_generator_4d(theta: TensorBase, size: List[int], align_corners: bool):
     n, _, h, w = size
     base_grid = _make_base_grid_4d(theta, h, w, align_corners=align_corners)
     # base_grid shape is (h, w, 3) and theta shape is (n, 2, 3)
@@ -3862,7 +3889,7 @@ def _affine_grid_generator_4d(theta: Tensor, size: List[int], align_corners: boo
     return grid.view(n, h, w, 2)
 
 
-def _affine_grid_generator_5d(theta: Tensor, size: List[int], align_corners: bool):
+def _affine_grid_generator_5d(theta: TensorBase, size: List[int], align_corners: bool):
     n, _, d, h, w = size
     base_grid = _make_base_grid_5d(theta, d, h, w, align_corners=align_corners)
     # base_grid shape is (d, h, w, 4) and theta shape is (n, 3, 4)
@@ -3875,7 +3902,7 @@ def _affine_grid_generator_5d(theta: Tensor, size: List[int], align_corners: boo
 @register_decomposition(aten.affine_grid_generator)
 @out_wrapper()
 @pw_cast_for_opmath
-def affine_grid_generator(theta: Tensor, size: List[int], align_corners: bool):
+def affine_grid_generator(theta: TensorBase, size: List[int], align_corners: bool):
     torch._check(
         len(size) in (4, 5),
         lambda: "affine_grid_generator needs 4d (spatial) or 5d (volumetric) inputs.",
@@ -3887,13 +3914,13 @@ def affine_grid_generator(theta: Tensor, size: List[int], align_corners: bool):
 
 
 def _grid_sampler_2d(
-    a: Tensor,
-    grid: Tensor,
+    a: TensorBase,
+    grid: TensorBase,
     interpolation_mode: int = 0,
     padding_mode: int = 0,
     align_corners: bool = False,
     _expand_grid: bool = True,
-) -> Tensor:
+) -> TensorBase:
     # This method is a copy of grid_sampler_2d implementation and introduced with additional arg _expand_grid to
     # optionally expand the input grid for performance reasons.
     # Experimenting locally it was found that compiled CUDA code is accelerated by ~5x
@@ -3909,7 +3936,7 @@ def _grid_sampler_2d(
         padding_mode in (0, 1, 2), lambda: f"Invalid padding mode {padding_mode}"
     )
 
-    def unnormalize(coords: Tensor, size: int) -> Tensor:
+    def unnormalize(coords: TensorBase, size: int) -> TensorBase:
         # Rescale coordinates from [-1, 1] to:
         #   [0, size - 1] if align_corners is True
         #   [-.5, size -.5] if align_corners is False
@@ -3920,7 +3947,9 @@ def _grid_sampler_2d(
     # Reflects coordinates until they fall between low and high (inclusive).
     # The bounds are passed as twice their value so that half-integer values
     # can be represented as ints.
-    def reflect_coordinates(coords: Tensor, twice_low: int, twice_high: int) -> Tensor:
+    def reflect_coordinates(
+        coords: TensorBase, twice_low: int, twice_high: int
+    ) -> TensorBase:
         if twice_low == twice_high:
             return torch.zeros_like(coords)
         coords_min = twice_low / 2
@@ -3932,7 +3961,7 @@ def _grid_sampler_2d(
             flips & 1 == 0, extra + coords_min, coords_span + coords_min - extra
         )
 
-    def compute_coordinates(coords: Tensor, size: int) -> Tensor:
+    def compute_coordinates(coords: TensorBase, size: int) -> TensorBase:
         if padding_mode == 0:  # Zero
             return coords
         elif padding_mode == 1:  # Borders
@@ -3944,7 +3973,7 @@ def _grid_sampler_2d(
                 coords_reflected = reflect_coordinates(coords, -1, 2 * size - 1)
             return torch.clamp(coords_reflected, 0, size - 1)
 
-    def compute_source_index(coords: Tensor, size: int) -> Tensor:
+    def compute_source_index(coords: TensorBase, size: int) -> TensorBase:
         coords_un = unnormalize(coords, size)
         return compute_coordinates(coords_un, size)
 
@@ -3960,7 +3989,7 @@ def _grid_sampler_2d(
         # Expanding grid to (N, C, oH, oW, two) unifies xnumel to N*C*oH*oW
         grid = grid.view(N, 1, oH, oW, two).expand(N, C, oH, oW, 2)
 
-    def in_bounds_cond(xs: Tensor, ys: Tensor) -> Tensor:
+    def in_bounds_cond(xs: TensorBase, ys: TensorBase) -> TensorBase:
         return torch.logical_and(
             0 <= xs, torch.logical_and(xs < iW, torch.logical_and(0 <= ys, ys < iH))
         )
@@ -3968,7 +3997,7 @@ def _grid_sampler_2d(
     N_idx = torch.arange(N, device=a.device).view(N, 1, 1, 1)
     C_idx = torch.arange(C, device=a.device).view(1, C, 1, 1)
 
-    def clip(xs: Tensor, ys: Tensor, ws: Tensor) -> TensorSequenceType:
+    def clip(xs: TensorBase, ys: TensorBase, ws: TensorBase) -> TensorSequenceType:
         cond = in_bounds_cond(xs, ys)
         # To clip to inside valid coordinates, we map the coordinates
         # to (x, y) = (0, 0) and also set the weight to 0
@@ -3980,7 +4009,7 @@ def _grid_sampler_2d(
             for t in (xs.to(dtype=torch.int64), ys.to(dtype=torch.int64), ws)
         )
 
-    def get_summand(ix: Tensor, iy: Tensor, w) -> Tensor:
+    def get_summand(ix: TensorBase, iy: TensorBase, w) -> TensorBase:
         # Perform clipping, index into input tensor and multiply by weight
         idx_x, idx_y, w_ = clip(ix, iy, w)
         return a[N_idx, C_idx, idx_y, idx_x] * w_
@@ -4033,12 +4062,12 @@ def _grid_sampler_2d(
             tx = tx.unsqueeze(1)
             ty = ty.unsqueeze(1)
 
-        def get_value_bounded(ix: Tensor, iy: Tensor) -> Tensor:
+        def get_value_bounded(ix: TensorBase, iy: TensorBase) -> TensorBase:
             x = compute_coordinates(ix, iW)
             y = compute_coordinates(iy, iH)
             return get_summand(x, y, 1)
 
-        def get_coeff(ofs: int) -> Tensor:
+        def get_coeff(ofs: int) -> TensorBase:
             iy_ofs = iy_nw + (ofs - 1)
             cs = (
                 get_value_bounded(ix_nw - 1, iy_ofs),
@@ -4056,12 +4085,12 @@ def _grid_sampler_2d(
 @out_wrapper()
 @pw_cast_for_opmath
 def grid_sampler_2d(
-    a: Tensor,
-    grid: Tensor,
+    a: TensorBase,
+    grid: TensorBase,
     interpolation_mode: int = 0,
     padding_mode: int = 0,
     align_corners: bool = False,
-) -> Tensor:
+) -> TensorBase:
     return _grid_sampler_2d(
         a,
         grid=grid,
@@ -4103,7 +4132,9 @@ def binary_cross_entropy_with_logits(
     return apply_loss_reduction(loss, reduction)
 
 
-def should_fold(tensor1: torch.Tensor, tensor2: torch.Tensor, is_out: bool) -> bool:
+def should_fold(
+    tensor1: torch.TensorBase, tensor2: torch.TensorBase, is_out: bool
+) -> bool:
     # For comments of the logic of this function see eager in /native/LinearAlgebra.cpp
 
     t1, t2 = (tensor1, tensor2) if tensor1.ndim >= tensor2.ndim else (tensor2, tensor1)
@@ -4251,12 +4282,12 @@ def matmul(tensor1, tensor2, *, is_out=False):
 @register_decomposition(aten.upsample_bicubic2d.default)
 @pw_cast_for_opmath
 def upsample_bicubic2d_default(
-    a: Tensor,
+    a: TensorBase,
     output_size: Tuple[int, int],
     align_corners: bool,
     scale_h: Optional[float] = None,
     scale_w: Optional[float] = None,
-) -> Tensor:
+) -> TensorBase:
     N, C, iH, iW = a.shape
     oH, oW = output_size
 
@@ -4317,11 +4348,11 @@ def upsample_bicubic2d_default(
 @out_wrapper()
 @pw_cast_for_opmath
 def upsample_bicubic2d_vec(
-    a: Tensor,
+    a: TensorBase,
     output_size: Optional[Tuple[int, int]],
     align_corners: bool,
     scale_factors: Optional[Tuple[float, float]] = None,
-) -> Tensor:
+) -> TensorBase:
     torch._check(
         bool(output_size) + bool(scale_factors) == 1,
         lambda: "Must specify exactly one of output_size and scale_factors.",
@@ -4344,7 +4375,7 @@ def upsample_bicubic2d_vec(
 @register_decomposition(aten.reflection_pad3d)
 @pw_cast_for_opmath
 @out_wrapper()
-def _reflection_pad(a: Tensor, padding: Tuple[int, ...]) -> Tensor:
+def _reflection_pad(a: TensorBase, padding: Tuple[int, ...]) -> TensorBase:
     def idx(left, middle, right):
         dim_idx = torch.arange(-left, middle + right, device=a.device)
         return middle - 1 - (middle - 1 - dim_idx.abs()).abs()
@@ -4361,7 +4392,7 @@ def _reflection_pad(a: Tensor, padding: Tuple[int, ...]) -> Tensor:
 @register_decomposition(aten.replication_pad3d)
 @pw_cast_for_opmath
 @out_wrapper()
-def _replication_pad(a: Tensor, padding: Tuple[int, ...]) -> Tensor:
+def _replication_pad(a: TensorBase, padding: Tuple[int, ...]) -> TensorBase:
     def idx(left, middle, right):
         dim_idx = torch.arange(-left, middle + right, device=a.device)
         return torch.clamp(dim_idx, 0, middle - 1)
@@ -4374,10 +4405,10 @@ def _replication_pad(a: Tensor, padding: Tuple[int, ...]) -> Tensor:
 
 
 def _reflection_or_replication_pad(
-    a: Tensor,
+    a: TensorBase,
     padding: Tuple[int, ...],
-    idx_fn: Callable[[int, int, int], Tensor],
-) -> Tensor:
+    idx_fn: Callable[[int, int, int], TensorBase],
+) -> TensorBase:
     dim = len(padding) // 2
     torch._check(
         a.dim() in (dim + 1, dim + 2),
@@ -4456,13 +4487,13 @@ def out_dtype_decomp(*args, **kwargs):
 @aten.multi_margin_loss.default.py_impl(DispatchKey.Autograd)
 @out_wrapper()
 def multi_margin_loss(
-    input: Tensor,
-    target: Tensor,
+    input: TensorBase,
+    target: TensorBase,
     p: NumberType = 1,
     margin: NumberType = 1,
-    weight: Optional[Tensor] = None,
+    weight: Optional[TensorBase] = None,
     reduction: int = Reduction.MEAN.value,
-) -> Tensor:
+) -> TensorBase:
     input = torch.atleast_2d(input)
     target = torch.atleast_1d(target)
     nframe = input.shape[0]
@@ -4503,10 +4534,10 @@ def multi_margin_loss(
 @aten.multilabel_margin_loss_forward.default.py_impl(DispatchKey.Autograd)
 @out_wrapper("output", "is_target")
 def multilabel_margin_loss_forward(
-    input: Tensor,
-    target: Tensor,
+    input: TensorBase,
+    target: TensorBase,
     reduction: int,
-) -> Tuple[Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase]:
     orig_input_shape = input.shape
     orig_target_shape = target.shape
     input = torch.atleast_2d(input)
@@ -4564,15 +4595,15 @@ def multilabel_margin_loss_forward(
 # excluded by inductor.
 @register_decomposition(aten._scaled_dot_product_flash_attention_for_cpu.default)
 def scaled_dot_product_flash_attention_for_cpu(
-    query: Tensor,
-    key: Tensor,
-    value: Tensor,
+    query: TensorBase,
+    key: TensorBase,
+    value: TensorBase,
     dropout_p: float = 0.0,
     is_causal: bool = False,
     *,
-    attn_mask: Optional[Tensor] = None,
+    attn_mask: Optional[TensorBase] = None,
     scale: Optional[float] = None,
-) -> Tuple[Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase]:
     dtype = query.dtype
     torch._check(
         torch.is_floating_point(query),
@@ -4676,11 +4707,11 @@ def sym_numel(t):
 
 @register_decomposition([aten.sum.default, aten.sum.out])
 def sum_default(
-    self: Tensor,
+    self: TensorBase,
     *,
     dtype: Optional[torch.dtype] = None,
-    out: Optional[Tensor] = None,
-) -> Tensor:
+    out: Optional[TensorBase] = None,
+) -> TensorBase:
     if out is None:
         return aten.sum.dim_IntList(self, [], dtype=dtype)
     else:
@@ -4688,7 +4719,7 @@ def sum_default(
 
 
 @register_decomposition([aten.squeeze.default, aten.squeeze.dim])
-def squeeze_default(self: Tensor, dim: Optional[int] = None):
+def squeeze_default(self: TensorBase, dim: Optional[int] = None):
     if dim is None:
         return aten.squeeze.dims(self, list(range(self.dim())))
     else:
@@ -4707,9 +4738,9 @@ def _weight_norm_interface(x, y, dim=0):
 @out_wrapper()
 def isin(elements, test_elements, *, assume_unique=False, invert=False):
     # handle when either elements or test_elements are Scalars (they can't both be)
-    if not isinstance(elements, torch.Tensor):
+    if not isinstance(elements, torch.TensorBase):
         elements = torch.tensor(elements, device=test_elements.device)
-    if not isinstance(test_elements, torch.Tensor):
+    if not isinstance(test_elements, torch.TensorBase):
         test_elements = torch.tensor(test_elements, device=elements.device)
 
     if test_elements.numel() < 10.0 * pow(elements.numel(), 0.145):

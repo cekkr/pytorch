@@ -32,7 +32,7 @@ class MyTestModule(torch.nn.Module):
         submesh_sdt: DTensor,
         submesh_rdt: DTensor,
         extra_state: int = 1,
-        extra_state_tensor: torch.Tensor = torch.zeros(1),
+        extra_state_tensor: torch.TensorBase = torch.zeros(1),
     ) -> None:
         super().__init__()
         self.sdt = torch.nn.Parameter(sdt)
@@ -51,21 +51,21 @@ class MyTestModule(torch.nn.Module):
         self._extra_state = new_extra_state
 
     @property
-    def extra_state_tensor(self) -> torch.Tensor:
+    def extra_state_tensor(self) -> torch.TensorBase:
         return self._extra_state_tensor
 
     @extra_state_tensor.setter
-    def extra_state_tensor(self, new_extra_state_tensor: torch.Tensor) -> None:
+    def extra_state_tensor(self, new_extra_state_tensor: torch.TensorBase) -> None:
         self._extra_state_tensor = new_extra_state_tensor
 
-    def get_extra_state(self) -> Dict[str, Union[int, torch._tensor.Tensor]]:
+    def get_extra_state(self) -> Dict[str, Union[int, torch._tensor.TensorBase]]:
         return {
             "extra_state": self._extra_state,
             "extra_state_tensor": self._extra_state_tensor,
         }
 
     def set_extra_state(
-        self, state: Dict[str, Union[int, torch._tensor.Tensor]]
+        self, state: Dict[str, Union[int, torch._tensor.TensorBase]]
     ) -> None:
         self._extra_state = state["extra_state"]  # pyre-ignore[8]
         self._extra_state_tensor = state["extra_state_tensor"]  # pyre-ignore[8]

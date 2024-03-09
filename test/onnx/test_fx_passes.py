@@ -59,12 +59,10 @@ class TestFxPasses(common_utils.TestCase):
 
     def test_onnx_dynamo_export_raises_when_model_contains_unsupported_fx_nodes(self):
         @custom_op.custom_op("mylibrary::foo_op")
-        def foo_op(x: torch.Tensor) -> torch.Tensor:
-            ...
+        def foo_op(x: torch.TensorBase) -> torch.TensorBase: ...
 
         @custom_op.custom_op("mylibrary::bar_op")
-        def bar_op(x: torch.Tensor) -> torch.Tensor:
-            ...
+        def bar_op(x: torch.TensorBase) -> torch.TensorBase: ...
 
         @foo_op.impl_abstract()
         def foo_op_impl_abstract(x):

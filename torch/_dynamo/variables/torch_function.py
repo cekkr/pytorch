@@ -70,7 +70,7 @@ def _is_attr_overidden(tx, var, name):
     overridden = False
     try:
         attr_val = inspect.getattr_static(var.python_type(), name)
-        overridden |= attr_val != getattr(torch.Tensor, name)
+        overridden |= attr_val != getattr(torch.TensorBase, name)
     except AttributeError:
         pass
 
@@ -155,7 +155,7 @@ class TensorWithTFOverrideVariable(TensorVariable):
 
         kwargs = dict(tensor_var.__dict__)
         assert (
-            kwargs.pop("class_type") is torch.Tensor
+            kwargs.pop("class_type") is torch.TensorBase
         ), "invalid class type in TensorWithTFOverrideVariable.from_tensor_var"
         var = cls(torch_function_fn=torch_function_fn, class_type=class_type, **kwargs)
         var.install_global(tx)
@@ -195,7 +195,7 @@ class TensorWithTFOverrideVariable(TensorVariable):
         import torch
         from .builder import SourcelessBuilder
 
-        if name in banned_attrs or not hasattr(torch.Tensor, name):
+        if name in banned_attrs or not hasattr(torch.TensorBase, name):
             unimplemented(
                 f"Accessing {name} on a tensor subclass with a __torch_function__ override is not supported"
             )
@@ -213,7 +213,7 @@ class TensorWithTFOverrideVariable(TensorVariable):
                         GuardBuilder.FUNCTION_MATCH
                     )
                 )
-            get_fn = SourcelessBuilder()(tx, getattr(torch.Tensor, name).__get__)
+            get_fn = SourcelessBuilder()(tx, getattr(torch.TensorBase, name).__get__)
 
             return self.call_torch_function(
                 tx,
@@ -264,7 +264,7 @@ class TensorWithTFOverrideVariable(TensorVariable):
                     tx, AttrSource(AttrSource(self.source, "__class__"), name)
                 )(inspect.getattr_static(self.python_type(), name))
             else:
-                func_var = SourcelessBuilder()(tx, getattr(torch.Tensor, name))
+                func_var = SourcelessBuilder()(tx, getattr(torch.TensorBase, name))
             return dispatch_torch_function(tx, func_var, [self] + args, kwargs)
         else:
             return super().call_method(tx, name, args, kwargs)

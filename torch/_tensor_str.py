@@ -390,7 +390,7 @@ def get_summarized_data(self):
 def _str_intern(inp, *, tensor_contents=None):
     if torch._C._functorch.is_functorch_wrapped_tensor(inp):
         return _functorch_wrapper_str_intern(inp, tensor_contents=tensor_contents)
-    is_plain_tensor = type(inp) is torch.Tensor or type(inp) is torch.nn.Parameter
+    is_plain_tensor = type(inp) is torch.TensorBase or type(inp) is torch.nn.Parameter
     if inp.is_nested:
         prefix = "nested_tensor("
     elif is_plain_tensor:
@@ -492,10 +492,22 @@ def _str_intern(inp, *, tensor_contents=None):
             suffixes.append("dtype=" + str(self.dtype))
         if not custom_contents_provided:
             compressed_indices_method, plain_indices_method = {
-                torch.sparse_csr: (torch.Tensor.crow_indices, torch.Tensor.col_indices),
-                torch.sparse_csc: (torch.Tensor.ccol_indices, torch.Tensor.row_indices),
-                torch.sparse_bsr: (torch.Tensor.crow_indices, torch.Tensor.col_indices),
-                torch.sparse_bsc: (torch.Tensor.ccol_indices, torch.Tensor.row_indices),
+                torch.sparse_csr: (
+                    torch.TensorBase.crow_indices,
+                    torch.TensorBase.col_indices,
+                ),
+                torch.sparse_csc: (
+                    torch.TensorBase.ccol_indices,
+                    torch.TensorBase.row_indices,
+                ),
+                torch.sparse_bsr: (
+                    torch.TensorBase.crow_indices,
+                    torch.TensorBase.col_indices,
+                ),
+                torch.sparse_bsc: (
+                    torch.TensorBase.ccol_indices,
+                    torch.TensorBase.row_indices,
+                ),
             }[self.layout]
             if self.layout in {torch.sparse_csr, torch.sparse_bsr}:
                 cdimname, pdimname = "row", "column"

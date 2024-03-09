@@ -314,10 +314,10 @@ class TestFSDPMixedPrecision(FSDPTest):
         """
         tensors = []
         for x in args:
-            if isinstance(x, torch.Tensor):
+            if isinstance(x, torch.TensorBase):
                 tensors.append(x)
         for x in kwargs.values():
-            if isinstance(x, torch.Tensor):
+            if isinstance(x, torch.TensorBase):
                 tensors.append(x)
 
         # reduce_dtype has higher priority than param_dtype, because mixed_precision
@@ -1153,7 +1153,7 @@ class TestFSDPDifferentSubmodulePrecision(FSDPTest):
 
     @skip_if_lt_x_gpu(2)
     def test_float16_on_one_submodule_skip_inputs(self):
-        forward_inputs: Dict[nn.Module, torch.Tensor] = {}
+        forward_inputs: Dict[nn.Module, torch.TensorBase] = {}
         float16 = MixedPrecision(param_dtype=torch.float16, cast_forward_inputs=False)
 
         model = SaveForwardInputsModel(
@@ -1174,7 +1174,7 @@ class TestFSDPDifferentSubmodulePrecision(FSDPTest):
 
     @skip_if_lt_x_gpu(2)
     def test_float16_on_one_submodule_skip_inputs_error(self):
-        forward_inputs: Dict[nn.Module, torch.Tensor] = {}
+        forward_inputs: Dict[nn.Module, torch.TensorBase] = {}
         float16 = MixedPrecision(param_dtype=torch.float16, cast_forward_inputs=False)
 
         model = SaveForwardInputsModel(
@@ -1194,7 +1194,7 @@ class TestFSDPDifferentSubmodulePrecision(FSDPTest):
 
     @skip_if_lt_x_gpu(2)
     def test_submodules_with_different_precisions_error(self):
-        forward_inputs: Dict[nn.Module, torch.Tensor] = {}
+        forward_inputs: Dict[nn.Module, torch.TensorBase] = {}
         float16 = MixedPrecision(param_dtype=torch.float16, cast_forward_inputs=True)
         float32 = MixedPrecision(param_dtype=torch.float32, cast_forward_inputs=True)
 
@@ -1218,7 +1218,7 @@ class TestFSDPDifferentSubmodulePrecision(FSDPTest):
 
     @skip_if_lt_x_gpu(2)
     def test_submodules_with_different_precisions(self):
-        forward_inputs: Dict[nn.Module, torch.Tensor] = {}
+        forward_inputs: Dict[nn.Module, torch.TensorBase] = {}
         float16 = MixedPrecision(param_dtype=torch.float16, cast_forward_inputs=True)
         float32 = MixedPrecision(param_dtype=torch.float32, cast_forward_inputs=True)
 
@@ -1240,29 +1240,31 @@ class TestFSDPDifferentSubmodulePrecision(FSDPTest):
     @skip_if_lt_x_gpu(2)
     def test_submodules_with_external_inputs(self):
         class ToyModule(nn.Module):
-            def __init__(self, forward_inputs: Dict[str, torch.Tensor]) -> None:
+            def __init__(self, forward_inputs: Dict[str, torch.TensorBase]) -> None:
                 super().__init__()
                 self.l = nn.Linear(100, 100)
                 self.forward_inputs = forward_inputs
 
-            def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+            def forward(
+                self, x: torch.TensorBase, y: torch.TensorBase
+            ) -> torch.TensorBase:
                 self.forward_inputs["l2_input_x"] = x
                 self.forward_inputs["l2_input_y"] = y
                 return self.l(x)
 
         class ToyModel(nn.Module):
-            def __init__(self, forward_inputs: Dict[str, torch.Tensor]) -> None:
+            def __init__(self, forward_inputs: Dict[str, torch.TensorBase]) -> None:
                 super().__init__()
                 self.l1 = nn.Linear(100, 100)
                 self.l2 = ToyModule(forward_inputs)
                 self.forward_inputs = forward_inputs
 
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
+            def forward(self, x: torch.TensorBase) -> torch.TensorBase:
                 self.forward_inputs["model_input_x"] = x
                 y = torch.ones(2, 100, device="cuda", dtype=torch.float32)
                 return self.l2(self.l1(x), y)
 
-        forward_inputs: Dict[str, torch.Tensor] = {}
+        forward_inputs: Dict[str, torch.TensorBase] = {}
 
         float16 = MixedPrecision(param_dtype=torch.float16)
         model = ToyModel(forward_inputs).cuda()
@@ -1339,7 +1341,7 @@ class TestFSDPTrainEval(FSDPTest):
         torch.manual_seed(1 + self.rank)
         eval_src = torch.randn((8, 1, 512), device=device)
         eval_tgt = torch.randn((16, 1, 512), device=device)
-        eval_out_sums: List[torch.Tensor] = []
+        eval_out_sums: List[torch.TensorBase] = []
         # An iteration consists of training forward/backward/optimizer,
         # updating the EMA copy with the main copy, and eval forward
         for _ in range(3):

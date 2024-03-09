@@ -176,7 +176,7 @@ class DistMatrixOpsTest(DTensorTestBase):
             batch_2_placements: List[Placement],
             beta: int,
             alpha: int,
-            batch_1_grad: Optional[torch.Tensor],
+            batch_1_grad: Optional[torch.TensorBase],
         ) -> None:
             tensor_dt = distribute_tensor(tensor, device_mesh, tensor_placements)
             batch_1_dt = distribute_tensor(batch_1, device_mesh, batch_1_placements)

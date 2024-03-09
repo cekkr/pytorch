@@ -6,14 +6,14 @@ __all__ = ["svd_lowrank", "pca_lowrank"]
 from typing import Optional, Tuple
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 from . import _linalg_utils as _utils
 from .overrides import handle_torch_function, has_torch_function
 
 
 def get_approximate_basis(
-    A: Tensor, q: int, niter: Optional[int] = 2, M: Optional[Tensor] = None
-) -> Tensor:
+    A: TensorBase, q: int, niter: Optional[int] = 2, M: Optional[TensorBase] = None
+) -> TensorBase:
     """Return tensor :math:`Q` with :math:`q` orthonormal columns such
     that :math:`Q Q^H A` approximates :math:`A`. If :math:`M` is
     specified, then :math:`Q` is such that :math:`Q Q^H (A - M)`
@@ -82,11 +82,11 @@ def get_approximate_basis(
 
 
 def svd_lowrank(
-    A: Tensor,
+    A: TensorBase,
     q: Optional[int] = 6,
     niter: Optional[int] = 2,
-    M: Optional[Tensor] = None,
-) -> Tuple[Tensor, Tensor, Tensor]:
+    M: Optional[TensorBase] = None,
+) -> Tuple[TensorBase, TensorBase, TensorBase]:
     r"""Return the singular value decomposition ``(U, S, V)`` of a matrix,
     batches of matrices, or a sparse matrix :math:`A` such that
     :math:`A \approx U diag(S) V^T`. In case :math:`M` is given, then
@@ -129,7 +129,7 @@ def svd_lowrank(
     if not torch.jit.is_scripting():
         tensor_ops = (A, M)
         if not set(map(type, tensor_ops)).issubset(
-            (torch.Tensor, type(None))
+            (torch.TensorBase, type(None))
         ) and has_torch_function(tensor_ops):
             return handle_torch_function(
                 svd_lowrank, tensor_ops, A, q=q, niter=niter, M=M
@@ -138,11 +138,11 @@ def svd_lowrank(
 
 
 def _svd_lowrank(
-    A: Tensor,
+    A: TensorBase,
     q: Optional[int] = 6,
     niter: Optional[int] = 2,
-    M: Optional[Tensor] = None,
-) -> Tuple[Tensor, Tensor, Tensor]:
+    M: Optional[TensorBase] = None,
+) -> Tuple[TensorBase, TensorBase, TensorBase]:
     q = 6 if q is None else q
     m, n = A.shape[-2:]
     matmul = _utils.matmul
@@ -189,8 +189,8 @@ def _svd_lowrank(
 
 
 def pca_lowrank(
-    A: Tensor, q: Optional[int] = None, center: bool = True, niter: int = 2
-) -> Tuple[Tensor, Tensor, Tensor]:
+    A: TensorBase, q: Optional[int] = None, center: bool = True, niter: int = 2
+) -> Tuple[TensorBase, TensorBase, TensorBase]:
     r"""Performs linear Principal Component Analysis (PCA) on a low-rank
     matrix, batches of such matrices, or sparse matrix.
 
@@ -252,7 +252,7 @@ def pca_lowrank(
     """
 
     if not torch.jit.is_scripting():
-        if type(A) is not torch.Tensor and has_torch_function((A,)):
+        if type(A) is not torch.TensorBase and has_torch_function((A,)):
             return handle_torch_function(
                 pca_lowrank, (A,), A, q=q, center=center, niter=niter
             )

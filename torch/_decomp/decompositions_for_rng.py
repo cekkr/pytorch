@@ -41,7 +41,7 @@ def rand(shape, dtype=None, layout=torch.strided, device=None, pin_memory=False)
 
 @register_rng_decomposition(aten.rand_like)
 def rand_like(
-    x: torch.Tensor,
+    x: torch.TensorBase,
     dtype=None,
     layout=None,
     device=None,

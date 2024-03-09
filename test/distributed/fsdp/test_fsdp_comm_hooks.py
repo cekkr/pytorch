@@ -76,7 +76,7 @@ class DummyState:
 
 
 class DummyHook:
-    def dummy_hook_for_no_shard_fsdp(self, state: DummyState, grad: torch.Tensor):
+    def dummy_hook_for_no_shard_fsdp(self, state: DummyState, grad: torch.TensorBase):
         """
         This communication hook is for illustration and testing purpose only.
         This communication hook is used during FSDP ``NO_SHARD`` training. It adds some noise to
@@ -96,7 +96,7 @@ class DummyHook:
         pass
 
     def dummy_hook_for_sharded_fsdp(
-        self, state: DummyState, grad: torch.Tensor, output: torch.Tensor
+        self, state: DummyState, grad: torch.TensorBase, output: torch.TensorBase
     ):
         """
         This communication hook is for illustration and testing purposes only.

@@ -218,9 +218,11 @@ class TestFxToOnnxWithOnnxRuntime(onnx_test_common._TestONNXRuntime):
         class Foo(torch.nn.Module):
             def forward(
                 self,
-                x_dict: Dict[str, torch.Tensor],
-                y_tuple: Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]],
-                z_list: List[List[torch.Tensor]],
+                x_dict: Dict[str, torch.TensorBase],
+                y_tuple: Tuple[
+                    torch.TensorBase, Tuple[torch.TensorBase, torch.TensorBase]
+                ],
+                z_list: List[List[torch.TensorBase]],
             ):
                 if "a" in x_dict:
                     x = x_dict["a"]
@@ -276,7 +278,7 @@ class TestFxToOnnxWithOnnxRuntime(onnx_test_common._TestONNXRuntime):
                 self.fc1 = nn.Linear(9216, 128, bias=True)
                 self.fc2 = nn.Linear(128, 10, bias=True)
 
-            def forward(self, tensor_x: torch.Tensor):
+            def forward(self, tensor_x: torch.TensorBase):
                 tensor_x = self.conv1(tensor_x)
                 tensor_x = torch.sigmoid(tensor_x)
                 tensor_x = self.conv2(tensor_x)
@@ -609,7 +611,10 @@ class TestFxToOnnxWithOnnxRuntime(onnx_test_common._TestONNXRuntime):
     def test_none_input(self):
         class NoneInputModel(torch.nn.Module):
             def forward(
-                self, x: torch.Tensor, y: Optional[torch.Tensor], z: torch.Tensor
+                self,
+                x: torch.TensorBase,
+                y: Optional[torch.TensorBase],
+                z: torch.TensorBase,
             ):
                 if y is None:
                     return x + z
@@ -858,7 +863,7 @@ class TestFxToOnnxWithOnnxRuntime(onnx_test_common._TestONNXRuntime):
                 self.fc2 = nn.Linear(4, 2, bias=True)
                 self.fc3 = nn.Linear(2, 2, bias=True)
 
-            def forward(self, tensor_x: torch.Tensor):
+            def forward(self, tensor_x: torch.TensorBase):
                 tensor_x = self.fc0(tensor_x)
                 tensor_x = torch.sigmoid(tensor_x)
                 tensor_x = self.fc1(tensor_x)
@@ -1185,7 +1190,7 @@ class TestFxToOnnxFakeTensorWithOnnxRuntime(onnx_test_common._TestONNXRuntime):
                 self.fc2 = nn.Linear(4, 2, bias=True)
                 self.fc3 = nn.Linear(2, 2, bias=True)
 
-            def forward(self, tensor_x: torch.Tensor):
+            def forward(self, tensor_x: torch.TensorBase):
                 tensor_x = self.fc0(tensor_x)
                 tensor_x = torch.sigmoid(tensor_x)
                 tensor_x = self.fc1(tensor_x)

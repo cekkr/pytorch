@@ -188,7 +188,7 @@ class TestFSDPWrap(FSDPTest):
                 self.lin2 = FSDP(_maybe_cuda(fn_self._get_linear(1, 1), move_to_cuda))
                 self.lin3 = FSDP(_maybe_cuda(fn_self._get_linear(1, 1), move_to_cuda))
 
-            def forward(self, input: torch.Tensor) -> torch.Tensor:
+            def forward(self, input: torch.TensorBase) -> torch.TensorBase:
                 return self.lin3(self.lin2(self.lin1(input)))
 
         model = MyModel(nested=nested)

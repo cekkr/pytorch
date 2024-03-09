@@ -48,14 +48,14 @@ class AutogradCompilerInstance:
         self.hooks_proxy: Optional[Proxy] = None
 
     def wrap_fake(self, x, source):
-        assert isinstance(x, torch.Tensor)
+        assert isinstance(x, torch.TensorBase)
         return self.fake_tensor_mode.from_tensor(x, source=source)
 
     @staticmethod
     def source(name, idx) -> GetItemSource:
         return GetItemSource(LocalSource(name), idx)
 
-    def begin_capture(self, inputs: List[torch.Tensor], sizes: List[int]):
+    def begin_capture(self, inputs: List[torch.TensorBase], sizes: List[int]):
         counters["compiled_autograd"]["captures"] += 1
         self.fx_tracer.root = torch.nn.Module()
         self.fx_tracer.graph = torch.fx.Graph(tracer_cls=PythonKeyTracer)
@@ -113,7 +113,7 @@ class AutogradCompilerInstance:
 
         with disable_proxy_modes_tracing():
             # create fake Tensors
-            grad_ins: List[Optional[torch.Tensor]] = []
+            grad_ins: List[Optional[torch.TensorBase]] = []
             for output_metadata in output_metadatas:
                 if output_metadata is None:
                     grad_ins.append(None)
@@ -175,7 +175,7 @@ class AutogradCompilerInstance:
         return outputs
 
     def post_acc_grad_hook(self, input, hook_id):
-        assert isinstance(input, torch.Tensor)
+        assert isinstance(input, torch.TensorBase)
         assert self.hooks_proxy is not None
         hook = self.hooks_proxy[hook_id]  # type: ignore[index]
         proxies = self.proxy_call_hook(
@@ -214,7 +214,7 @@ class AutogradCompilerInstance:
             return [self.to_proxy(x) for x in t]
         if isinstance(t, tuple):
             return tuple(self.to_proxy(x) for x in t)
-        assert isinstance(t, (torch.Tensor, torch.SymInt))
+        assert isinstance(t, (torch.TensorBase, torch.SymInt))
         return fetch_object_proxy(self.fx_tracer)(t).proxy
 
     def bind_tensors_to_proxies(self, tensors, proxies):

@@ -51,8 +51,8 @@ _THREAD_COUNTS = {1, 2}
 
 def assert_state_dict_equal(
     self: TestCase,
-    state_dict_1: Dict[str, torch.Tensor],
-    state_dict_2: Dict[str, torch.Tensor],
+    state_dict_1: Dict[str, torch.TensorBase],
+    state_dict_2: Dict[str, torch.TensorBase],
 ) -> bool:
     self.assertEqual(
         len(state_dict_1), len(state_dict_2), "state_dict must be the same size"
@@ -73,7 +73,7 @@ def assert_state_dict_equal(
                     torch.equal(local_shard_1.tensor, local_shard_2.tensor),
                     f"Key {key}'s shard does not match",
                 )
-        elif isinstance(value_1, torch.Tensor):
+        elif isinstance(value_1, torch.TensorBase):
             self.assertTrue(
                 torch.equal(value_1, value_2),
                 f"Key {key}'s tensor does not match",
@@ -194,7 +194,7 @@ class TestDistributedReshardOnLoad(ShardedTensorTestBase):
         dist.broadcast_object_list(paths)
         return paths[0]
 
-    def load_tensor(self, tensor: ShardedTensor) -> torch.Tensor:
+    def load_tensor(self, tensor: ShardedTensor) -> torch.TensorBase:
         res = torch.zeros(tensor.shape, device="cpu") if dist.get_rank() == 0 else None
         tensor.gather(out=res)
         return res

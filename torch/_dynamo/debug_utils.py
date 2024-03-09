@@ -18,7 +18,7 @@ from typing import Any, Callable, Dict, List, Optional, TypeVar
 import torch
 import torch._prims_common as utils
 import torch._subclasses.meta_utils
-from torch import Tensor
+from torch import TensorBase
 
 from torch._dynamo.testing import rand_strided
 from torch._prims_common import is_float_dtype
@@ -298,7 +298,7 @@ def clone_inputs_retaining_gradness(example_inputs):
     """
     cloned_inputs = clone_inputs(example_inputs)
     for idx in range(len(example_inputs)):
-        if isinstance(cloned_inputs[idx], torch.Tensor):
+        if isinstance(cloned_inputs[idx], torch.TensorBase):
             cloned_inputs[idx].requires_grad_(example_inputs[idx].requires_grad)
     return cloned_inputs
 
@@ -442,9 +442,11 @@ def cast_to(dtype, model, inputs):
         model = cast_dtype_args_to_fp64(model)
 
     inputs = tree_map(
-        lambda x: x.to(dtype)
-        if isinstance(x, torch.Tensor) and x.is_floating_point()
-        else x,
+        lambda x: (
+            x.to(dtype)
+            if isinstance(x, torch.TensorBase) and x.is_floating_point()
+            else x
+        ),
         inputs,
     )
     return model, inputs
@@ -704,7 +706,7 @@ class InputWriter:
 
 
 def aot_graph_input_parser(
-    func: Callable[[List[Tensor]], List[Tensor]],
+    func: Callable[[List[TensorBase]], List[TensorBase]],
     device: str = "cuda",
     sym_shapes: Optional[Dict[str, int]] = None,
     default_sym_shape: Optional[int] = None,
@@ -753,7 +755,7 @@ def aot_graph_input_parser(
         )
         return sym_shapes.get(symint, default_sym_shape)
 
-    def gen_tensor(shape, dtype) -> Tensor:
+    def gen_tensor(shape, dtype) -> TensorBase:
         # Resolve symbolic shapes to concrete values
         resolved_shape = []
         dynamic_dims = []

@@ -393,7 +393,7 @@ class TestUnion(JitTestCase):
         ).run(s)
 
     def test_union_subclasses_larger_union(self):
-        def fn() -> int | str | torch.Tensor:
+        def fn() -> int | str | torch.TensorBase:
             x: int | str = "foo"
             return x
 
@@ -676,11 +676,11 @@ class TestUnion(JitTestCase):
 
     def test_union_memory_aliasing(self):
         def fn():
-            x: List[torch.Tensor] = []
-            z: List[Optional[List[torch.Tensor]]] = []
+            x: List[torch.TensorBase] = []
+            z: List[Optional[List[torch.TensorBase]]] = []
             z.append(x)
             x_alias = z[0]
-            if torch.jit.isinstance(x_alias, List[torch.Tensor]):
+            if torch.jit.isinstance(x_alias, List[torch.TensorBase]):
                 x_alias.append(torch.tensor(3))
             return x
 

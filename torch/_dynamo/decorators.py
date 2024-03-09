@@ -308,7 +308,7 @@ def mark_static_address(t, guard=True):
     is not needed for this input. The data_ptr will be guarded if guard=True. Note:
     Tensors marked in this way will be kept alive until `torch._dynamo.reset()` is called.
     """
-    if not isinstance(t, torch.Tensor):
+    if not isinstance(t, torch.TensorBase):
         raise TypeError(f"mark_static_address expects a tensor but recieved {type(t)}")
 
     if guard:

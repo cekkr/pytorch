@@ -313,7 +313,7 @@ class CudaReproTests(TestCase):
                     in_features=768, out_features=2, bias=True
                 )
 
-            def forward(self, start_positions: torch.Tensor, x: torch.Tensor):
+            def forward(self, start_positions: torch.TensorBase, x: torch.TensorBase):
                 linear = self.linear(x)
                 split = linear.split(1, dim=-1)
                 getitem = split[0]
@@ -440,7 +440,7 @@ class CudaReproTests(TestCase):
         # This minified testcase comes from detectron2_maskrcnn_r_50_fpn
         # There was a false error from our size_assert code
         @torch._dynamo.optimize(nopython=True)
-        def forward(pred_objectness_logits_3_: torch.Tensor):
+        def forward(pred_objectness_logits_3_: torch.TensorBase):
             sort_3 = pred_objectness_logits_3_.sort(descending=True, dim=1)
             getitem_12 = sort_3[0]
             return getitem_12
@@ -597,7 +597,7 @@ class CudaReproTests(TestCase):
                 )
                 self.head = nn.Linear(256, 1024)
 
-            def forward(self, enc_out: torch.Tensor, dec_in: torch.Tensor):
+            def forward(self, enc_out: torch.TensorBase, dec_in: torch.TensorBase):
                 padmask = dec_in == 0
                 dec_mask = padmask.unsqueeze(-1) == padmask.unsqueeze(-2)
                 dec_mask = dec_mask.to(dtype=torch.float32)

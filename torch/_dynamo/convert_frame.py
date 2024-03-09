@@ -211,7 +211,7 @@ def has_tensor_in_frame(frame):
             return seen_ids[obj_id]
         seen_ids[obj_id] = False
 
-        if isinstance(obj, (torch.Tensor, torch.nn.Module)) or (
+        if isinstance(obj, (torch.TensorBase, torch.nn.Module)) or (
             istype(obj, type) and issubclass(obj, torch.nn.Module)
         ):
             seen_ids[obj_id] = True
@@ -883,9 +883,11 @@ def catch_errors_wrapper(callback, hooks: Hooks):
                 skip_reason = (
                     "traced frame already"
                     if frame.f_lasti >= first_real_inst_idx(frame.f_code)
-                    else "in skipfiles"
-                    if trace_rules.check(frame.f_code)
-                    else "dynamo tracing is disabled"
+                    else (
+                        "in skipfiles"
+                        if trace_rules.check(frame.f_code)
+                        else "dynamo tracing is disabled"
+                    )
                 )
                 if not is_skipfile or config.verbose:
                     log.debug(

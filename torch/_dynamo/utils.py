@@ -588,7 +588,7 @@ def is_numpy_ndarray(value):
 def istensor(obj):
     """Check of obj is a tensor"""
     tensor_list = (
-        torch.Tensor,
+        torch.TensorBase,
         torch.nn.Parameter,
         *config.traceable_tensor_subclasses,
     )
@@ -787,18 +787,18 @@ def clone_inputs(example_inputs):
             if isinstance(value, tuple):
                 res[key] = clone_inputs(value)
             else:
-                assert isinstance(value, torch.Tensor), type(value)
+                assert isinstance(value, torch.TensorBase), type(value)
                 res[key] = clone_input(value)
         return res
 
     res = list(example_inputs)
     for i in range(len(res)):
-        if isinstance(res[i], torch.Tensor):
+        if isinstance(res[i], torch.TensorBase):
             res[i] = clone_input(res[i])
     return res
 
 
-def skip_frame_if_in_functorch_mode(val: torch.Tensor):
+def skip_frame_if_in_functorch_mode(val: torch.TensorBase):
     try:
         val.data_ptr()  # will throw for functorch tensors
     except RuntimeError as e:
@@ -1134,7 +1134,7 @@ def iter_contains(items, search, tx, check_tensor_identity=False):
 
 def key_is_id(k):
     """Returns whether it indexes dictionaries using its id"""
-    return isinstance(k, (torch.Tensor, torch.nn.Module, MethodWrapperType))
+    return isinstance(k, (torch.TensorBase, torch.nn.Module, MethodWrapperType))
 
 
 def key_to_id(value):
@@ -1266,12 +1266,12 @@ def same(
                 log_error("Accuracy failed for key name %s", k)
                 return False
         return True
-    elif isinstance(ref, (torch.Tensor, float)):
+    elif isinstance(ref, (torch.TensorBase, float)):
         assert not isinstance(ref, torch._subclasses.FakeTensor)
         assert not isinstance(res, torch._subclasses.FakeTensor)
 
         def to_tensor(t):
-            return t if isinstance(t, torch.Tensor) else torch.tensor(t)
+            return t if isinstance(t, torch.TensorBase) else torch.tensor(t)
 
         ref, res, fp64_ref = (to_tensor(val) for val in (ref, res, fp64_ref))
 
@@ -1279,7 +1279,9 @@ def same(
             assert res.is_sparse
             ref = ref.to_dense()
             res = res.to_dense()
-        assert isinstance(res, torch.Tensor), f"type mismatch {type(ref)} {type(res)}"
+        assert isinstance(
+            res, torch.TensorBase
+        ), f"type mismatch {type(ref)} {type(res)}"
         if exact_dtype:
             if ref.dtype != res.dtype:
                 log_error("dtype mismatch %s, %s", ref.dtype, res.dtype)
@@ -1598,7 +1600,7 @@ def get_fake_values_from_nodes(tx, nodes, allow_non_graph_fake):
             return get_fake_value(n, tx, allow_non_graph_fake)
 
         out = n.meta["example_value"]
-        if not allow_non_graph_fake and isinstance(out, torch.Tensor):
+        if not allow_non_graph_fake and isinstance(out, torch.TensorBase):
             return ensure_graph_fake(out, tx)
         return out
 
@@ -1715,7 +1717,7 @@ def get_fake_value(node, tx, allow_non_graph_fake=False):
 
     if not allow_non_graph_fake:
         _ = tree_map_only(
-            torch.Tensor, functools.partial(ensure_graph_fake, tx=tx), ret_val
+            torch.TensorBase, functools.partial(ensure_graph_fake, tx=tx), ret_val
         )
     return ret_val
 
@@ -1906,7 +1908,7 @@ def tensor_static_reason_to_message(reason: TensorStaticReason):
 
 
 def tensor_always_has_static_shape(
-    tensor: Union[torch.Tensor, Any],
+    tensor: Union[torch.TensorBase, Any],
     is_tensor: bool,
     guard_source: "torch._guards.GuardSource",
 ) -> Tuple[bool, Optional[TensorStaticReason]]:
@@ -2044,7 +2046,7 @@ def to_numpy_helper(value):
         return value
     if isinstance(value, tnp.ndarray):
         return to_numpy_helper(value.tensor)
-    elif isinstance(value, torch.Tensor):
+    elif isinstance(value, torch.TensorBase):
         return value.numpy(force=True)
     elif isinstance(value, (tuple, list)):
         return type(value)(to_numpy_helper(obj) for obj in value)
@@ -2082,7 +2084,7 @@ def numpy_attr_wrapper(obj, name):
     if isinstance(obj, tnp.ndarray):
         out = getattr(obj, name)
         return numpy_to_tensor(out)
-    elif isinstance(obj, torch.Tensor):
+    elif isinstance(obj, torch.TensorBase):
         out = getattr(tnp.ndarray(obj), name)
         return numpy_to_tensor(out)
 
@@ -2099,7 +2101,7 @@ class numpy_method_wrapper:
 
     def __call__(self, *args, **kwargs):
         obj = args[0]
-        if isinstance(obj, torch.Tensor):
+        if isinstance(obj, torch.TensorBase):
             obj = tnp.ndarray(obj)
         method_callable = getattr(obj, self.method)
         out = method_callable(*args[1:], **kwargs)
@@ -2120,7 +2122,8 @@ class numpy_operator_wrapper:
         assert not kwargs
 
         args = (
-            tnp.ndarray(arg) if isinstance(arg, torch.Tensor) else arg for arg in args
+            tnp.ndarray(arg) if isinstance(arg, torch.TensorBase) else arg
+            for arg in args
         )
         out = self.op(*args)
         return numpy_to_tensor(out)
@@ -2454,7 +2457,7 @@ def get_instruction_source_311(code: types.CodeType, inst: dis.Instruction) -> s
 
 
 def get_static_address_type(t):
-    if isinstance(t, torch.Tensor):
+    if isinstance(t, torch.TensorBase):
         return getattr(t, "_dynamo_static_input_type", None)
 
     return None

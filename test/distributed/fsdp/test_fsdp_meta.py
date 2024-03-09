@@ -378,7 +378,7 @@ class TestFSDPWithMetaDevice(FSDPTest):
                     torch.randn((in_dim, out_dim), device=device)
                 )
 
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
+            def forward(self, x: torch.TensorBase) -> torch.TensorBase:
                 return x @ self.weight
 
         class Model(nn.Module):
@@ -388,7 +388,7 @@ class TestFSDPWithMetaDevice(FSDPTest):
                 self.lin2 = FakeLinear(5, 5, device="meta")
                 self.relu = nn.ReLU()
 
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
+            def forward(self, x: torch.TensorBase) -> torch.TensorBase:
                 return self.lin2(self.relu(self.lin1(x)))
 
             def _module_init_fn(self, module: nn.Module):

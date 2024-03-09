@@ -1459,7 +1459,7 @@ SKIP_XFAIL_SUBTESTS: tuple[onnx_test_common.DecorateMeta, ...] = (
     ),
     xfail(
         "logsumexp",
-        matcher=lambda sample: isinstance(sample.input, torch.Tensor)
+        matcher=lambda sample: isinstance(sample.input, torch.TensorBase)
         and len(sample.input.shape) == 0,
         reason="fixme: IsScalar",
     ),
@@ -1635,7 +1635,7 @@ SKIP_XFAIL_SUBTESTS: tuple[onnx_test_common.DecorateMeta, ...] = (
     ),
     xfail(
         "t",
-        matcher=lambda sample: isinstance(sample.input, torch.Tensor)
+        matcher=lambda sample: isinstance(sample.input, torch.TensorBase)
         and len(sample.input.shape) < 2,
         reason="fixme: IsScalar",
     ),

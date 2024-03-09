@@ -1,16 +1,17 @@
 # Owner(s): ["oncall: jit"]
 
+from typing import List
+
 import torch
 
 from torch.testing._internal.common_utils import skipIfTorchDynamo
 from torch.testing._internal.jit_utils import JitTestCase
-from typing import List
 
 
 @skipIfTorchDynamo()
 class TestAutodiffJit(JitTestCase):
     def test_undefined_tensor_lists(self):
-        def fn(tensor_list: List[torch.Tensor], add_tensor):
+        def fn(tensor_list: List[torch.TensorBase], add_tensor):
             cat = torch.cat(tensor_list, dim=1)
             r = torch.sin(cat + add_tensor)
             return r
@@ -42,7 +43,7 @@ class TestAutodiffJit(JitTestCase):
         # expect 3 tensors: grad_y, grad_a, grad_b
         self.assertEqual(3, len(grad_inputs))
         for x in grad_inputs:
-            self.assertTrue(isinstance(x, torch.Tensor))
+            self.assertTrue(isinstance(x, torch.TensorBase))
 
         # now test with undefined grad_out
         grad_inputs = backward_fn(None, None)
@@ -118,7 +119,6 @@ class TestAutodiffJit(JitTestCase):
             self.assertEqual(x_s.requires_grad, x.requires_grad)
             self.assertEqual(y_s.requires_grad, y.requires_grad)
             self.assertEqual(z_s.requires_grad, z.requires_grad)
-
 
     def test_autodiff_requires_grad_nograd(self):
         @torch.jit.ignore

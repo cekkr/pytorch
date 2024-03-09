@@ -1353,7 +1353,7 @@ class BuiltinVariable(VariableTracker):
                             tx,
                             tx.output.create_proxy(
                                 "call_function",
-                                torch.Tensor.set_,
+                                torch.TensorBase.set_,
                                 *proxy_args_kwargs([obj, val], {}),
                             ),
                         )

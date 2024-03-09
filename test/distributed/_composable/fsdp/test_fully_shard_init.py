@@ -202,9 +202,9 @@ class TestFullyShardManagedModulesAndStates(FSDPTestMultiThread):
     def _check_managed_states(
         self,
         managed_params: List[nn.Parameter],
-        managed_buffers: List[torch.Tensor],
+        managed_buffers: List[torch.TensorBase],
         expected_managed_params: List[nn.Parameter],
-        expected_managed_buffers: List[torch.Tensor],
+        expected_managed_buffers: List[torch.TensorBase],
     ):
         self.assertEqual(len(managed_params), len(expected_managed_params))
         self.assertEqual(len(managed_buffers), len(expected_managed_buffers))

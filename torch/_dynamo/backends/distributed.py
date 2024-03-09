@@ -290,7 +290,7 @@ class SubmodCompiler(torch.fx.interpreter.Interpreter):
         new_args = []
         assert self.fake_mode
         for arg in args:
-            if isinstance(arg, torch.Tensor) and not isinstance(
+            if isinstance(arg, torch.TensorBase) and not isinstance(
                 arg, torch._subclasses.FakeTensor
             ):
                 new_args.append(torch._dynamo.utils.to_fake_tensor(arg, self.fake_mode))
@@ -367,7 +367,10 @@ class SubmodCompiler(torch.fx.interpreter.Interpreter):
                     out = compiled_submod_real(*new_args, **kwargs)
                     # output should be fake or subclass
                     assert all(
-                        (not isinstance(t, torch.Tensor) or type(t) is not torch.Tensor)
+                        (
+                            not isinstance(t, torch.TensorBase)
+                            or type(t) is not torch.TensorBase
+                        )
                         for t in (out if isinstance(out, (list, tuple)) else [out])
                     )
                     return out
@@ -379,7 +382,6 @@ class SubmodCompiler(torch.fx.interpreter.Interpreter):
 
 
 class DDPOptimizer:
-
     """Note [DDPOptimizer]
     DDPOptimizer applies when dynamo compiles models wrapped in DistributedDataParallel (DDP),
     breaking the dynamo graph into chunks to compile separately, with the breaks aligning to
@@ -464,7 +466,7 @@ class DDPOptimizer:
     def _ignore_parameter(self, parameter):
         return hasattr(parameter, "_ddp_ignored") and parameter._ddp_ignored
 
-    def compile_fn(self, gm: fx.GraphModule, example_inputs: List[torch.Tensor]):
+    def compile_fn(self, gm: fx.GraphModule, example_inputs: List[torch.TensorBase]):
         """
         Implements graph splitting, first determining a set of of buckets by counting
         parameter sizes in reverse graph order, then invoking the user/backend compiler

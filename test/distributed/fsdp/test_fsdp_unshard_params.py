@@ -487,7 +487,7 @@ class TestUnshardParams(TestUnshardParamsBase):
         def _check_grads(
             ddp_model: DDP,
             fsdp_model: FSDP,
-            old_fsdp_grads: Optional[List[torch.Tensor]],
+            old_fsdp_grads: Optional[List[torch.TensorBase]],
         ):
             """
             Checks that writes to the FSDP parameters' gradients persist or do

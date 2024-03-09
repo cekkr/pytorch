@@ -461,7 +461,7 @@ class GuardManagerTests(torch._dynamo.test_case.TestCase):
 
         gpair_mgr.add_lambda_guard(
             lambda x: isinstance(x, Pair)
-            and isinstance(x.x, torch.Tensor)
+            and isinstance(x.x, torch.TensorBase)
             and isinstance(x.y, int),
             "global guard fail",
         )
@@ -542,7 +542,7 @@ class GuardManagerTests(torch._dynamo.test_case.TestCase):
         weakref_manager = globals_manager.global_weakref_manager("weakref_x", "", None)
 
         weakref_manager.add_lambda_guard(
-            lambda x: isinstance(x, torch.Tensor),
+            lambda x: isinstance(x, torch.TensorBase),
             "global weakref fail",
         )
 

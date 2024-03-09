@@ -73,7 +73,7 @@ class TestOneArr(TestCase):
 
     @parametrize("func", one_arg_funcs)
     def test_asarray_tensor(self, func):
-        t = torch.Tensor([[1.0, 2, 3], [4, 5, 6]])
+        t = torch.TensorBase([[1.0, 2, 3], [4, 5, 6]])
         ta = func(t)
 
         assert isinstance(ta, w.ndarray)
@@ -113,7 +113,7 @@ class TestOneArrAndAxis(TestCase):
     @parametrize("func", one_arg_axis_funcs)
     @parametrize("axis", [0, 1, -1, None])
     def test_andaxis_tensor(self, func, axis):
-        t = torch.Tensor([[1.0, 2, 3], [4, 5, 6]])
+        t = torch.TensorBase([[1.0, 2, 3], [4, 5, 6]])
         ta = func(t, axis=axis)
         assert isinstance(ta, w.ndarray)
 
@@ -190,7 +190,7 @@ class TestOneArrAndShape(TestCase):
 
     @parametrize("func", arr_shape_funcs)
     def test_andshape_tensor(self, func):
-        t = torch.Tensor([[1, 2, 3], [4, 5, 6]])
+        t = torch.TensorBase([[1, 2, 3], [4, 5, 6]])
 
         shape_dict = {self.shape_arg_name.get(func, "shape"): self.shape}
         ta = func(t, **shape_dict)
@@ -225,7 +225,7 @@ class TestOneArrToScalar(TestCase):
 
     @parametrize("func, np_func", one_arg_scalar_funcs)
     def test_toscalar_tensor(self, func, np_func):
-        t = torch.Tensor([[1, 2, 3], [4, 5, 6]])
+        t = torch.TensorBase([[1, 2, 3], [4, 5, 6]])
         ta = func(t)
         tn = np_func(_np.asarray(t))
 
@@ -277,7 +277,7 @@ class TestSequenceOfArrays(TestCase):
 
     @parametrize("func", seq_funcs)
     def test_single_tensor(self, func):
-        t = torch.Tensor([[1, 2, 3], [4, 5, 6]])
+        t = torch.TensorBase([[1, 2, 3], [4, 5, 6]])
         ta = func(t)
 
         # for a single argument, broadcast_arrays returns a tuple, while
@@ -310,7 +310,7 @@ class TestSequenceOfArrays(TestCase):
     @parametrize("func", seq_funcs)
     def test_several(self, func):
         arys = (
-            torch.Tensor([[1, 2, 3], [4, 5, 6]]),
+            torch.TensorBase([[1, 2, 3], [4, 5, 6]]),
             w.asarray([[1, 2, 3], [4, 5, 6]]),
             [[1, 2, 3], [4, 5, 6]],
         )
@@ -339,7 +339,7 @@ class TestSequenceOfArraysToSingle(TestCase):
     @parametrize("func", seq_to_single_funcs)
     def test_several(self, func):
         arys = (
-            torch.Tensor([[1, 2, 3], [4, 5, 6]]),
+            torch.TensorBase([[1, 2, 3], [4, 5, 6]]),
             w.asarray([[1, 2, 3], [4, 5, 6]]),
             [[1, 2, 3], [4, 5, 6]],
         )
@@ -363,7 +363,7 @@ class TestArrayToSequence(TestCase):
 
     @parametrize("func", single_to_seq_funcs)
     def test_asarray_tensor(self, func):
-        t = torch.Tensor([[1, 2, 3], [4, 5, 6]])
+        t = torch.TensorBase([[1, 2, 3], [4, 5, 6]])
         ta = func(t)
 
         assert isinstance(ta, tuple)
@@ -584,7 +584,7 @@ class TestMisc(TestCase):
         out = _util.ndarrays_to_tensors(((w.asarray(42), 7), 3))
         assert len(out) == 2
         assert isinstance(out[0], tuple) and len(out[0]) == 2
-        assert isinstance(out[0][0], torch.Tensor)
+        assert isinstance(out[0][0], torch.TensorBase)
 
     @skip(not TEST_CUDA, reason="requires cuda")
     def test_f16_on_cuda(self):

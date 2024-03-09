@@ -154,9 +154,11 @@ class CheckpointWrapperTest(TestCase):
                 self.use_reentrant = use_reentrant
                 wrp = partial(
                     checkpoint_wrapper,
-                    checkpoint_impl=CheckpointImpl.REENTRANT
-                    if use_reentrant
-                    else CheckpointImpl.NO_REENTRANT,
+                    checkpoint_impl=(
+                        CheckpointImpl.REENTRANT
+                        if use_reentrant
+                        else CheckpointImpl.NO_REENTRANT
+                    ),
                 )
                 for i in range(self.n):
                     l = nn.Sequential(
@@ -369,7 +371,7 @@ class CheckpointWrapperTest(TestCase):
                     continue
 
                 saved = getattr(grad_fn, e)
-                if isinstance(saved, torch.Tensor):
+                if isinstance(saved, torch.TensorBase):
                     self.assertEqual(torch.device("cpu"), saved.device)
                     nonlocal offload_verified
                     offload_verified = True

@@ -131,11 +131,11 @@ class TestModelOutput(torch._dynamo.test_case.TestCase):
     def test_mo_init(self):
         @dataclasses.dataclass
         class MyDataClass(ModelOutput):
-            a: torch.Tensor
-            b: torch.Tensor = None
-            c: torch.Tensor = None
-            d: torch.Tensor = None
-            e: torch.Tensor = None
+            a: torch.TensorBase
+            b: torch.TensorBase = None
+            c: torch.TensorBase = None
+            d: torch.TensorBase = None
+            e: torch.TensorBase = None
 
         def fn(obj):
             class_fields = dataclasses.fields(obj)
@@ -173,7 +173,7 @@ class TestModelOutput(torch._dynamo.test_case.TestCase):
                 self.dense = torch.nn.Linear(768, 768).to("cuda")
                 self.activation = torch.nn.Tanh()
 
-            def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+            def forward(self, hidden_states: torch.TensorBase) -> torch.TensorBase:
                 # We "pool" the model by simply taking the hidden state corresponding
                 # to the first token.
                 first_token_tensor = hidden_states[:, 0]
@@ -187,7 +187,7 @@ class TestModelOutput(torch._dynamo.test_case.TestCase):
 
             def forward(
                 self,
-                hidden_states: torch.Tensor,
+                hidden_states: torch.TensorBase,
             ) -> BaseModelOutputWithPastAndCrossAttentions:
                 return BaseModelOutputWithPastAndCrossAttentions(
                     last_hidden_state=hidden_states,
@@ -205,7 +205,7 @@ class TestModelOutput(torch._dynamo.test_case.TestCase):
 
             def forward(
                 self,
-                sequence_output: torch.Tensor,
+                sequence_output: torch.TensorBase,
             ) -> BaseModelOutputWithPoolingAndCrossAttentions:
                 encoder_outputs = self.encoder(sequence_output)
                 # test __getitem__ and to_tuple

@@ -90,7 +90,7 @@ class TestFullyShardWithDistributedStateDict(FSDPTest):
 
         if self.rank == 0:
             self.assertEqual(osd, dsd)
-            self.assertTrue(tree_all_only((torch.Tensor, DTensor), is_cpu, osd))
+            self.assertTrue(tree_all_only((torch.TensorBase, DTensor), is_cpu, osd))
         else:
             self.assertEqual(dsd, {})
 

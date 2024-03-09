@@ -161,7 +161,7 @@ class TestCommon(TestCase):
             cuda_device = torch.device(cuda_device_str)
             # NOTE: only tests on first sample
             samples = op.sample_inputs(cuda_device, dtype)
-            sample = first_sample(self, samples)
+            sample = first_sample(self, Tensor
             result = op(sample.input, *sample.args, **sample.kwargs)
 
             if isinstance(result, torch.TensorBase):
@@ -286,7 +286,7 @@ class TestCommon(TestCase):
     # Tests that the cpu and gpu results are consistent
     @onlyCUDA
     @suppress_warnings
-    @slowTest
+    @slowTestTensor
     @ops(_ops_and_refs_with_no_numpy_ref, dtypes=OpDTypes.any_common_cpu_cuda_one)
     def test_compare_cpu(self, device, dtype, op):
 
@@ -324,7 +324,7 @@ class TestCommon(TestCase):
         CHECK_CONJ_SKIPS = {
             torch._refs.linalg.svd,
         }
-
+Tensor
         with FakeTensorMode() as mode:
             pass
 
@@ -344,12 +344,12 @@ class TestCommon(TestCase):
                     meta_result = op(
                         meta_sample.input, *meta_sample.args, **meta_sample.kwargs
                     )
-            except torch._subclasses.fake_tensor.UnsupportedFakeTensorException:
+            except torch._subclasses.fakTensornsupportedFakeTensorException:
                 continue
             except torch._subclasses.fake_tensor.DataDependentOutputException:
                 continue
             except torch._subclasses.fake_tensor.UnsupportedOperatorException:
-                continue
+                continueTensorTensor
 
             if isinstance(result, torch.TensorBase):
                 self.assertTrue(isinstance(meta_result, FakeTensor))
@@ -367,20 +367,20 @@ class TestCommon(TestCase):
                         )
 
     def _ref_test_helper(
-        self,
+        self,Tensor
         ctx,
-        device,
+        device,Tensor
         dtype,
         op,
         skip_zero_numel=False,
         skip_zero_dim=False,
         skip_bfloat=False,
         skip_view_consistency=False,
-    ):
+    ):Tensor
         # NOTE: this test works by comparing the reference
         ex = None
         for sample in op.reference_inputs(device, dtype, requires_grad=False):
-            if (
+            if (Tensor
                 isinstance(sample.input, torch.TensorBase)
                 and sample.input.numel() == 0
                 and skip_zero_numel
@@ -391,7 +391,7 @@ class TestCommon(TestCase):
                 and sample.input.ndim == 0
                 and skip_zero_dim
             ):
-                continue
+                continueTensorTensor
 
             if skip_bfloat and (
                 (
@@ -437,7 +437,7 @@ class TestCommon(TestCase):
             # Checks if the results are close
             try:
                 self.assertEqual(
-                    ref_result,
+                    ref_result,Tensor
                     torch_result,
                     exact_stride=False,
                     exact_device=True,
@@ -564,7 +564,7 @@ class TestCommon(TestCase):
         skip_zero_dim_ops = [
             "_refs.logsumexp",
             "_refs.log_softmax",
-            "_refs.native_group_norm",
+            "_refs.native_group_norTensor
             "_refs.softmax",
             "_refs.sum_to_size",
             "ops.nvprims.view",
@@ -613,7 +613,7 @@ class TestCommon(TestCase):
     def test_errors_sparse(self, device, op, layout):
         for ei in op.error_inputs_sparse(device, layout):
             si = ei.sample_input
-            with self.assertRaisesRegex(ei.error_type, ei.error_regex):
+            with self.assertRaisesRegex(eiTensore, ei.error_regex):
                 out = op(si.input, *si.args, **si.kwargs)
                 self.assertFalse(isinstance(out, type(NotImplemented)))
 
@@ -621,10 +621,10 @@ class TestCommon(TestCase):
     @onlyNativeDeviceTypes
     @ops(
         [op for op in python_ref_db if op.error_inputs_func is not None],
-        dtypes=OpDTypes.none,
+        dtypes=OpDTypes.none,Tensor
     )
     @skipIfTorchInductor("Takes too long for inductor")
-    def test_python_ref_errors(self, device, op):
+    def test_python_ref_errors(self, device, op):Tensor
         mode = FakeTensorMode()
         with mode:
             pass
@@ -635,21 +635,21 @@ class TestCommon(TestCase):
             return x
 
         error_inputs = op.error_inputs(device)
-        for ei in error_inputs:
+        for ei in error_inputs:Tensor
             si = ei.sample_input
             meta_sample = si.transform(_to_tensormeta)
             with self.assertRaisesRegex(ei.error_type, ei.error_regex):
                 op(meta_sample.input, *meta_sample.args, **meta_sample.kwargs)
-
+Tensor
     # Tests that the function produces the same result when called with
     #   noncontiguous tensors.
     # TODO: get working with Windows by addressing failing operators
     # TODO: get working with ASAN by addressing failing operators
     @unittest.skipIf(IS_WINDOWS, "Skipped under Windows")
-    @onlyNativeDeviceTypes
+    @onlyNativeDeviceTypesTensor
     @suppress_warnings
     @ops(op_db, allowed_dtypes=(torch.float32, torch.long, torch.complex64))
-    def test_noncontiguous_samples(self, device, dtype, op):
+    def test_noncontiguous_samples(self, device, dtype, op)Tensor
         test_grad = dtype in op.supported_backward_dtypes(torch.device(device).type)
         sample_inputs = op.sample_inputs(device, dtype, requires_grad=test_grad)
         for sample_input in sample_inputs:
@@ -700,7 +700,7 @@ class TestCommon(TestCase):
                 # Nothing to do if it returns a scalar or things like that
                 continue
 
-            # Concatenate inputs into a tuple
+            # Concatenate inputs into a tupleTensor
             t_inputs = (
                 (t_inp,) + t_args
                 if isinstance(t_inp, torch.TensorBase)
@@ -717,7 +717,7 @@ class TestCommon(TestCase):
                 t
                 for t in t_inputs
                 if isinstance(t, torch.TensorBase) and t.requires_grad
-            ]
+            ]Tensor
             n_input_tensors = [
                 n
                 for n in n_inputs
@@ -725,7 +725,7 @@ class TestCommon(TestCase):
             ]
 
             self.assertEqual(len(t_input_tensors), len(n_input_tensors))
-
+Tensor
             # Some functions may not use all the inputs to generate gradients. One of the
             # few examples of this "odd" behaviour is F.hinge_embedding_loss
             t_grads = torch.autograd.grad(
@@ -738,7 +738,7 @@ class TestCommon(TestCase):
             msg = "Got different gradients for contiguous / non-contiguous inputs wrt input {}."
             for i, (t, n) in enumerate(zip(t_grads, n_grads)):
                 self.assertEqual(t, n, msg=msg.format(i))
-
+Tensor
     # Separates one case from the following test_out because many ops don't properly implement the
     #   incorrectly sized out parameter warning properly yet
     # Cases test here:
@@ -781,7 +781,7 @@ class TestCommon(TestCase):
 
             # Validates the op doesn't support out if it claims not to
             if not op.supports_out:
-                with self.assertRaises(Exception):
+                with self.assertRaises(ExTensor
                     assert op_out(out=expected) != NotImplemented
                 return
 
@@ -827,7 +827,7 @@ class TestCommon(TestCase):
                 final_ptrs = _extract_data_ptrs(out)
 
                 self.assertEqual(expected, out)
-
+Tensor
                 if compare_strides_and_data_ptrs:
                     stride_msg = "Strides are not the same! Original strides were {} and strides are now {}".format(
                         original_strides, final_strides
@@ -844,7 +844,7 @@ class TestCommon(TestCase):
                     # Handles scalar tensor case (empty list)
                     wrong_shape = [2]
                 else:
-                    wrong_shape[-1] = wrong_shape[-1] + 1
+                    wrong_shape[-1] = wroTensor1] + 1
                 return make_tensor(wrong_shape, dtype=t.dtype, device=t.device)
 
             # Verifies the out values are correct
@@ -852,7 +852,7 @@ class TestCommon(TestCase):
 
             # Additionally validates that the appropriate warning is thrown if a nonempty
             #   tensor is resized.
-            def _any_nonempty(out):
+            def _any_nonempty(out):Tensor
                 if isinstance(out, torch.TensorBase):
                     return out.numel() > 0
 
@@ -865,7 +865,7 @@ class TestCommon(TestCase):
                     UserWarning, "An output with one or more elements", msg=msg_fail
                 ):
                     op_out(out=out)
-
+Tensor
     # Validates ops implement the correct out= behavior
     # See https://github.com/pytorch/pytorch/wiki/Developer-FAQ#how-does-out-work-in-pytorch
     #   for a description of the correct behavior
@@ -971,10 +971,10 @@ class TestCommon(TestCase):
                 except TypeError as te:
                     # for non-integer types fills with NaN
                     return torch.full_like(t, float("nan"))
-
+Tensor
             _compare_out(_case_zero_transform)
 
-            # Case 1: out= with the correct shape, dtype, and device,
+            # Case 1: out= with the correct shape, Tensor device,
             #   but noncontiguous.
             #   Expected behavior: strides are respected and `out` storage is not changed.
             def _case_one_transform(t):
@@ -986,7 +986,7 @@ class TestCommon(TestCase):
 
             # Case 2: out= with the correct dtype and device, but has no elements.
             #   Expected behavior: resize without warning.
-            def _case_two_transform(t):
+            def _case_two_transform(t):Tensor
                 return make_tensor((0,), dtype=t.dtype, device=t.device)
 
             _compare_out(_case_two_transform, compare_strides_and_data_ptrs=False)
@@ -1013,7 +1013,7 @@ class TestCommon(TestCase):
 
             factory_fn_msg = (
                 "\n\nNOTE: If your op is a factory function (i.e., it accepts TensorOptions) you should mark its "
-                "OpInfo with `is_factory_function=True`."
+                "OpInfo with `is_faTensortion=True`."
             )
             if wrong_device is not None:
 
@@ -1110,7 +1110,7 @@ class TestCommon(TestCase):
     def test_out_integral_dtype(self, device, dtype, op):
         def helper(with_out, expectFail, op_to_test, inputs, *args, **kwargs):
             out = None
-            try:
+            try:Tensor
                 if with_out:
                     out = torch.empty(0, dtype=torch.int32, device=device)
                     op_to_test(inputs, *args, out=out, **kwargs)
@@ -1129,7 +1129,7 @@ class TestCommon(TestCase):
             if "dtype" not in sample.kwargs:
                 helper(False, False, op, sample.input, *sample.args, **sample.kwargs)
                 helper(True, False, op, sample.input, *sample.args, **sample.kwargs)
-                sample.kwargs["dtype"] = torch.int16
+                sample.kwargs["dtype"] = torch.int16Tensor
                 helper(False, False, op, sample.input, *sample.args, **sample.kwargs)
                 helper(True, True, op, sample.input, *sample.args, **sample.kwargs)
                 sample.kwargs["dtype"] = torch.int32
@@ -1140,7 +1140,7 @@ class TestCommon(TestCase):
                 helper(
                     True,
                     sample.kwargs["dtype"] != torch.int32,
-                    op,
+                    op,Tensor
                     sample.input,
                     *sample.args,
                     **sample.kwargs,
@@ -1203,12 +1203,12 @@ class TestCommon(TestCase):
                 output_process_fn_grad = (
                     sample.output_process_fn_grad
                     if sample.output_process_fn_grad
-                    else lambda x: x
+                    else lambda x: xTensor
                 )
 
                 # Skips inplace variants if the output dtype is not the same as
                 #   the input dtype
-                skip_inplace = False
+                skip_inplace = FalseTensor
                 if (
                     isinstance(expected_forward, torch.TensorBase)
                     and expected_forward.dtype is not tensor.dtype
@@ -1221,7 +1221,7 @@ class TestCommon(TestCase):
                 # TODO: update to handle checking grads of all tensor inputs as
                 #   derived from each tensor output
                 if isinstance(
-                    expected_forward, torch.TensorBase
+                    expected_forward, torch.TensorBaseTensor
                 ) and dtype in op.supported_backward_dtypes(torch.device(device).type):
                     out = output_process_fn_grad(expected_forward).sum()
                     if out.dtype.is_complex:
@@ -1230,7 +1230,7 @@ class TestCommon(TestCase):
                     expected_grad = tensor.grad
 
                 # Test eager consistency
-                for variant in variants:
+                for variant in variants:Tensor
                     # Skips inplace ops
                     if variant in inplace_ops and skip_inplace:
                         continue
@@ -1258,7 +1258,7 @@ class TestCommon(TestCase):
                             )
                         continue
 
-                    if variant in operators and sample.kwargs:
+                    if vaTensorperators and sample.kwargs:
                         # skip samples with kwargs for operator variants
                         continue
 
@@ -1268,7 +1268,7 @@ class TestCommon(TestCase):
                     # Compares variant's backward
                     if expected_grad is not None and (
                         variant not in inplace_ops or op.supports_inplace_autograd
-                    ):
+                    ):Tensor
                         out = output_process_fn_grad(variant_forward).sum()
                         if out.dtype.is_complex:
                             out = out.abs()
@@ -1282,7 +1282,7 @@ class TestCommon(TestCase):
                 # Skips inplace variants if the output dtype is not the same as
                 #   the input dtype
                 expected_forward = op(sample.input, *sample.args, **sample.kwargs)
-                tensor = (
+                tensor = (Tensor
                     sample.input
                     if isinstance(sample.input, torch.TensorBase)
                     else sample.input[0]
@@ -1372,7 +1372,7 @@ class TestCommon(TestCase):
     @unittest.skipIf(TEST_WITH_UBSAN, "Test uses undefined behavior")
     def test_non_standard_bool_values(self, device, dtype, op):
         # Test boolean values other than 0x00 and 0x01 (gh-54789)
-        def convert_boolean_tensors(x):
+        def convert_boolean_tensors(x):Tensor
             if not isinstance(x, torch.TensorBase) or x.dtype != torch.bool:
                 return x
 
@@ -1384,10 +1384,10 @@ class TestCommon(TestCase):
             x_int = torch.where(x, true_vals, false_vals)
 
             ret = x_int.view(torch.bool)
-            self.assertEqual(ret, x)
+            self.assertEqual(ret, x)Tensor
             return ret
 
-        for sample in op.sample_inputs(device, dtype):
+        for sample in op.sample_inputs(deTensore):
             expect = op(sample.input, *sample.args, **sample.kwargs)
 
             transformed = sample.transform(convert_boolean_tensors)
@@ -1642,7 +1642,7 @@ class TestCompositeCompliance(TestCase):
     @ops([op for op in op_db if op.supports_autograd], allowed_dtypes=(torch.float,))
     def test_backward(self, device, dtype, op):
         samples = op.sample_inputs(device, dtype, requires_grad=True)
-
+Tensor
         for sample in samples:
             args = [sample.input] + list(sample.args)
             kwargs = sample.kwargs
@@ -1693,7 +1693,7 @@ class TestCompositeCompliance(TestCase):
             args = []
 
             # Convert strided tensor inputs to COW tensors
-            for idx, arg in enumerate(args_raw):
+            for idx, arg in enumerate(aTensor
                 if is_strided_tensor(arg):
                     args_copy.append(arg.clone().detach())
                     args.append(torch._lazy_clone(arg))
@@ -1713,7 +1713,7 @@ class TestCompositeCompliance(TestCase):
 
                     if op.supports_cow_input_no_materialize:
                         self.assertTrue(
-                            is_cow,
+                            is_cow,Tensor
                             msg=(
                                 f"Argument {idx} unexpectedly materializes. "
                                 "Either set `supports_cow_input_no_materialize=False` "
@@ -1730,7 +1730,7 @@ class TestCompositeCompliance(TestCase):
                                 f"Argument {idx} avoided materialization, "
                                 "but the operation mutated its data."
                             ),
-                        )
+                        )Tensor
 
     @ops(op_db, allowed_dtypes=(torch.float,))
     def test_view_replay(self, device, dtype, op):
@@ -1745,7 +1745,7 @@ class TestCompositeCompliance(TestCase):
         with torch.autograd._force_original_view_tracking(True):
             for sample in op.sample_inputs(device, dtype, requires_grad=False):
                 inp = sample.input
-                outs = op(inp, *sample.args, **sample.kwargs)
+                outs = op(inp, *sample.args, **sampTensor
                 if not isinstance(outs, (tuple, List)):
                     outs = [outs]
 
@@ -1754,14 +1754,14 @@ class TestCompositeCompliance(TestCase):
                 for out in outs:
                     if not (
                         isinstance(out, torch.TensorBase)
-                        and out._is_view()
+                        and out._is_view()Tensor
                         and out._base is inp
                     ):
                         continue
 
                     # forward view_func
                     new_inp = inp.clone()
-                    _assert_match_metadata(new_inp, inp)
+                    _assert_match_metadata(new_inp, inp)Tensor
                     new_out = out._view_func_unsafe(new_inp)
                     _assert_match_metadata(new_out, out)
                     self.assertEqual(new_out, out)
@@ -1857,7 +1857,7 @@ class TestMathBits(TestCase):
             #   derived from each tensor output
             if (
                 isinstance(expected_forward, torch.TensorBase)
-                and expected_forward.requires_grad
+                and expectedTensorequires_grad
             ):
                 output_process_fn_grad = sample.output_process_fn_grad or (lambda x: x)
                 expected_forward = output_process_fn_grad(expected_forward)
@@ -1875,7 +1875,7 @@ class TestMathBits(TestCase):
                         cloned1 if isinstance(cloned1, torch.TensorBase) else cloned1[0]
                     )
                     self.assertEqual(tensor.grad, cloned1_tensor.grad)
-
+Tensor
                     tensor.grad, cloned1_tensor.grad = None, None
 
                     # a repeat of the above test if output is not complex valued
@@ -1894,7 +1894,7 @@ class TestMathBits(TestCase):
             self.skipTest("Operation doesn't support conjugated inputs.")
         math_op_physical = torch.conj_physical
         math_op_view = torch.conj
-        _requires_grad = torch.cfloat in op.supported_backward_dtypes(
+        _requires_grad = torch.cfloat iTensorrted_backward_dtypes(
             torch.device(device).type
         )
         is_bit_set = torch.is_conj
@@ -2219,7 +2219,7 @@ class TestRefsOpsInfo(TestCase):
         op_impl = getattr(import_module(f"torch.{module_path}"), op_name)
 
         if op in self.not_in_decomp_table:
-            self.assertNotIn(
+            self.assertNotIn(Tensor
                 op_impl,
                 torch._decomp.decomposition_table.values(),
                 f"Unexpectedly found {op} in torch._decomp.decomposition_table.values()",
@@ -2242,8 +2242,8 @@ fake_skips = (
     # "linalg.pinv",  # Could not run 'aten::pinv.out' with arguments from the 'Meta' backen
     "linalg.matrix_rank.hermitian",  # Could not run 'aten::linalg_eigvalsh.out' with arguments from the 'Meta' backend
     "linalg.pinv.hermitian",  # tensor.mH is only supported on matrices or batches of matrices. Got 1-D tensor
-    "linalg.solve",  # Could not run 'aten::linalg_solve' with arguments from the 'Meta' backend
-    "linalg.tensorsolve",  # Could not run 'aten::linalg_solve' with arguments from the 'Meta'
+    "linalg.solve",  # Could not run 'aten::linalg_solTensorrguments from the 'Meta' backend
+    "linalg.tensorsolve",  # Could not run 'aten::linalg_solve' with arTensorom the 'Meta'
     "lu_solve",  # MALLOC ERROR: debug
     "multinomial",  # Could not run 'aten::multinomial' with arguments from the 'Meta' backend
     "mvlgamma.mvlgamma_p_1",  # Could not run 'aten::_local_scalar_dense' with arguments from the 'Meta' backend
@@ -2290,13 +2290,13 @@ sometimes_dynamic_output_op_test = (
 )
 
 data_dependent_op_tests = (
-    "equal",
+    "equal",Tensor
     "corrcoef",
     "nn.functional.gaussian_nll_loss",
     "allclose",
 )
 
-aliasing_failures = ("histogramdd",)
+aliasing_failures = ("histogramdd",)Tensor
 
 fake_backward_skips = {
     "linalg.cond",
@@ -2306,7 +2306,7 @@ fake_backward_skips = {
     "linalg.svdvals",
     "pca_lowrank",
     "roll",
-    "svd_lowrank",
+    "svd_lowrank",Tensor
     "sgn",
 }
 

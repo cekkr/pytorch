@@ -343,7 +343,7 @@ def verify(
         return _iter
 
     def is_tensor(o):
-        return isinstance(o, torch.Tensor)
+        return isinstance(o, torch.TensorBase)
 
     _iter_tensors = _iter_filter(is_tensor, condition_msg="Tensors")
 
@@ -372,7 +372,7 @@ def verify(
         return x
 
     # Special case for common case of passing a single Tensor
-    if isinstance(args, torch.Tensor):
+    if isinstance(args, torch.TensorBase):
         args = (args,)
 
     with torch.onnx.select_model_mode_for_export(model, training):
@@ -503,7 +503,7 @@ def verify(
                     input_onnx.append(onnx_input[idx])
                 onnx_input = tuple(input_onnx)
             backend_out = prepared.run(onnx_input)
-            if isinstance(torch_out, torch.Tensor):
+            if isinstance(torch_out, torch.TensorBase):
                 torch_out = (torch_out,)
             torch_out, _ = torch.jit._flatten(torch_out)
             # NB: onnx backend NEVER returns bare numpy array

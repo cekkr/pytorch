@@ -1,7 +1,7 @@
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional, Tuple
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 
 
 class AndroidAPIModule(torch.jit.ScriptModule):
@@ -26,7 +26,7 @@ class AndroidAPIModule(torch.jit.ScriptModule):
         return input
 
     @torch.jit.script_method
-    def eqTensor(self, input: Tensor) -> Tensor:
+    def eqTensor(self, input: TensorBase) -> TensorBase:
         return input
 
     @torch.jit.script_method
@@ -90,7 +90,7 @@ class AndroidAPIModule(torch.jit.ScriptModule):
         return torch.tensor([int(input.item())])[0]
 
     @torch.jit.script_method
-    def testAliasWithOffset(self) -> List[Tensor]:
+    def testAliasWithOffset(self) -> List[TensorBase]:
         x = torch.tensor([100, 200])
         a = [x[0], x[1]]
         return a
@@ -104,7 +104,7 @@ class AndroidAPIModule(torch.jit.ScriptModule):
         return x
 
     @torch.jit.script_method
-    def conv2d(self, x: Tensor, w: Tensor, toChannelsLast: bool) -> Tensor:
+    def conv2d(self, x: TensorBase, w: TensorBase, toChannelsLast: bool) -> TensorBase:
         r = torch.nn.functional.conv2d(x, w)
         if toChannelsLast:
             r = r.contiguous(memory_format=torch.channels_last)
@@ -113,7 +113,7 @@ class AndroidAPIModule(torch.jit.ScriptModule):
         return r
 
     @torch.jit.script_method
-    def conv3d(self, x: Tensor, w: Tensor, toChannelsLast: bool) -> Tensor:
+    def conv3d(self, x: TensorBase, w: TensorBase, toChannelsLast: bool) -> TensorBase:
         r = torch.nn.functional.conv3d(x, w)
         if toChannelsLast:
             r = r.contiguous(memory_format=torch.channels_last_3d)
@@ -122,13 +122,13 @@ class AndroidAPIModule(torch.jit.ScriptModule):
         return r
 
     @torch.jit.script_method
-    def contiguous(self, x: Tensor) -> Tensor:
+    def contiguous(self, x: TensorBase) -> TensorBase:
         return x.contiguous()
 
     @torch.jit.script_method
-    def contiguousChannelsLast(self, x: Tensor) -> Tensor:
+    def contiguousChannelsLast(self, x: TensorBase) -> TensorBase:
         return x.contiguous(memory_format=torch.channels_last)
 
     @torch.jit.script_method
-    def contiguousChannelsLast3d(self, x: Tensor) -> Tensor:
+    def contiguousChannelsLast3d(self, x: TensorBase) -> TensorBase:
         return x.contiguous(memory_format=torch.channels_last_3d)

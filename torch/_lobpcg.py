@@ -1,12 +1,13 @@
 """Locally Optimal Block Preconditioned Conjugate Gradient methods.
 """
+
 # Author: Pearu Peterson
 # Created: February 2020
 
 from typing import Dict, Optional, Tuple
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 from . import _linalg_utils as _utils
 from .overrides import handle_torch_function, has_torch_function
 
@@ -258,12 +259,12 @@ class LOBPCGAutogradFunction(torch.autograd.Function):
     @staticmethod
     def forward(  # type: ignore[override]
         ctx,
-        A: Tensor,
+        A: TensorBase,
         k: Optional[int] = None,
-        B: Optional[Tensor] = None,
-        X: Optional[Tensor] = None,
+        B: Optional[TensorBase] = None,
+        X: Optional[TensorBase] = None,
         n: Optional[int] = None,
-        iK: Optional[Tensor] = None,
+        iK: Optional[TensorBase] = None,
         niter: Optional[int] = None,
         tol: Optional[float] = None,
         largest: Optional[bool] = None,
@@ -272,7 +273,7 @@ class LOBPCGAutogradFunction(torch.autograd.Function):
         ortho_iparams: Optional[Dict[str, int]] = None,
         ortho_fparams: Optional[Dict[str, float]] = None,
         ortho_bparams: Optional[Dict[str, bool]] = None,
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> Tuple[TensorBase, TensorBase]:
         # makes sure that input is contiguous for efficiency.
         # Note: autograd does not support dense gradients for sparse input yet.
         A = A.contiguous() if (not A.is_sparse) else A
@@ -344,12 +345,12 @@ class LOBPCGAutogradFunction(torch.autograd.Function):
 
 
 def lobpcg(
-    A: Tensor,
+    A: TensorBase,
     k: Optional[int] = None,
-    B: Optional[Tensor] = None,
-    X: Optional[Tensor] = None,
+    B: Optional[TensorBase] = None,
+    X: Optional[TensorBase] = None,
     n: Optional[int] = None,
-    iK: Optional[Tensor] = None,
+    iK: Optional[TensorBase] = None,
     niter: Optional[int] = None,
     tol: Optional[float] = None,
     largest: Optional[bool] = None,
@@ -358,7 +359,7 @@ def lobpcg(
     ortho_iparams: Optional[Dict[str, int]] = None,
     ortho_fparams: Optional[Dict[str, float]] = None,
     ortho_bparams: Optional[Dict[str, bool]] = None,
-) -> Tuple[Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase]:
     """Find the k largest (or smallest) eigenvalues and the corresponding
     eigenvectors of a symmetric positive definite generalized
     eigenvalue problem using matrix-free LOBPCG methods.
@@ -506,7 +507,7 @@ def lobpcg(
     if not torch.jit.is_scripting():
         tensor_ops = (A, B, X, iK)
         if not set(map(type, tensor_ops)).issubset(
-            (torch.Tensor, type(None))
+            (torch.TensorBase, type(None))
         ) and has_torch_function(tensor_ops):
             return handle_torch_function(
                 lobpcg,
@@ -581,12 +582,12 @@ def lobpcg(
 
 
 def _lobpcg(
-    A: Tensor,
+    A: TensorBase,
     k: Optional[int] = None,
-    B: Optional[Tensor] = None,
-    X: Optional[Tensor] = None,
+    B: Optional[TensorBase] = None,
+    X: Optional[TensorBase] = None,
     n: Optional[int] = None,
-    iK: Optional[Tensor] = None,
+    iK: Optional[TensorBase] = None,
     niter: Optional[int] = None,
     tol: Optional[float] = None,
     largest: Optional[bool] = None,
@@ -595,7 +596,7 @@ def _lobpcg(
     ortho_iparams: Optional[Dict[str, int]] = None,
     ortho_fparams: Optional[Dict[str, float]] = None,
     ortho_bparams: Optional[Dict[str, bool]] = None,
-) -> Tuple[Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase]:
     # A must be square:
     assert A.shape[-2] == A.shape[-1], A.shape
     if B is not None:
@@ -694,10 +695,10 @@ class LOBPCG:
 
     def __init__(
         self,
-        A: Optional[Tensor],
-        B: Optional[Tensor],
-        X: Tensor,
-        iK: Optional[Tensor],
+        A: Optional[TensorBase],
+        B: Optional[TensorBase],
+        X: TensorBase,
+        iK: Optional[TensorBase],
         iparams: Dict[str, int],
         fparams: Dict[str, float],
         bparams: Dict[str, bool],
@@ -721,7 +722,7 @@ class LOBPCG:
         self.E = torch.zeros((n,), dtype=X.dtype, device=X.device)
         self.R = torch.zeros((m, n), dtype=X.dtype, device=X.device)
         self.S = torch.zeros((m, 3 * n), dtype=X.dtype, device=X.device)
-        self.tvars: Dict[str, Tensor] = {}
+        self.tvars: Dict[str, TensorBase] = {}
         self.ivars: Dict[str, int] = {"istep": 0}
         self.fvars: Dict[str, float] = {"_": 0.0}
         self.bvars: Dict[str, bool] = {"_": False}
@@ -997,8 +998,8 @@ class LOBPCG:
         )
 
     def _get_svqb(
-        self, U: Tensor, drop: bool, tau: float  # Tensor  # bool  # float
-    ) -> Tensor:
+        self, U: TensorBase, drop: bool, tau: float  # Tensor  # bool  # float
+    ) -> TensorBase:
         """Return B-orthonormal U.
 
         .. note:: When `drop` is `False` then `svqb` is based on the

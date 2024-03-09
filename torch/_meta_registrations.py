@@ -5,7 +5,7 @@ from typing import List, Optional, Sequence, Tuple, Union
 
 import torch
 import torch._prims_common as utils
-from torch import SymBool, SymFloat, Tensor
+from torch import SymBool, SymFloat, TensorBase
 from torch._decomp import (
     _add_op_to_registry,
     _convert_out_params,
@@ -103,12 +103,12 @@ def meta_linspace_logspace(
     pin_memory=False,
     requires_grad=False,
 ):
-    if isinstance(start, torch.Tensor):
+    if isinstance(start, torch.TensorBase):
         torch._check(
             start.dim() == 0,
             lambda: "linspace only supports 0-dimensional start and end tensors",
         )
-    if isinstance(end, torch.Tensor):
+    if isinstance(end, torch.TensorBase):
         torch._check(
             end.dim() == 0,
             lambda: "linspace only supports 0-dimensional start and end tensors",
@@ -370,7 +370,7 @@ def meta_copy_(self, src, non_blocking=False):
             "more than one element of the written-to tensor refers to a single memory location"
         )
 
-    if isinstance(src, Tensor):
+    if isinstance(src, TensorBase):
         intermediate = src.to(self, non_blocking)
         if self.size() != intermediate.size():
             aten.expand_copy.default(intermediate, self.size())
@@ -396,10 +396,10 @@ def meta_unsqueeze_(self, dim):
 
 @register_meta(aten._sparse_semi_structured_linear)
 def meta_sparse_structured_linear(
-    input: Tensor,
-    weight: Tensor,
-    _meta: Tensor,
-    bias: Optional[Tensor] = None,
+    input: TensorBase,
+    weight: TensorBase,
+    _meta: TensorBase,
+    bias: Optional[TensorBase] = None,
     _activation_opt: Optional[str] = None,
     out_dtype: Optional[torch.dtype] = None,
 ):
@@ -430,10 +430,10 @@ def meta_sparse_structured_linear(
 
 @register_meta(aten._cslt_sparse_mm)
 def meta__cslt_sparse_mm(
-    compressed_A: torch.Tensor,
-    dense_B: torch.Tensor,
-    bias: Optional[Tensor] = None,
-    alpha: Optional[Tensor] = None,
+    compressed_A: torch.TensorBase,
+    dense_B: torch.TensorBase,
+    bias: Optional[TensorBase] = None,
+    alpha: Optional[TensorBase] = None,
     out_dtype: Optional[torch.dtype] = None,
     transpose_result: bool = False,
 ):
@@ -467,27 +467,27 @@ def meta__cslt_sparse_mm(
 
 @register_meta(aten.index_reduce.default)
 def meta_index_reduce(
-    self: Tensor,
+    self: TensorBase,
     dim: int,
-    index: Tensor,
-    source: torch.Tensor,
+    index: TensorBase,
+    source: torch.TensorBase,
     reduce: str,
     *,
     include_self: bool = True,
-) -> Tensor:
+) -> TensorBase:
     return torch.empty_like(self, memory_format=torch.contiguous_format)
 
 
 @register_meta(aten.index_reduce_.default)
 def meta_index_reduce_(
-    self: Tensor,
+    self: TensorBase,
     dim: int,
-    index: Tensor,
-    source: torch.Tensor,
+    index: TensorBase,
+    source: torch.TensorBase,
     reduce: str,
     *,
     include_self: bool = True,
-) -> Tensor:
+) -> TensorBase:
     return self
 
 
@@ -503,16 +503,16 @@ def meta_index_select(self, dim, index):
 
 @register_meta(aten.segment_reduce.default)
 def meta_segment_reduce(
-    data: Tensor,
+    data: TensorBase,
     reduce: str,
     *,
-    lengths: Optional[Tensor] = None,
-    indices: Optional[Tensor] = None,
-    offsets: Optional[Tensor] = None,
+    lengths: Optional[TensorBase] = None,
+    indices: Optional[TensorBase] = None,
+    offsets: Optional[TensorBase] = None,
     axis: int = 0,
     unsafe: bool = False,
     initial=None,
-) -> Tensor:
+) -> TensorBase:
     if indices is not None:
         raise NotImplementedError(
             "segment_reduce(): indices based reduction is not supported yet."
@@ -652,7 +652,7 @@ def functional_assert_async_meta(val, assert_msg, dep_token):
 
 
 # From aten/src/ATen/native/LinearAlgebraUtils.h
-def squareCheckInputs(self: Tensor, f_name: str):
+def squareCheckInputs(self: TensorBase, f_name: str):
     assert (
         self.dim() >= 2
     ), f"{f_name}: The input tensor must have at least 2 dimensions."
@@ -665,8 +665,8 @@ def squareCheckInputs(self: Tensor, f_name: str):
 # for linear solve methods (solve, cholesky_solve, lu_solve, triangular_solve)
 # From aten/src/ATen/native/LinearAlgebraUtils.h
 def linearSolveCheckInputs(
-    self: Tensor,
-    A: Tensor,
+    self: TensorBase,
+    A: TensorBase,
     name: str,
 ):
     torch._check(
@@ -705,7 +705,7 @@ def linearSolveCheckInputs(
 
 # From aten/src/ATen/native/LinearAlgebraUtils.h
 def checkFloatingOrComplex(
-    t: Tensor, f_name: str, allow_low_precision_dtypes: bool = True
+    t: TensorBase, f_name: str, allow_low_precision_dtypes: bool = True
 ):
     dtype = t.dtype
     torch._check(
@@ -720,7 +720,7 @@ def checkFloatingOrComplex(
 
 
 # From aten/src/ATen/native/LinearAlgebraUtils.h
-def checkIsMatrix(A: Tensor, f_name: str, arg_name: str = "A"):
+def checkIsMatrix(A: TensorBase, f_name: str, arg_name: str = "A"):
     torch._check(
         A.dim() >= 2,
         lambda: f"{f_name}: The input tensor {arg_name} must have at least 2 dimensions.",
@@ -728,8 +728,8 @@ def checkIsMatrix(A: Tensor, f_name: str, arg_name: str = "A"):
 
 
 def checkInputsSolver(
-    A: Tensor,
-    B: Tensor,
+    A: TensorBase,
+    B: TensorBase,
     left: bool,
     f_name: str,
 ):
@@ -746,7 +746,7 @@ def checkInputsSolver(
 
 
 def checkSameDevice(
-    fn_name: str, result: Tensor, input: Tensor, result_name: str = "result"
+    fn_name: str, result: TensorBase, input: TensorBase, result_name: str = "result"
 ):
     torch._check(
         result.device == input.device,
@@ -768,7 +768,7 @@ def checkUplo(UPLO: str):
 @register_meta([aten._linalg_eigh.default, aten._linalg_eigh.eigenvalues])
 @out_wrapper("eigenvalues", "eigenvectors")
 def meta__linalg_eigh(
-    A: Tensor,
+    A: TensorBase,
     UPLO: str = "L",
     compute_v: bool = True,
 ):
@@ -790,7 +790,7 @@ def meta__linalg_eigh(
 
 @register_meta([aten._linalg_eigvals.default, aten.linalg_eigvals.out])
 @out_wrapper()
-def meta__linalg_eigvals(input: Tensor) -> Tensor:
+def meta__linalg_eigvals(input: TensorBase) -> TensorBase:
     squareCheckInputs(input, "linalg.eigvals")
     complex_dtype = (
         input.dtype
@@ -802,7 +802,7 @@ def meta__linalg_eigvals(input: Tensor) -> Tensor:
 
 @register_meta([aten.linalg_eig])
 @out_wrapper("eigenvalues", "eigenvectors")
-def meta_linalg_eig(input: Tensor):
+def meta_linalg_eig(input: TensorBase):
     squareCheckInputs(input, "linalg.eig")
     complex_dtype = (
         input.dtype
@@ -814,19 +814,19 @@ def meta_linalg_eig(input: Tensor):
     return values, vectors
 
 
-def cloneBatchedColumnMajor(src: Tensor) -> Tensor:
+def cloneBatchedColumnMajor(src: TensorBase) -> TensorBase:
     return src.mT.clone(memory_format=torch.contiguous_format).transpose(-2, -1)
 
 
 @register_meta(aten._cholesky_solve_helper)
 @out_wrapper()
-def _cholesky_solve_helper(self: Tensor, A: Tensor, upper: bool) -> Tensor:
+def _cholesky_solve_helper(self: TensorBase, A: TensorBase, upper: bool) -> TensorBase:
     return cloneBatchedColumnMajor(self)
 
 
 @register_meta(aten.cholesky_solve)
 @out_wrapper()
-def cholesky_solve(self: Tensor, A: Tensor, upper: bool = False) -> Tensor:
+def cholesky_solve(self: TensorBase, A: TensorBase, upper: bool = False) -> TensorBase:
     torch._check(
         self.ndim >= 2,
         lambda: f"b should have at least 2 dimensions, but has {self.ndim} dimensions instead",
@@ -843,7 +843,7 @@ def cholesky_solve(self: Tensor, A: Tensor, upper: bool = False) -> Tensor:
 
 @register_meta(aten.cholesky)
 @out_wrapper()
-def cholesky(self: Tensor, upper: bool = False) -> Tensor:
+def cholesky(self: TensorBase, upper: bool = False) -> TensorBase:
     if self.numel() == 0:
         return torch.empty_like(self, memory_format=torch.legacy_contiguous_format)
     squareCheckInputs(self, "cholesky")
@@ -852,14 +852,14 @@ def cholesky(self: Tensor, upper: bool = False) -> Tensor:
 
 @register_meta(aten.cholesky_inverse)
 @out_wrapper()
-def cholesky_inverse(self: Tensor, upper: bool = False) -> Tensor:
+def cholesky_inverse(self: TensorBase, upper: bool = False) -> TensorBase:
     squareCheckInputs(self, "cholesky_inverse")
     return cloneBatchedColumnMajor(self)
 
 
 # From aten/src/ATen/native/BatchLinearAlgebra.cpp
 @register_meta(aten.linalg_cholesky_ex.default)
-def linalg_cholesky_ex(A: Tensor, upper: bool = False, check_errors: bool = False):
+def linalg_cholesky_ex(A: TensorBase, upper: bool = False, check_errors: bool = False):
     squareCheckInputs(A, "linalg.cholesky")
     checkFloatingOrComplex(A, "linalg.cholesky")
 
@@ -880,7 +880,7 @@ def linalg_cholesky_ex(A: Tensor, upper: bool = False, check_errors: bool = Fals
     [aten.linalg_householder_product.default, aten.linalg_householder_product.out]
 )
 @out_wrapper()
-def linalg_householder_product(input: Tensor, tau: Tensor) -> Tensor:
+def linalg_householder_product(input: TensorBase, tau: TensorBase) -> TensorBase:
     torch._check(
         input.ndim >= 2,
         lambda: "torch.linalg.householder_product: input must have at least 2 dimensions.",
@@ -931,7 +931,7 @@ def linalg_householder_product(input: Tensor, tau: Tensor) -> Tensor:
 
 # From aten/src/ATen/native/BatchLinearAlgebra.cpp
 @register_meta(aten.linalg_inv_ex.default)
-def linalg_inv_ex_meta(A: Tensor, check_errors: bool = False):
+def linalg_inv_ex_meta(A: TensorBase, check_errors: bool = False):
     squareCheckInputs(A, "linalg.inv_ex")
     checkFloatingOrComplex(A, "linalg.inv_ex", allow_low_precision_dtypes=False)
 
@@ -945,11 +945,11 @@ def linalg_inv_ex_meta(A: Tensor, check_errors: bool = False):
 @register_meta([aten.linalg_ldl_factor_ex.default, aten.linalg_ldl_factor_ex.out])
 @out_wrapper("LD", "pivots", "info")
 def linalg_ldl_factor_ex_meta(
-    self: Tensor,
+    self: TensorBase,
     *,
     hermitian: bool = False,
     check_errors: bool = False,
-) -> Tuple[Tensor, Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase, TensorBase]:
     squareCheckInputs(self, "torch.linalg.ldl_factor_ex")
     checkFloatingOrComplex(self, "torch.linalg.ldl_factor_ex")
     LD = torch.empty_strided(
@@ -966,8 +966,8 @@ def linalg_ldl_factor_ex_meta(
 @register_meta([aten.linalg_ldl_solve.default, aten.linalg_ldl_solve.out])
 @out_wrapper()
 def linalg_ldl_solve_meta(
-    LD: Tensor, pivots: Tensor, B: Tensor, *, hermitian: bool = False
-) -> Tensor:
+    LD: TensorBase, pivots: TensorBase, B: TensorBase, *, hermitian: bool = False
+) -> TensorBase:
     squareCheckInputs(LD, "torch.linalg.ldl_solve")
     checkFloatingOrComplex(LD, "torch.linalg.ldl_solve")
     linearSolveCheckInputs(B, LD, "torch.linalg.ldl_solve")
@@ -1005,7 +1005,9 @@ def linalg_ldl_solve_meta(
 
 @register_meta([aten.linalg_lu.default, aten.linalg_lu.out])
 @out_wrapper("P", "L", "U")
-def linalg_lu_meta(A: Tensor, *, pivot: bool = True) -> Tuple[Tensor, Tensor, Tensor]:
+def linalg_lu_meta(
+    A: TensorBase, *, pivot: bool = True
+) -> Tuple[TensorBase, TensorBase, TensorBase]:
     torch._check(
         A.ndim >= 2,
         lambda: f"linalg.lu: Expected tensor with 2 or more dimensions. Got size: {A.shape} instead",
@@ -1034,8 +1036,8 @@ def linalg_lu_meta(A: Tensor, *, pivot: bool = True) -> Tuple[Tensor, Tensor, Te
 @register_meta([aten.linalg_lu_factor_ex.default, aten.linalg_lu_factor_ex.out])
 @out_wrapper("LU", "pivots", "info")
 def linalg_lu_factor_ex_meta(
-    A: Tensor, *, pivot: bool = True, check_errors: bool = False
-) -> Tuple[Tensor, Tensor, Tensor]:
+    A: TensorBase, *, pivot: bool = True, check_errors: bool = False
+) -> Tuple[TensorBase, TensorBase, TensorBase]:
     torch._check(
         A.ndim >= 2,
         lambda: f"torch.lu_factor: Expected tensor with 2 or more dimensions. Got size: {A.shape} instead",
@@ -1067,13 +1069,13 @@ def linalg_lu_factor_ex_meta(
 @register_meta([aten.linalg_lu_solve.default, aten.linalg_lu_solve.out])
 @out_wrapper()
 def linalg_lu_solve_meta(
-    LU: Tensor,
-    pivots: Tensor,
-    B: Tensor,
+    LU: TensorBase,
+    pivots: TensorBase,
+    B: TensorBase,
     *,
     left: bool = True,
     adjoint: bool = False,
-) -> Tensor:
+) -> TensorBase:
     # dtype
     checkFloatingOrComplex(LU, "torch.linalg.lu_solve")
     torch._check(
@@ -1124,11 +1126,11 @@ def linalg_lu_solve_meta(
 @register_meta(aten.lu_unpack)
 @out_wrapper("P", "L", "U")
 def lu_unpack_meta(
-    LU: Tensor,
-    pivots: Tensor,
+    LU: TensorBase,
+    pivots: TensorBase,
     unpack_data: bool = True,
     unpack_pivots: bool = True,
-) -> Tuple[Tensor, Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase, TensorBase]:
     torch._check(
         LU.ndim >= 2,
         lambda: f"torch.lu_unpack: Expected tensor with 2 or more dimensions. Got size: {LU.shape} instead",
@@ -1187,9 +1189,9 @@ def _parse_qr_mode(mode: str) -> Tuple[bool, bool]:
 @register_meta([aten.linalg_qr.default, aten.linalg_qr.out])
 @out_wrapper("Q", "R")
 def linalg_qr_meta(
-    A: Tensor,
+    A: TensorBase,
     mode: str = "reduced",
-) -> Tuple[Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase]:
     checkIsMatrix(A, "linalg.qr")
     checkFloatingOrComplex(A, "linalg.qr")
 
@@ -1217,7 +1219,9 @@ def linalg_qr_meta(
 
 @register_meta([aten._linalg_slogdet.default, aten._linalg_slogdet.sign])
 @out_wrapper("sign", "logabsdet", "LU", "pivots")
-def _linalg_slogdet(A: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+def _linalg_slogdet(
+    A: TensorBase,
+) -> Tuple[TensorBase, TensorBase, TensorBase, TensorBase]:
     squareCheckInputs(A, "linalg.slogdet")
     checkFloatingOrComplex(A, "linalg.slogdet", False)
     shape = A.shape
@@ -1237,7 +1241,7 @@ def _linalg_slogdet(A: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
 # NOTE: matching defaults in aten/src/ATen/native/native_functions.yaml
 @register_meta(aten._linalg_svd.default)
 def _linalg_svd_meta(
-    A: Tensor,
+    A: TensorBase,
     full_matrices: bool = False,
     compute_uv: bool = True,
     driver: Optional[str] = None,
@@ -1274,7 +1278,7 @@ def _linalg_svd_meta(
 
 
 def _linalg_broadcast_batch_dims(
-    arg1: Tensor, arg2: Tensor
+    arg1: TensorBase, arg2: TensorBase
 ) -> Tuple[List[int], List[int]]:
     # broadcast the batch dimensions of arg1 and arg2.
     arg1_batch_sizes = arg1.shape[:-2]
@@ -1290,8 +1294,8 @@ def _linalg_broadcast_batch_dims(
 
 
 def _linalg_broadcast_batch_dims_name(
-    arg1: Tensor, arg2: Tensor, name: Optional[str]
-) -> Tuple[Tensor, Tensor]:
+    arg1: TensorBase, arg2: TensorBase, name: Optional[str]
+) -> Tuple[TensorBase, TensorBase]:
     # If there's no name we assume we don't want to check the errors
     if name:
         linearSolveCheckInputs(arg1, arg2, name)
@@ -1307,7 +1311,7 @@ def _linalg_broadcast_batch_dims_name(
     return arg1_broadcasted, arg2_broadcasted
 
 
-def linalg_solve_is_vector_rhs(input: Tensor, other: Tensor) -> bool:
+def linalg_solve_is_vector_rhs(input: TensorBase, other: TensorBase) -> bool:
     expected_batched_rhs_shape = input.shape[:-1]
     vector_case = other.ndim == 1 or (
         input.ndim - 1 == other.ndim and other.shape == expected_batched_rhs_shape
@@ -1317,16 +1321,16 @@ def linalg_solve_is_vector_rhs(input: Tensor, other: Tensor) -> bool:
 
 @register_meta(aten._linalg_solve_ex)
 def _linalg_solve_ex(
-    A: Tensor,
-    B: Tensor,
+    A: TensorBase,
+    B: TensorBase,
     *,
     left: bool = True,
     check_errors: bool = False,
-    result: Optional[Tensor] = None,
-    LU: Optional[Tensor] = None,
-    pivots: Optional[Tensor] = None,
-    info: Optional[Tensor] = None,
-) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+    result: Optional[TensorBase] = None,
+    LU: Optional[TensorBase] = None,
+    pivots: Optional[TensorBase] = None,
+    info: Optional[TensorBase] = None,
+) -> Tuple[TensorBase, TensorBase, TensorBase, TensorBase]:
     checkFloatingOrComplex(A, "linalg.solve")
     torch._check(
         A.dtype == B.dtype,
@@ -1377,14 +1381,14 @@ def _linalg_solve_ex(
 
 @register_meta([aten.linalg_solve_triangular.default, aten.linalg_solve_triangular.out])
 def linalg_solve_triangular_meta(
-    A: Tensor,
-    B: Tensor,
+    A: TensorBase,
+    B: TensorBase,
     *,
     upper: bool,
     left: bool = True,
     unitriangular: bool = False,
-    out: Optional[Tensor] = None,
-) -> Tensor:
+    out: Optional[TensorBase] = None,
+) -> TensorBase:
     if out is None:
         out = A.new_empty([0])
     assert isinstance(out, TensorLike)
@@ -1404,12 +1408,12 @@ def linalg_solve_triangular_meta(
 @register_meta(aten.triangular_solve)
 @out_wrapper("solution", "cloned_coefficient")
 def triangular_solve_meta(
-    self: Tensor,
-    A: Tensor,
+    self: TensorBase,
+    A: TensorBase,
     upper: bool = True,
     transpose: bool = False,
     unitriangular: bool = False,
-) -> Tuple[Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase]:
     torch._check(
         self.ndim >= 2,
         lambda: (
@@ -1467,12 +1471,12 @@ def _linalg_det_meta(A):
 @register_meta(aten.ormqr)
 @out_wrapper()
 def ormqr(
-    input: Tensor,
-    tau: Tensor,
-    other: Tensor,
+    input: TensorBase,
+    tau: TensorBase,
+    other: TensorBase,
     left: bool = True,
     transpose: bool = False,
-) -> Tensor:
+) -> TensorBase:
     torch._check(
         input.ndim >= 2, lambda: "torch.ormqr: input must have at least 2 dimensions."
     )
@@ -1910,7 +1914,7 @@ def meta_pad3d_backward(grad_output, input, padding):
 
 @register_meta(aten._pdist_forward)
 @out_wrapper()
-def meta__pdist_forward(self: Tensor, p: float = 2) -> Tensor:
+def meta__pdist_forward(self: TensorBase, p: float = 2) -> TensorBase:
     torch._check(
         self.is_contiguous(), lambda: "_pdist_forward requires contiguous input"
     )
@@ -1925,7 +1929,9 @@ def meta__pdist_forward(self: Tensor, p: float = 2) -> Tensor:
 
 @register_meta(aten._pdist_backward)
 @out_wrapper()
-def meta__pdist_backward(grad: Tensor, self: Tensor, p: float, pdist: Tensor) -> Tensor:
+def meta__pdist_backward(
+    grad: TensorBase, self: TensorBase, p: float, pdist: TensorBase
+) -> TensorBase:
     torch._check(
         self.is_contiguous(), lambda: "_pdist_backward requires self to be contiguous"
     )
@@ -2037,8 +2043,8 @@ def device_hint(tensor) -> "str":
 
 
 def calc_conv_nd_return_shape(
-    input_tensor: torch.Tensor,
-    weight: torch.Tensor,
+    input_tensor: torch.TensorBase,
+    weight: torch.TensorBase,
     stride: Union[List[int], int],
     padding: Union[List[int], int],
     dilation: Union[List[int], int],
@@ -2143,9 +2149,9 @@ def is_channels_last(ten):
 
 @register_meta(aten.convolution.default)
 def meta_conv(
-    input_tensor: torch.Tensor,
-    weight: torch.Tensor,
-    bias: torch.Tensor,
+    input_tensor: torch.TensorBase,
+    weight: torch.TensorBase,
+    bias: torch.TensorBase,
     stride: List[int],
     padding: List[int],
     dilation: List[int],
@@ -2759,7 +2765,7 @@ def meta__adaptive_avg_pool3d_backward(grad_output, self):
     return torch.empty_like(self, memory_format=torch.legacy_contiguous_format)
 
 
-def _adaptive_pool_empty_output_check(grad_output: Tensor, arg_name: str):
+def _adaptive_pool_empty_output_check(grad_output: TensorBase, arg_name: str):
     ndim = grad_output.ndim
     for i in range(1, ndim):
         torch._check(
@@ -2917,7 +2923,7 @@ def meta_index_Tensor(self, indices):
     torch._check(bool(indices), lambda: "at least one index must be provided")
     # aten::index is the internal advanced indexing implementation
     # checkIndexTensorTypes and expandTensors
-    result: List[Optional[Tensor]] = []
+    result: List[Optional[TensorBase]] = []
     for i, index in enumerate(indices):
         if index is not None:
             torch._check(
@@ -3154,7 +3160,7 @@ def _meta_foreach_out_of_place(*args, _scalar_op=None, **kwargs):
                     f"but got {nelem} and {len(arg)}."
                 ),
             )
-        elif isinstance(arg, Tensor):
+        elif isinstance(arg, TensorBase):
             torch._check(
                 arg.dim() == 0 and arg.numel() == 1,
                 lambda: (
@@ -3300,7 +3306,7 @@ def meta__foreach_addcop_scalar(self, tensor1, tensor2, scalar=1):
 def meta__foreach_addcop_tensor(self, tensor1, tensor2, scalars):
     torch._check(
         all(isinstance(l, List) for l in [self, tensor1, tensor2])
-        and isinstance(scalars, torch.Tensor),
+        and isinstance(scalars, torch.TensorBase),
         lambda: (
             "_foreach_addc*_ op expects arguments of type: List[Tensor], List[Tensor], List[Tensor], tensor, "
             f"but got: {type(self)}, {type(tensor1)}, {type(tensor2)}, and {type(scalars)}"
@@ -3733,7 +3739,7 @@ def meta_zero_(self):
     ],
 )
 def meta_binop_inplace(self, other):
-    if isinstance(other, torch.Tensor):
+    if isinstance(other, torch.TensorBase):
         check_inplace_broadcast(self.shape, other.shape)
     return self
 
@@ -3747,7 +3753,7 @@ def meta_binop_inplace(self, other):
     ],
 )
 def meta_binop_inplace_alpha(self, other, alpha=1):
-    if isinstance(other, torch.Tensor):
+    if isinstance(other, torch.TensorBase):
         check_inplace_broadcast(self.shape, other.shape)
     return self
 
@@ -3764,7 +3770,7 @@ def shift_dtype_check(fn_name, self, val):
         utils.is_integer_dtype(self.dtype),
         lambda: f"{fn_name}: Expected input tensor to have an integral dtype. Got {self.dtype}",
     )
-    if isinstance(val, torch.Tensor):
+    if isinstance(val, torch.TensorBase):
         torch._check(
             utils.is_integer_dtype(val.dtype),
             lambda: f"{fn_name}: Expected shift value to have an integral dtype. Got {val.dtype}",
@@ -4006,7 +4012,7 @@ def pool2d_shape_check(
 
 
 def pool3d_shape_check(
-    input: Tensor,
+    input: TensorBase,
     nslices: int,
     kT: int,
     kH: int,
@@ -4161,8 +4167,8 @@ def max_pool3d_backward_shape_check(
 
 
 def avg_pool3d_backward_shape_check(
-    input: Tensor,
-    grad_output: Tensor,
+    input: TensorBase,
+    grad_output: TensorBase,
     nslices: int,
     kT: int,
     kH: int,
@@ -4784,7 +4790,7 @@ def meta_max_pool3d_with_indices_backward(
     return grad_input
 
 
-def check_grid_sampler_common(input: Tensor, grid: Tensor):
+def check_grid_sampler_common(input: TensorBase, grid: TensorBase):
     torch._check(
         input.device == grid.device,
         lambda: (
@@ -4830,7 +4836,7 @@ class GridSamplerInterpolation(Enum):
     BICUBIC = 2
 
 
-def check_grid_sampler_3d(input: Tensor, grid: Tensor, interpolation_mode: int):
+def check_grid_sampler_3d(input: TensorBase, grid: TensorBase, interpolation_mode: int):
     torch._check(
         input.ndim == 5 and input.ndim == grid.ndim,
         lambda: (
@@ -5176,7 +5182,7 @@ def meta_scatter_add_(self, dim, index, src):
 )
 @out_wrapper()
 def meta_scatter(self, dim, index, src_or_value, reduce=None):
-    src = src_or_value if isinstance(src_or_value, torch.Tensor) else None
+    src = src_or_value if isinstance(src_or_value, torch.TensorBase) else None
     scatter_meta_impl(self, dim, index, src, reduce)
     return self.new_empty(self.shape)
 
@@ -5190,7 +5196,7 @@ def meta_scatter(self, dim, index, src_or_value, reduce=None):
     ]
 )
 def meta_scatter_(self, dim, index, src_or_value, reduce=None):
-    src = src_or_value if isinstance(src_or_value, torch.Tensor) else None
+    src = src_or_value if isinstance(src_or_value, torch.TensorBase) else None
     scatter_meta_impl(self, dim, index, src, reduce)
     return self
 
@@ -5201,20 +5207,20 @@ def meta_scatter_(self, dim, index, src_or_value, reduce=None):
     ]
 )
 def meta__scaled_dot_product_flash_backward(
-    grad_out: Tensor,
-    query: Tensor,
-    key: Tensor,
-    value: Tensor,
-    out: Tensor,
-    logsumexp: Tensor,
-    cum_seq_q: Tensor,
-    cum_seq_k: Tensor,
+    grad_out: TensorBase,
+    query: TensorBase,
+    key: TensorBase,
+    value: TensorBase,
+    out: TensorBase,
+    logsumexp: TensorBase,
+    cum_seq_q: TensorBase,
+    cum_seq_k: TensorBase,
     max_q: int,
     max_k: int,
     dropout_p: float,
     is_causal: bool,
-    philox_seed: Tensor,
-    philox_offset: Tensor,
+    philox_seed: TensorBase,
+    philox_offset: TensorBase,
     scale: Optional[float] = None,
 ):
     grad_q = torch.empty_like(query.transpose(1, 2)).transpose(1, 2)
@@ -5229,12 +5235,12 @@ def meta__scaled_dot_product_flash_backward(
     ]
 )
 def meta__scaled_dot_product_flash_attention_for_cpu(
-    query: Tensor,
-    key: Tensor,
-    value: Tensor,
+    query: TensorBase,
+    key: TensorBase,
+    value: TensorBase,
     dropout_p: float = 0.0,
     is_causal: bool = False,
-    attn_mask: Optional[Tensor] = None,
+    attn_mask: Optional[TensorBase] = None,
     scale: Optional[float] = None,
 ):
     batch_size = query.size(0)
@@ -5268,15 +5274,15 @@ def meta__scaled_dot_product_flash_attention_for_cpu(
     ]
 )
 def meta__scaled_dot_product_flash_attention_for_cpu_backward(
-    grad_out: Tensor,
-    query: Tensor,
-    key: Tensor,
-    value: Tensor,
-    out: Tensor,
-    logsumexp: Tensor,
+    grad_out: TensorBase,
+    query: TensorBase,
+    key: TensorBase,
+    value: TensorBase,
+    out: TensorBase,
+    logsumexp: TensorBase,
     dropout_p: float,
     is_causal: bool,
-    attn_mask: Optional[Tensor] = None,
+    attn_mask: Optional[TensorBase] = None,
     scale: Optional[float] = None,
 ):
     # cpus's grad layout is different from cuda's,
@@ -5315,15 +5321,15 @@ def meta__scaled_dot_product_flash_attention_for_cpu_backward(
     ]
 )
 def meta__scaled_dot_product_efficient_backward(
-    grad_out: Tensor,
-    query: Tensor,
-    key: Tensor,
-    value: Tensor,
-    attn_bias: Optional[Tensor],
-    out: Tensor,
-    logsumexp: Tensor,
-    philox_seed: Tensor,
-    philox_offset: Tensor,
+    grad_out: TensorBase,
+    query: TensorBase,
+    key: TensorBase,
+    value: TensorBase,
+    attn_bias: Optional[TensorBase],
+    out: TensorBase,
+    logsumexp: TensorBase,
+    philox_seed: TensorBase,
+    philox_offset: TensorBase,
     dropout_p: float,
     grad_input_mask: List[bool],
     is_causal: bool = False,
@@ -5375,20 +5381,20 @@ def meta__scaled_dot_product_efficient_backward(
     ]
 )
 def meta__flash_attention_backward(
-    grad_out: Tensor,
-    query: Tensor,
-    key: Tensor,
-    value: Tensor,
-    out: Tensor,
-    logsumexp: Tensor,
-    cum_seq_q: Tensor,
-    cum_seq_k: Tensor,
+    grad_out: TensorBase,
+    query: TensorBase,
+    key: TensorBase,
+    value: TensorBase,
+    out: TensorBase,
+    logsumexp: TensorBase,
+    cum_seq_q: TensorBase,
+    cum_seq_k: TensorBase,
     max_q: int,
     max_k: int,
     dropout_p: float,
     is_causal: bool,
-    philox_seed: Tensor,
-    philox_offset: Tensor,
+    philox_seed: TensorBase,
+    philox_offset: TensorBase,
     scale: Optional[float] = None,
 ):
     grad_query = torch.empty_like(query)
@@ -5404,19 +5410,19 @@ def meta__flash_attention_backward(
     ]
 )
 def meta__efficient_attention_backward(
-    grad_out: Tensor,
-    query: Tensor,
-    key: Tensor,
-    value: Tensor,
-    bias: Optional[Tensor],
-    cu_seqlens_q: Optional[Tensor],
-    cu_seqlens_k: Optional[Tensor],
+    grad_out: TensorBase,
+    query: TensorBase,
+    key: TensorBase,
+    value: TensorBase,
+    bias: Optional[TensorBase],
+    cu_seqlens_q: Optional[TensorBase],
+    cu_seqlens_k: Optional[TensorBase],
     max_seqlen_q: int,
     max_seqlen_k: int,
-    logsumexp: Tensor,
+    logsumexp: TensorBase,
     dropout_p: float,
-    philox_seed: Tensor,
-    philox_offset: Tensor,
+    philox_seed: TensorBase,
+    philox_offset: TensorBase,
     custom_mask_type: int,
     bias_requires_grad: bool,
     scale: Optional[float] = None,
@@ -5441,13 +5447,13 @@ def meta__efficient_attention_backward(
 
 @register_meta([aten._scaled_mm.default])
 def meta_scaled_mm(
-    self: torch.Tensor,
-    mat2: torch.Tensor,
-    bias: Optional[torch.Tensor] = None,
+    self: torch.TensorBase,
+    mat2: torch.TensorBase,
+    bias: Optional[torch.TensorBase] = None,
     out_dtype: Optional[torch.dtype] = None,
-    scale_a: Optional[torch.Tensor] = None,
-    scale_b: Optional[torch.Tensor] = None,
-    scale_result: Optional[torch.Tensor] = None,
+    scale_a: Optional[torch.TensorBase] = None,
+    scale_b: Optional[torch.TensorBase] = None,
+    scale_result: Optional[torch.TensorBase] = None,
     use_fast_accum: bool = False,
 ):
     def is_row_major(stride):
@@ -5598,7 +5604,7 @@ def upsample_nearest2d(input, output_size, scales_h=None, scales_w=None):
     ]
 )
 def upsample_nearest2d_backward(
-    grad_output: Tensor,
+    grad_output: TensorBase,
     output_size: Sequence[Union[int, torch.SymInt]],
     input_size: Sequence[Union[int, torch.SymInt]],
     scales_h: Optional[float] = None,
@@ -6087,7 +6093,7 @@ def meta_searchsorted(
     sorted_sequence, self, *, out_int32=False, right=False, side=None, sorter=None
 ):
     dtype = torch.int32 if out_int32 else torch.int64
-    if isinstance(self, torch.Tensor):
+    if isinstance(self, torch.TensorBase):
         return torch.empty_like(self, dtype=dtype).contiguous()
     else:  # Scalar
         return torch.empty((), dtype=dtype, device=sorted_sequence.device)
@@ -6104,13 +6110,13 @@ def _check_for_unsupported_isin_dtype(dtype):
 @out_wrapper()
 def meta_isin(elements, test_elements, *, assume_unique=False, invert=False):
     torch._check(
-        isinstance(elements, Tensor) or isinstance(test_elements, Tensor),
+        isinstance(elements, TensorBase) or isinstance(test_elements, TensorBase),
         lambda: "At least one of elements and test_elements must be a Tensor.",
     )
-    if not isinstance(elements, Tensor):
+    if not isinstance(elements, TensorBase):
         elements = torch.tensor(elements, device=test_elements.device)
 
-    if not isinstance(test_elements, Tensor):
+    if not isinstance(test_elements, TensorBase):
         test_elements = torch.tensor(test_elements, device=elements.device)
 
     _check_for_unsupported_isin_dtype(elements.dtype)
@@ -6120,7 +6126,7 @@ def meta_isin(elements, test_elements, *, assume_unique=False, invert=False):
 
 @register_meta(aten.polygamma)
 @out_wrapper()
-def meta_polygamma(n: int, self: Tensor) -> Tensor:
+def meta_polygamma(n: int, self: TensorBase) -> TensorBase:
     torch._check(n >= 0, lambda: "polygamma(n, x) does not support negative n.")
     _, result_dtype = elementwise_dtypes(
         self,

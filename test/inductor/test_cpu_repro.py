@@ -509,7 +509,7 @@ class CPUReproTests(TestCase):
         hid_0 = torch.rand(num_layers * num_direc, batch_size, hidden_dim)
         hid_1 = torch.randn(num_layers * num_direc, batch_size, hidden_dim)
 
-        sent_lens = torch.Tensor(
+        sent_lens = torch.TensorBase(
             [1, 2, 3, 4, 5, 1, 3, 2, 96, 5, 3, 1, 1, 2, 1, 2, 3, 6, 1, 2, 4, 6, 2, 1]
         )
 
@@ -598,7 +598,7 @@ class CPUReproTests(TestCase):
             out = torch.relu(input=out)
             return out
 
-        x = torch.Tensor([-572373.5000, 755109.1250, 330995.5625])
+        x = torch.TensorBase([-572373.5000, 755109.1250, 330995.5625])
         with torch.no_grad():
             self.common(
                 fn,
@@ -612,7 +612,7 @@ class CPUReproTests(TestCase):
             out = torch.acosh(input)
             return out
 
-        x = torch.Tensor(
+        x = torch.TensorBase(
             [
                 [
                     -8493.9854,
@@ -826,11 +826,11 @@ class CPUReproTests(TestCase):
                     window_overlap * 2 + 1,
                 )
             )
-            diagonal_attention_scores[
-                :, :3, :, window_overlap:
-            ] = diagonal_chunked_attention_scores[
-                :, :, :window_overlap, : window_overlap + 1
-            ]
+            diagonal_attention_scores[:, :3, :, window_overlap:] = (
+                diagonal_chunked_attention_scores[
+                    :, :, :window_overlap, : window_overlap + 1
+                ]
+            )
             return diagonal_attention_scores
 
         self.common(
@@ -1961,13 +1961,13 @@ class CPUReproTests(TestCase):
     @patch("torch.cuda.is_available", lambda: False)
     def test_vec_logical(self):
         def wrap_fn1(op: Callable):
-            def fn(x: torch.Tensor):
+            def fn(x: torch.TensorBase):
                 return torch.where(op(x), 1.0, 0.0)
 
             return fn
 
         def wrap_fn2(op: Callable):
-            def fn(x: torch.Tensor, y: torch.Tensor):
+            def fn(x: torch.TensorBase, y: torch.TensorBase):
                 return torch.where(op(x, y), 1.0, 0.0)
 
             return fn
@@ -2070,7 +2070,7 @@ class CPUReproTests(TestCase):
                 ):
                     super().__init__()
 
-                def forward(self, v1: torch.Tensor):
+                def forward(self, v1: torch.TensorBase):
                     vx = v1.min(dim=1).values
                     v2 = torch.randn_like(vx)
                     return v2
@@ -2468,10 +2468,10 @@ class CPUReproTests(TestCase):
             return torch.argmin(x)
 
         inputs = [
-            torch.Tensor([-755832.1250, 100]),
-            torch.Tensor([-755832.1250, 100, 200]),
-            torch.Tensor([100, -755832.1250]),
-            torch.Tensor([100, 200, -755832.1250]),
+            torch.TensorBase([-755832.1250, 100]),
+            torch.TensorBase([-755832.1250, 100, 200]),
+            torch.TensorBase([100, -755832.1250]),
+            torch.TensorBase([100, 200, -755832.1250]),
         ]
 
         for x in inputs:
@@ -2806,7 +2806,7 @@ class CPUReproTests(TestCase):
 
     def test_ir_node_str(self):
         @torch.compile
-        def fn(x: torch.Tensor) -> torch.Tensor:
+        def fn(x: torch.TensorBase) -> torch.TensorBase:
             return x.sin(), torch.nn.Softmax(dim=1)(x.cos())
 
         def run_node_alt(*args, **kwargs):
@@ -3033,7 +3033,7 @@ class CPUReproTests(TestCase):
                 self.key = torch.nn.Linear(hidden_size, hidden_size)
                 self.value = torch.nn.Linear(hidden_size, hidden_size)
                 self.inv_scale = torch.nn.Parameter(
-                    torch.Tensor([1 / self.head_size**0.5]), requires_grad=False
+                    torch.TensorBase([1 / self.head_size**0.5]), requires_grad=False
                 )
 
             def forward(self, x):

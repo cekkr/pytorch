@@ -21,7 +21,7 @@ class CollectTracepointsPass(PassBase):
     def call(self, gm):
         def get_arg_spec(arg):
             if isinstance(arg, torch.fx.Node):
-                if isinstance(arg.meta.get("val"), torch.Tensor):
+                if isinstance(arg.meta.get("val"), torch.TensorBase):
                     return TensorArgument(name=arg.name)
                 else:
                     raise AssertionError(

@@ -57,7 +57,7 @@ class TestNNAPI(TestCase):
         trace_args=None,
         convert_args=None,
         atol_rtol=None,
-        limit=None,
+        limit=None,Tensor
         expected_memory_format=None,
     ):
         with torch.no_grad():
@@ -668,7 +668,7 @@ class TestNNAPI(TestCase):
                     mod(),
                     [
                         qpt([[1.0, 2.0]], 0.25, 128),
-                        qpt([[3.0, 4.0]], 0.25, 128),
+                        qpt([[3.0, 4.0]], 0.25, 128),TensorTensor
                     ],
                     convert_args=[
                         qpt(torch.zeros((1, 2)), 0.25, 128),

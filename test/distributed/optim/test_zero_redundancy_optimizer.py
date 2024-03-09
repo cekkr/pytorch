@@ -47,6 +47,7 @@ try:
 except ImportError:
     HAS_TORCHVISION = False
 
+
 # Use GLOO on GPU when running CUDA + Windows
 def _get_backend_for_tests():
     return (
@@ -725,7 +726,8 @@ class TestZeroRedundancyOptimizerDistributed(TestZeroRedundancyOptimizer):
             common_distributed.logger.info(
                 "Skipping `test_nondefault_process_group()` since world size "
                 "of %s is less than %s",
-                self.world_size, MIN_WORLD_SIZE
+                self.world_size,
+                MIN_WORLD_SIZE,
             )
             return
         BACKEND = dist.Backend.GLOO
@@ -910,11 +912,11 @@ class TestZeroRedundancyOptimizerDistributed(TestZeroRedundancyOptimizer):
                     return sharded_loss
 
                 loss_ddp = cast(
-                    torch.Tensor,
+                    torch.TensorBase,
                     ddp_optimizer.step(closure=closure_ddp),
                 )
                 loss_sharded_optim = cast(
-                    torch.Tensor,
+                    torch.TensorBase,
                     sharded_optimizer.step(closure=closure_sharded),
                 )
                 torch.testing.assert_close(
@@ -1202,8 +1204,10 @@ class TestZeroRedundancyOptimizerDistributed(TestZeroRedundancyOptimizer):
                     ddp_loss.backward()
                     return ddp_loss
 
-                local_loss = cast(torch.Tensor, local_optim.step(closure=closure_local))
-                ddp_loss = cast(torch.Tensor, zero_optim.step(closure=closure_ddp))
+                local_loss = cast(
+                    torch.TensorBase, local_optim.step(closure=closure_local)
+                )
+                ddp_loss = cast(torch.TensorBase, zero_optim.step(closure=closure_ddp))
 
                 # Increased tolerances are needed to pass when using TF32
                 # See: https://github.com/pytorch/pytorch/issues/67764
@@ -1275,7 +1279,7 @@ class TestZeroRedundancyOptimizerDistributed(TestZeroRedundancyOptimizer):
                     [torch.randn(1, 3, 3, 1000).to(device) for _ in range(NUM_INPUTS)],
                 )
             )
-        for (model, inputs) in models_to_test:
+        for model, inputs in models_to_test:
             # Enable determinism in cudnn operators
             with torch.backends.cudnn.flags(
                 enabled=True, deterministic=True, benchmark=False

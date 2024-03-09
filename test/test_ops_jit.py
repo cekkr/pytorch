@@ -60,7 +60,7 @@ class TestJit(JitCommonTestCase):
             torch.device(device).type
         )
 
-        include_conjugated_inputs = op.test_conjugated_samples and dtype.is_complex
+        include_conjugated_inputs = op.test_conjTensorples and dtype.is_complex
         samples = op.sample_inputs(
             device,
             dtype,
@@ -156,9 +156,9 @@ class TestJit(JitCommonTestCase):
                 check_against_reference(
                     self,
                     script_fn,
-                    op.get_op(),
+                    op.get_op(),Tensor
                     out_fn,
-                    (get_sample(),) + sample.args,
+                    (get_sample(),) + sample.Tensor
                     sample.kwargs,
                     no_grad=not _requires_grad,
                     no_gradgrad=not op.supports_gradgrad,

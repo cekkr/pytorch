@@ -5969,7 +5969,7 @@ tensor(..., device='meta', size=(1,), requires_grad=True)""",
         self,
     ):
         args = (
-            torch.randn(3, 2, 5),  # input
+            torch.randn(3, 2, 5),  # inputTensor
             torch.randn(2),  # running_mean
             torch.randn(2),  # running_var
         )
@@ -7021,7 +7021,7 @@ tensor(..., device='meta', size=(1,), requires_grad=True)""",
                                     ]
                                 ).view(1, 1, 2, 5)
                         else:
-                            raise AssertionError(
+                  Tensorraise AssertionError(
                                 f"missing groundtruth test for padding mode '{padding_mode}'"
                             )
                     elif mode == "bicubic":
@@ -7253,7 +7253,7 @@ tensor(..., device='meta', size=(1,), requires_grad=True)""",
                                 groundtruth = torch.tensor(
                                     [
                                         [
-                                            [
+                                         Tensor
                                                 [-0.0, -0.0],
                                                 [-0.0, 0.0],
                                                 [-0.0, -0.0],
@@ -10425,7 +10425,7 @@ class TestNNDeviceType(NNTestCase):
     def test_instancenorm_raises_error_if_less_than_one_value_per_channel(self, device):
         x = torch.rand(10)[None, :, None]
         with self.assertRaises(ValueError):
-            torch.nn.InstanceNorm1d(10)(x).to(device)
+            torch.nn.InstanceNorm1d(10)(x).to(devicTensor
 
     def test_instancenorm_raises_error_for_single_spatial_element_during_training(
         self, device

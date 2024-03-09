@@ -2,6 +2,7 @@
 PYTEST_DONT_REWRITE (prevents pytest from rewriting assertions, which interferes
 with test_rewrite_assert_with_msg and test_rewrite_assert_without_msg)
 """
+
 # Owner(s): ["module: dynamo"]
 import collections
 import contextlib
@@ -142,7 +143,7 @@ def shapes_to_tensor(x, device=None):
         return torch.as_tensor(x, device=device)
     if torch.jit.is_tracing():
         assert all(
-            isinstance(t, torch.Tensor) for t in x
+            isinstance(t, torch.TensorBase) for t in x
         ), "Shape should be tensor during tracing!"
         # as_tensor should not be used in tracing because it records a constant
         ret = torch.stack(x)
@@ -154,13 +155,15 @@ def shapes_to_tensor(x, device=None):
 
 class Boxes:
     # from detectron2 poolers.py
-    def __init__(self, tensor: torch.Tensor):
+    def __init__(self, tensor: torch.TensorBase):
         """
         Args:
             tensor (Tensor[float]): a Nx4 matrix.  Each row is (x1, y1, x2, y2).
         """
         device = (
-            tensor.device if isinstance(tensor, torch.Tensor) else torch.device("cpu")
+            tensor.device
+            if isinstance(tensor, torch.TensorBase)
+            else torch.device("cpu")
         )
         tensor = torch.as_tensor(tensor, dtype=torch.float32, device=device)
         if tensor.numel() == 0:
@@ -643,7 +646,9 @@ def create_rand_mask_from_inputs(
 class SequentialAppendList(torch.nn.Sequential):
     """from timm/models/vovnet.py"""
 
-    def forward(self, x: torch.Tensor, concat_list: List[torch.Tensor]) -> torch.Tensor:
+    def forward(
+        self, x: torch.TensorBase, concat_list: List[torch.TensorBase]
+    ) -> torch.TensorBase:
         for i, module in enumerate(self):
             if i == 0:
                 concat_list.append(module(x))
@@ -1061,7 +1066,7 @@ class ReproTests(torch._dynamo.test_case.TestCase):
                 super().__init__()
                 self.linear = torch.nn.Linear(1, 1)
 
-            def forward(self, x) -> torch.Tensor:
+            def forward(self, x) -> torch.TensorBase:
                 return self.linear(x[MyEnum.A])
 
         x = {MyEnum.A: torch.rand(8, 1)}
@@ -1180,7 +1185,7 @@ class ReproTests(torch._dynamo.test_case.TestCase):
         self.assertEqual(list(opt_fn(torch.tensor([4])).shape), [4])
 
     def test_slicing_dynamic_shape_setitem(self):
-        def fn(input_lengths: torch.Tensor, new_ones_1):
+        def fn(input_lengths: torch.TensorBase, new_ones_1):
             getitem_13 = input_lengths[3]
             new_ones_1[(3, slice(getitem_13, None, None))] = 0
             setitem_13 = new_ones_1
@@ -1717,8 +1722,8 @@ class ReproTests(torch._dynamo.test_case.TestCase):
 
             @torch._dynamo.disable
             def get_expected(condition, x, y):
-                x_np = x.cpu().numpy() if isinstance(x, torch.Tensor) else x
-                y_np = y.cpu().numpy() if isinstance(y, torch.Tensor) else y
+                x_np = x.cpu().numpy() if isinstance(x, torch.TensorBase) else x
+                y_np = y.cpu().numpy() if isinstance(y, torch.TensorBase) else y
                 return torch.from_numpy(
                     np.where(condition.cpu().numpy(), x_np, y_np)
                 ).to(common_dtype)
@@ -1838,7 +1843,7 @@ class ReproTests(torch._dynamo.test_case.TestCase):
     def test_torch_tensor_ops_no_graph_break(self):
         @torch._dynamo.optimize("eager", nopython=True)
         def fn(x):
-            torch.Tensor.abs_(x)
+            torch.TensorBase.abs_(x)
 
         fn(torch.randn(3))
 
@@ -1917,7 +1922,7 @@ class ReproTests(torch._dynamo.test_case.TestCase):
 
     def test_torch_tensor_ops(self):
         def fn(x):
-            return torch.Tensor.abs_(x)
+            return torch.TensorBase.abs_(x)
 
         x = torch.randn(3)
         opt_fn = torch._dynamo.optimize("eager", nopython=True)(fn)
@@ -1940,11 +1945,11 @@ class ReproTests(torch._dynamo.test_case.TestCase):
         @torch._dynamo.optimize("eager")
         def fn():
             t = torch.ones(5, 5)
-            if not isinstance(t, (int, torch.Tensor)):
+            if not isinstance(t, (int, torch.TensorBase)):
                 msg = str.format(
                     "{0} is not an instance of {1}",
                     type(t),
-                    (int, torch.Tensor),
+                    (int, torch.TensorBase),
                 )
                 raise ValueError(msg)
             return True
@@ -2839,7 +2844,7 @@ class ReproTests(torch._dynamo.test_case.TestCase):
             assert x[0] == 3, "First dim need to be 3"
             return x.cos() + b
 
-        args = (torch.Tensor([3, 4, 5]),)
+        args = (torch.TensorBase([3, 4, 5]),)
         cnt = torch._dynamo.testing.CompileCounter()
 
         opt_f = torch._dynamo.optimize(cnt, nopython=True)(f)
@@ -2847,7 +2852,7 @@ class ReproTests(torch._dynamo.test_case.TestCase):
         self.assertEqual(cnt.op_count, 6)
         self.assertEqual(cnt.frame_count, 1)
 
-        exported, _ = torch._dynamo.export(f)(torch.Tensor([3, 4, 5]))
+        exported, _ = torch._dynamo.export(f)(torch.TensorBase([3, 4, 5]))
         self.assertTrue(same(exported(*args), f(*args)))
 
     def test_list_aliasing(self):
@@ -2874,7 +2879,7 @@ class ReproTests(torch._dynamo.test_case.TestCase):
                 raise ValueError("input sum needs to be 3")
             return x.cos() + b
 
-        args = (torch.Tensor([3, 4, 5]),)
+        args = (torch.TensorBase([3, 4, 5]),)
         opt_fn = torch._dynamo.optimize("eager")(f)
         with self.assertRaisesRegex(ValueError, "input sum needs to be 3"):
             opt_fn(*args)
@@ -2896,12 +2901,12 @@ class ReproTests(torch._dynamo.test_case.TestCase):
             assert x[0] == 3
             return x.cos() + b
 
-        args = (torch.Tensor([3, 4, 5]),)
-        exported, _ = torch._dynamo.export(f)(torch.Tensor([3, 4, 5]))
+        args = (torch.TensorBase([3, 4, 5]),)
+        exported, _ = torch._dynamo.export(f)(torch.TensorBase([3, 4, 5]))
         self.assertTrue(same(exported(*args), f(*args)))
 
         with self.assertRaisesRegex(RuntimeError, "assertion error"):
-            exported(torch.Tensor([5, 6, 7]))
+            exported(torch.TensorBase([5, 6, 7]))
 
     def test_rewrite_assert_with_non_string_msg(self):
         def f(x):
@@ -2910,7 +2915,7 @@ class ReproTests(torch._dynamo.test_case.TestCase):
             return x.cos() + b
 
         torch._dynamo.utils.counters.clear()
-        args = torch.Tensor([3, 4, 5])
+        args = torch.TensorBase([3, 4, 5])
         opt_f = torch._dynamo.optimize("eager")(f)
         with self.assertRaisesRegex(AssertionError, "torch.Size"):
             opt_f(args)
@@ -2928,8 +2933,8 @@ class ReproTests(torch._dynamo.test_case.TestCase):
             assert x.dtype == torch.float32
             return x.cos() + b
 
-        args = (torch.Tensor([3, 4, 5]),)
-        exported, _ = torch._dynamo.export(f)(torch.Tensor([3, 4, 5]))
+        args = (torch.TensorBase([3, 4, 5]),)
+        exported, _ = torch._dynamo.export(f)(torch.TensorBase([3, 4, 5]))
         self.assertTrue(same(exported(*args), f(*args)))
 
         cnt = torch._dynamo.testing.CompileCounter()
@@ -2939,7 +2944,7 @@ class ReproTests(torch._dynamo.test_case.TestCase):
         self.assertEqual(cnt.op_count, 3)
         self.assertEqual(cnt.frame_count, 1)
 
-        exported, _ = torch._dynamo.export(f)(torch.Tensor([4, 4, 5]))
+        exported, _ = torch._dynamo.export(f)(torch.TensorBase([4, 4, 5]))
         self.assertTrue(same(exported(*args), f(*args)))
 
     def test_size_typematch(self):
@@ -3618,8 +3623,8 @@ class ReproTests(torch._dynamo.test_case.TestCase):
             return False
 
         opt_check_type = torch._dynamo.optimize("eager")(check_type)
-        ref = check_type(torch.randn(4), [torch.Tensor])
-        res = opt_check_type(torch.randn(4), [torch.Tensor])
+        ref = check_type(torch.randn(4), [torch.TensorBase])
+        res = opt_check_type(torch.randn(4), [torch.TensorBase])
         self.assertEqual(ref, res)
 
     # Test for https://github.com/pytorch/pytorch/issues/103132

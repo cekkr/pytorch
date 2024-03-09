@@ -141,11 +141,11 @@ class TestGradAcc(FSDPTest):
 
         # Generate the sequence of batches, each containing the same data
         # but permuted
-        def permute_tensor(x: torch.Tensor):
+        def permute_tensor(x: torch.TensorBase):
             return x.view(-1)[torch.randperm(x.numel())].view_as(x)
 
-        batch: Tuple[torch.Tensor, ...] = fsdp_model.module.get_input(device)
-        batches: List[Tuple[torch.Tensor, ...]] = [batch]
+        batch: Tuple[torch.TensorBase, ...] = fsdp_model.module.get_input(device)
+        batches: List[Tuple[torch.TensorBase, ...]] = [batch]
         num_iters_to_acc = sum(config.num_iters for config in configs)
         for _ in range(num_iters_to_acc - 1):
             batches.append(tuple(permute_tensor(t) for t in batch))
@@ -156,7 +156,7 @@ class TestGradAcc(FSDPTest):
                 ), "Check the test to make sure that batches are distinct"
 
         # Concatenate the batches along the given batch dimension
-        concat_batch: Tuple[torch.Tensor, ...] = tuple(
+        concat_batch: Tuple[torch.TensorBase, ...] = tuple(
             torch.cat(ts, dim=batch_dim) for ts in zip(*batches)
         )
 

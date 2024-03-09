@@ -5,12 +5,12 @@
 from typing import Optional, Tuple
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 
 
 def is_sparse(A):
     """Check if tensor A is a sparse tensor"""
-    if isinstance(A, torch.Tensor):
+    if isinstance(A, torch.TensorBase):
         return A.layout == torch.sparse_coo
 
     error_str = "expected Tensor"
@@ -30,7 +30,7 @@ def get_floating_dtype(A):
     return torch.float32
 
 
-def matmul(A: Optional[Tensor], B: Tensor) -> Tensor:
+def matmul(A: Optional[TensorBase], B: TensorBase) -> TensorBase:
     """Multiply two matrices.
 
     If A is None, return B. A can be sparse or dense. B is always
@@ -64,12 +64,12 @@ def transjugate(A):
     return conjugate(transpose(A))
 
 
-def bform(X: Tensor, A: Optional[Tensor], Y: Tensor) -> Tensor:
+def bform(X: TensorBase, A: Optional[TensorBase], Y: TensorBase) -> TensorBase:
     """Return bilinear form of matrices: :math:`X^T A Y`."""
     return matmul(transpose(X), matmul(A, Y))
 
 
-def qform(A: Optional[Tensor], S: Tensor):
+def qform(A: Optional[TensorBase], S: TensorBase):
     """Return quadratic form :math:`S^T A S`."""
     return bform(S, A, S)
 
@@ -79,7 +79,9 @@ def basis(A):
     return torch.linalg.qr(A).Q
 
 
-def symeig(A: Tensor, largest: Optional[bool] = False) -> Tuple[Tensor, Tensor]:
+def symeig(
+    A: TensorBase, largest: Optional[bool] = False
+) -> Tuple[TensorBase, TensorBase]:
     """Return eigenpairs of A with specified ordering."""
     if largest is None:
         largest = False
@@ -93,7 +95,7 @@ def symeig(A: Tensor, largest: Optional[bool] = False) -> Tuple[Tensor, Tensor]:
 
 # These functions were deprecated and removed
 # This nice error message can be removed in version 1.13+
-def matrix_rank(input, tol=None, symmetric=False, *, out=None) -> Tensor:
+def matrix_rank(input, tol=None, symmetric=False, *, out=None) -> TensorBase:
     raise RuntimeError(
         "This function was deprecated since version 1.9 and is now removed.\n"
         "Please use the `torch.linalg.matrix_rank` function instead. "
@@ -101,7 +103,9 @@ def matrix_rank(input, tol=None, symmetric=False, *, out=None) -> Tensor:
     )
 
 
-def solve(input: Tensor, A: Tensor, *, out=None) -> Tuple[Tensor, Tensor]:
+def solve(
+    input: TensorBase, A: TensorBase, *, out=None
+) -> Tuple[TensorBase, TensorBase]:
     raise RuntimeError(
         "This function was deprecated since version 1.9 and is now removed. "
         "`torch.solve` is deprecated in favor of `torch.linalg.solve`. "
@@ -113,7 +117,9 @@ def solve(input: Tensor, A: Tensor, *, out=None) -> Tuple[Tensor, Tensor]:
     )
 
 
-def lstsq(input: Tensor, A: Tensor, *, out=None) -> Tuple[Tensor, Tensor]:
+def lstsq(
+    input: TensorBase, A: TensorBase, *, out=None
+) -> Tuple[TensorBase, TensorBase]:
     raise RuntimeError(
         "This function was deprecated since version 1.9 and is now removed. "
         "`torch.lstsq` is deprecated in favor of `torch.linalg.lstsq`.\n"
@@ -132,7 +138,7 @@ def lstsq(input: Tensor, A: Tensor, *, out=None) -> Tuple[Tensor, Tensor]:
 
 def _symeig(
     input, eigenvectors=False, upper=True, *, out=None
-) -> Tuple[Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase]:
     raise RuntimeError(
         "This function was deprecated since version 1.9 and is now removed. "
         "The default behavior has changed from using the upper triangular portion of the matrix by default "
@@ -148,8 +154,8 @@ def _symeig(
 
 
 def eig(
-    self: Tensor, eigenvectors: bool = False, *, e=None, v=None
-) -> Tuple[Tensor, Tensor]:
+    self: TensorBase, eigenvectors: bool = False, *, e=None, v=None
+) -> Tuple[TensorBase, TensorBase]:
     raise RuntimeError(
         "This function was deprecated since version 1.9 and is now removed. "
         "`torch.linalg.eig` returns complex tensors of dtype `cfloat` or `cdouble` rather than real tensors "

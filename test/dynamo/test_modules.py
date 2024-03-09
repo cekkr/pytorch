@@ -582,8 +582,8 @@ class LazyMLP(torch.nn.Module):
 
 
 class MyInput(NamedTuple):
-    x: Dict[str, Dict[str, torch.Tensor]]
-    y: torch.Tensor
+    x: Dict[str, Dict[str, torch.TensorBase]]
+    y: torch.TensorBase
 
 
 class LazyLayerWithNamedTupleInput(LazyModuleMixin, torch.nn.Module):
@@ -1234,7 +1234,7 @@ class NNModuleTests(torch._dynamo.test_case.TestCase):
             x = x.sigmoid()
             return x
 
-        class TensorProxy(torch.Tensor):
+        class TensorProxy(torch.TensorBase):
             @classmethod
             def __torch_function__(cls, func, types, args=(), kwargs=None):
                 return super().__torch_function__(func, types, args, kwargs)
@@ -1267,7 +1267,7 @@ class NNModuleTests(torch._dynamo.test_case.TestCase):
                 x = x.sigmoid()
                 return x
 
-            class TensorProxy(torch.Tensor):
+            class TensorProxy(torch.TensorBase):
                 @classmethod
                 def __torch_function__(cls, func, types, args=(), kwargs=None):
                     nonlocal counter
@@ -1839,14 +1839,16 @@ class OptimizedModuleTest(torch._dynamo.test_case.TestCase):
     @patch.object(torch._dynamo.config, "skip_nnmodule_hook_guards", False)
     def test_hooks_outer(self):
         class TestModule(torch.nn.Module):
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
+            def forward(self, x: torch.TensorBase) -> torch.TensorBase:
                 return 2 * x + 1
 
         m = TestModule()
 
         def forward_hook(
-            module: torch.nn.Module, inputs: Tuple[torch.Tensor], output: torch.Tensor
-        ) -> torch.Tensor:
+            module: torch.nn.Module,
+            inputs: Tuple[torch.TensorBase],
+            output: torch.TensorBase,
+        ) -> torch.TensorBase:
             return 2 * output + 1
 
         handle = m.register_forward_hook(forward_hook)
@@ -1886,14 +1888,16 @@ class OptimizedModuleTest(torch._dynamo.test_case.TestCase):
     @patch.object(torch._dynamo.config, "skip_nnmodule_hook_guards", False)
     def test_hooks_inner(self):
         class TestModule(torch.nn.Module):
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
+            def forward(self, x: torch.TensorBase) -> torch.TensorBase:
                 return 2 * x + 1
 
         m = TestModule()
 
         def forward_hook(
-            module: torch.nn.Module, inputs: Tuple[torch.Tensor], output: torch.Tensor
-        ) -> torch.Tensor:
+            module: torch.nn.Module,
+            inputs: Tuple[torch.TensorBase],
+            output: torch.TensorBase,
+        ) -> torch.TensorBase:
             return 2 * output + 1
 
         handle = m.register_forward_hook(forward_hook)
@@ -1941,8 +1945,10 @@ class OptimizedModuleTest(torch._dynamo.test_case.TestCase):
         self.assertEqual(compiled_func(inp).item(), 15)
 
         def new_forward_hook(
-            module: torch.nn.Module, inputs: Tuple[torch.Tensor], output: torch.Tensor
-        ) -> torch.Tensor:
+            module: torch.nn.Module,
+            inputs: Tuple[torch.TensorBase],
+            output: torch.TensorBase,
+        ) -> torch.TensorBase:
             return 2 * output + 2
 
         m._forward_hooks[handle.id] = new_forward_hook
@@ -1953,14 +1959,16 @@ class OptimizedModuleTest(torch._dynamo.test_case.TestCase):
     @patch.object(torch._dynamo.config, "skip_nnmodule_hook_guards", True)
     def test_hooks_skip_guards(self):
         class TestModule(torch.nn.Module):
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
+            def forward(self, x: torch.TensorBase) -> torch.TensorBase:
                 return 2 * x + 1
 
         m = TestModule()
 
         def forward_hook(
-            module: torch.nn.Module, inputs: Tuple[torch.Tensor], output: torch.Tensor
-        ) -> torch.Tensor:
+            module: torch.nn.Module,
+            inputs: Tuple[torch.TensorBase],
+            output: torch.TensorBase,
+        ) -> torch.TensorBase:
             return 2 * output + 1
 
         handle = m.register_forward_hook(forward_hook)

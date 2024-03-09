@@ -18,7 +18,7 @@ class ListUnpack(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, args: List[torch.Tensor]):
+    def forward(self, args: List[torch.TensorBase]):
         """
         Lists are treated as static construct, therefore unpacking should be
         erased after tracing.

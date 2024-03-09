@@ -4,7 +4,7 @@ import functools
 import unittest
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 from torch._dynamo.test_case import run_tests, TestCase
 from torch._inductor import utils
 from torch.testing._internal.common_cuda import SM90OrLater
@@ -23,7 +23,7 @@ E4M3_MAX_POS = 448.0
 E5M2_MAX_POS = 57344.0
 
 
-def _to_fp8_saturated(x: Tensor, float8_dtype: torch.dtype) -> Tensor:
+def _to_fp8_saturated(x: TensorBase, float8_dtype: torch.dtype) -> TensorBase:
     # The default behavior in PyTorch for casting to `float8_e4m3fn`
     # and `e5m2` is to not saturate. In this context, we should saturate.
     # A common case where we want to saturate is when the history of a
@@ -46,8 +46,8 @@ class TestFP8Types(TestCase):
         weight_shape = (32, 16)
 
         def fp8_matmul_unwrapped(x):
-            a_scale = torch.Tensor([1.0]).to(device="cuda")
-            b_scale = torch.Tensor([1.0]).to(device="cuda")
+            a_scale = torch.TensorBase([1.0]).to(device="cuda")
+            b_scale = torch.TensorBase([1.0]).to(device="cuda")
             output_scale = None
             input_bias = torch.rand(32, device="cuda", dtype=dtype)
             weight = torch.rand(*weight_shape, device="cuda", dtype=dtype).T.to(
@@ -150,7 +150,7 @@ class TestFP8Types(TestCase):
         shape = [int(dim) for dim in shape.split(",")]
         batch_size, sequence_length, hidden_size = shape
 
-        def amax_fp8(x: Tensor, scale: Tensor):
+        def amax_fp8(x: TensorBase, scale: TensorBase):
             y = torch.amax(torch.abs(x))
             y_scaled = y.to(dtype=torch.float) * scale
             bits_fp8 = _to_fp8_saturated(y_scaled, float8_dtype)
@@ -175,7 +175,7 @@ class TestFP8Types(TestCase):
         shape = [int(dim) for dim in shape.split(",")]
         batch_size, sequence_length, hidden_size = shape
 
-        def amax_fp8(x: Tensor, scale: Tensor, amax_buffer: Tensor):
+        def amax_fp8(x: TensorBase, scale: TensorBase, amax_buffer: TensorBase):
             amax_buffer.fill_(torch.amax(torch.abs(x)))
             x_scaled = x.to(dtype=torch.float) * scale
             bits_fp8 = _to_fp8_saturated(x_scaled, float8_dtype)
@@ -208,7 +208,7 @@ class TestFP8Types(TestCase):
         shape = [int(dim) for dim in shape.split(",")]
         batch_size, sequence_length, hidden_size = shape
 
-        def ln_fp8(x: Tensor, scale: Tensor, amax_buffer: Tensor):
+        def ln_fp8(x: TensorBase, scale: TensorBase, amax_buffer: TensorBase):
             x = torch.nn.functional.layer_norm(
                 x.to(dtype=torch.float),
                 [hidden_size],
@@ -251,7 +251,7 @@ class TestFP8Types(TestCase):
         shape = [int(dim) for dim in shape.split(",")]
         batch_size, sequence_length, hidden_size = shape
 
-        def ln(x: Tensor):
+        def ln(x: TensorBase):
             x = torch.nn.functional.layer_norm(
                 x.to(dtype=torch.float),
                 [hidden_size],
@@ -261,7 +261,7 @@ class TestFP8Types(TestCase):
             )
             return x
 
-        def ln_fp8(x: Tensor, scale: Tensor, amax_buffer: Tensor):
+        def ln_fp8(x: TensorBase, scale: TensorBase, amax_buffer: TensorBase):
             x = torch.nn.functional.layer_norm(
                 x.to(dtype=torch.float),
                 [hidden_size],

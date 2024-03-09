@@ -58,7 +58,7 @@ class TestClipGradNorm(FSDPTest):
                 self.lin1 = nn.Linear(5, 5)
                 self.lin2 = nn.Linear(5, 5)
 
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
+            def forward(self, x: torch.TensorBase) -> torch.TensorBase:
                 return self.lin2(self.lin1(x))
 
         model = Model().cuda()

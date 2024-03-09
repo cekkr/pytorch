@@ -1487,7 +1487,7 @@ class ExportTests(torch._dynamo.test_case.TestCase):
 
     def test_export_with_builtin_op_on_assume_constant(self):
         @torch._dynamo.assume_constant_result
-        def get_y(y) -> torch.Tensor:
+        def get_y(y) -> torch.TensorBase:
             return y
 
         class Bob(torch.nn.Module):
@@ -1496,7 +1496,7 @@ class ExportTests(torch._dynamo.test_case.TestCase):
                 self.p = p
                 self.y = torch.nn.Parameter(torch.tensor(val))
 
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
+            def forward(self, x: torch.TensorBase) -> torch.TensorBase:
                 # This only looks dynamic but it's actually a constant value
                 if get_y(self.y) < self.p:
                     return torch.cat([x, x])
@@ -1834,7 +1834,9 @@ def forward(self, l_x_):
                 self.assertIn("val", node.meta)
 
     def test_input_container_type(self):
-        def f(x: torch.Tensor, y: List[torch.Tensor]) -> Dict[str, torch.Tensor]:
+        def f(
+            x: torch.TensorBase, y: List[torch.TensorBase]
+        ) -> Dict[str, torch.TensorBase]:
             return {"a": x.sum() + sum(y).sum()}
 
         inp = (torch.randn(6, 5), [torch.randn(6, 5), torch.randn(6, 5)])
@@ -1845,7 +1847,7 @@ def forward(self, l_x_):
 
     @config.patch(assume_static_by_default=False)
     def test_export_symbolic_shape(self):
-        def f(x: torch.Tensor) -> torch.Tensor:
+        def f(x: torch.TensorBase) -> torch.TensorBase:
             return torch.empty(x.shape[0] * 2)
 
         inp = (torch.randn(6, 5),)
@@ -2251,8 +2253,8 @@ def forward(self, x):
 
         @dataclass
         class Tensors:
-            x: torch.Tensor
-            y: torch.Tensor
+            x: torch.TensorBase
+            y: torch.TensorBase
 
         def f(t):
             return t.x + t.y
@@ -2989,7 +2991,7 @@ def forward(self, x):
         class A:
             @classmethod
             def func(cls):
-                return torch.Tensor([4, 5])
+                return torch.TensorBase([4, 5])
 
         def f(x):
             a = A()
@@ -3100,8 +3102,8 @@ def forward(self, x):
 
         gm, _ = torch._dynamo.export(f, aten_graph=True)(torch.ones(2), torch.ones(3))
 
-        true_inp = (torch.Tensor([6, 4, 5]), torch.ones(6, 4).add_(5))
-        false_inp = (torch.Tensor([6, 4, 5]), torch.ones(6, 4).add_(2))
+        true_inp = (torch.TensorBase([6, 4, 5]), torch.ones(6, 4).add_(5))
+        false_inp = (torch.TensorBase([6, 4, 5]), torch.ones(6, 4).add_(2))
         self.assertEqual(gm(*true_inp), f(*true_inp))
         self.assertEqual(gm(*false_inp), f(*false_inp))
 
@@ -3351,7 +3353,7 @@ def forward(self, x):
                 )
 
     def test_export_with_symbool_inputs(self):
-        def f(pred: bool, x: torch.Tensor):
+        def f(pred: bool, x: torch.TensorBase):
             if pred:
                 return x.sin()
             else:
@@ -3508,7 +3510,7 @@ G['macademia'], accessed at:
             def __init__(self):
                 super().__init__()
 
-            def forward(self, a, b, c) -> torch.Tensor:
+            def forward(self, a, b, c) -> torch.TensorBase:
                 d = (torch.matmul(a, b) + c) / 2
                 d_s0 = d.shape[0]
                 d_s1 = d.shape[1]

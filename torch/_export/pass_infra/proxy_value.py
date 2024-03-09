@@ -26,12 +26,12 @@ class ProxyValue:
             )
         return self.proxy_or_node
 
-    def to_tensor(self) -> torch.Tensor:
-        assert isinstance(self.data, torch.Tensor)
+    def to_tensor(self) -> torch.TensorBase:
+        assert isinstance(self.data, torch.TensorBase)
         return self.data
 
     def is_tensor(self) -> bool:
-        return isinstance(self.data, torch.Tensor)
+        return isinstance(self.data, torch.TensorBase)
 
     # pyre-ignore
     def __iter__(self):

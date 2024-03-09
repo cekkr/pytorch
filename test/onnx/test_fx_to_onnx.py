@@ -109,7 +109,7 @@ class TestFxToOnnx(pytorch_test_common.ExportTestCase):
                 self.fc1 = nn.Linear(9216, 128, bias=False)
                 self.fc2 = nn.Linear(128, 10, bias=False)
 
-            def forward(self, tensor_x: torch.Tensor):
+            def forward(self, tensor_x: torch.TensorBase):
                 tensor_x = self.conv1(tensor_x)
                 tensor_x = F.sigmoid(tensor_x)
                 tensor_x = self.conv2(tensor_x)
@@ -391,7 +391,7 @@ class TestFxToOnnx(pytorch_test_common.ExportTestCase):
                 self.fc1 = nn.Linear(9216, 128, bias=False)
                 self.register_buffer("buffer", torch.randn(1, 128))
 
-            def forward(self, tensor_x: torch.Tensor):
+            def forward(self, tensor_x: torch.TensorBase):
                 tensor_x = self.conv2(tensor_x)
                 tensor_x = F.sigmoid(tensor_x)
                 tensor_x = F.max_pool2d(tensor_x, 2)
@@ -408,7 +408,7 @@ class TestFxToOnnx(pytorch_test_common.ExportTestCase):
                 self.submodule = SubModule()
                 self.fc2 = nn.Linear(128, 10, bias=False)
 
-            def forward(self, tensor_x: torch.Tensor):
+            def forward(self, tensor_x: torch.TensorBase):
                 tensor_x = self.conv1(tensor_x)
                 tensor_x = F.sigmoid(tensor_x)
                 tensor_x = self.submodule(tensor_x)
@@ -673,7 +673,7 @@ class TestFxToOnnx(pytorch_test_common.ExportTestCase):
     )
     def test_float8_support(self, float8_type):
         class Float8Module(torch.nn.Module):
-            def forward(self, input: torch.Tensor):
+            def forward(self, input: torch.TensorBase):
                 input = input.to(float8_type)
                 return input + torch.tensor(1.0, dtype=float8_type)
 

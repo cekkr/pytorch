@@ -258,7 +258,7 @@ class TestShardedGradScalerParityWithDDP(FSDPTest):
         )
         grad_scaler = ShardedGradScaler(init_scale=2.0)
         ref_grad_scaler = torch.cuda.amp.GradScaler(init_scale=2.0)
-        scaled_losses: List[torch.Tensor] = []
+        scaled_losses: List[torch.TensorBase] = []
         device = torch.device("cuda")
         torch.manual_seed(42 + self.rank + 1)
 

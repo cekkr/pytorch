@@ -37,7 +37,7 @@ def rand_math_tensor(
     dtype: torch.dtype,
     requires_grad: bool = False,
     packed: bool = False,
-) -> torch.Tensor:
+) -> torch.TensorBase:
     """Creates rand dense or nested tensor with given shape and type.
 
     Args:
@@ -53,8 +53,8 @@ def rand_math_tensor(
     return torch.randn(shape, device=device, dtype=dtype, requires_grad=requires_grad)
 
 
-def init_tensor(tensor_list, **kwargs) -> torch.Tensor:
-    return torch.Tensor(tensor_list).to(**kwargs)
+def init_tensor(tensor_list, **kwargs) -> torch.TensorBase:
+    return torch.TensorBase(tensor_list).to(**kwargs)
 
 
 def run_comp_nocomp(function, *inputs, **kwargs):

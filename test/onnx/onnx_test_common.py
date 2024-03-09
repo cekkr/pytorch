@@ -39,10 +39,10 @@ from torch.testing._internal import common_utils
 from torch.testing._internal.opinfo import core as opinfo_core
 from torch.types import Number
 
-_NumericType = Union[Number, torch.Tensor, np.ndarray]
+_NumericType = Union[Number, torch.TensorBase, np.ndarray]
 _ModelType = Union[torch.nn.Module, Callable, torch_export.ExportedProgram]
 _InputArgsType = Optional[
-    Union[torch.Tensor, int, float, bool, Sequence[Any], Mapping[str, Any]]
+    Union[torch.TensorBase, int, float, bool, Sequence[Any], Mapping[str, Any]]
 ]
 _OutputsType = Sequence[_NumericType]
 
@@ -396,7 +396,7 @@ def run_ort(
         )
 
     ort_input = {
-        k: torch.Tensor.numpy(v, force=True)
+        k: torch.TensorBase.numpy(v, force=True)
         for k, v in zip(input_names, pytorch_inputs)
     }
     return session.run(None, ort_input)

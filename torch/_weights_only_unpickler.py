@@ -72,7 +72,7 @@ def _get_allowed_globals():
         "torch.nn.parameter.Parameter": torch.nn.Parameter,
         "torch.serialization._get_layout": torch.serialization._get_layout,
         "torch.Size": torch.Size,
-        "torch.Tensor": torch.Tensor,
+        "torch.Tensor": torch.TensorBase,
     }
     # dtype
     for t in [
@@ -170,7 +170,7 @@ class Unpickler:
             elif key[0] == BUILD[0]:
                 state = self.stack.pop()
                 inst = self.stack[-1]
-                if type(inst) is torch.Tensor:
+                if type(inst) is torch.TensorBase:
                     # Legacy unpickling
                     inst.set_(*state)
                 elif type(inst) is torch.nn.Parameter:

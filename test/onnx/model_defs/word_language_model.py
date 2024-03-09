@@ -5,7 +5,7 @@ from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
-from torch import Tensor
+from torch import TensorBase
 
 
 class RNNModel(nn.Module):
@@ -63,7 +63,7 @@ class RNNModel(nn.Module):
     @staticmethod
     def repackage_hidden(h):
         """Detach hidden states from their history."""
-        if isinstance(h, torch.Tensor):
+        if isinstance(h, torch.TensorBase):
             return h.detach()
         else:
             return tuple([RNNModel.repackage_hidden(v) for v in h])
@@ -103,7 +103,7 @@ class RNNModelWithTensorHidden(RNNModel):
         """Detach hidden states from their history."""
         return h.detach()
 
-    def forward(self, input: Tensor, hidden: Tensor):
+    def forward(self, input: TensorBase, hidden: TensorBase):
         emb = self.drop(self.encoder(input))
         output, hidden = self.rnn(emb, hidden)
         output = self.drop(output)
@@ -118,11 +118,13 @@ class RNNModelWithTupleHidden(RNNModel):
     """Supports LSTM scripting."""
 
     @staticmethod
-    def repackage_hidden(h: Tuple[Tensor, Tensor]):
+    def repackage_hidden(h: Tuple[TensorBase, TensorBase]):
         """Detach hidden states from their history."""
         return (h[0].detach(), h[1].detach())
 
-    def forward(self, input: Tensor, hidden: Optional[Tuple[Tensor, Tensor]] = None):
+    def forward(
+        self, input: TensorBase, hidden: Optional[Tuple[TensorBase, TensorBase]] = None
+    ):
         emb = self.drop(self.encoder(input))
         output, hidden = self.rnn(emb, hidden)
         output = self.drop(output)

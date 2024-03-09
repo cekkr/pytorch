@@ -3,7 +3,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import torch
 import torch._decomp
-from torch import Tensor
+from torch import TensorBase
 from torch._prims_common.wrappers import _maybe_remove_out_wrapper
 
 decomposition_table = torch._decomp.decomposition_table
@@ -96,12 +96,12 @@ def _register_jit_decomposition_for_jvp(decomp, use_python=False):
 
 # TODO: do these also belong here?
 @maybe_register_decomposition(aten.trace.default)
-def trace(self: Tensor) -> Tensor:
+def trace(self: TensorBase) -> TensorBase:
     return torch.sum(torch.diag(self))
 
 
 @maybe_register_decomposition(aten.log_sigmoid_forward.default)
-def log_sigmoid_forward(self: Tensor) -> Tuple[Tensor, Tensor]:
+def log_sigmoid_forward(self: TensorBase) -> Tuple[TensorBase, TensorBase]:
     min = torch.minimum(self.new_zeros(()), self)
     z = torch.exp(-torch.abs(self))
     if self.is_cuda:
@@ -112,7 +112,7 @@ def log_sigmoid_forward(self: Tensor) -> Tuple[Tensor, Tensor]:
 
 
 def recompute_mean_var(
-    input: Tensor, rstd: Tensor, inner_dim_indices: List[int], keepdim: bool
+    input: TensorBase, rstd: TensorBase, inner_dim_indices: List[int], keepdim: bool
 ):
     # for most norm decompositions, it will be the same as the core version except for here.
     # We recompute the mean and variance so that they track gradients through input
@@ -127,15 +127,15 @@ def recompute_mean_var(
 
 @register_decomposition_for_jvp(aten.native_layer_norm_backward)
 def native_layer_norm_backward(
-    grad_out: Tensor,
-    input: Tensor,
+    grad_out: TensorBase,
+    input: TensorBase,
     normalized_shape: List[int],
-    mean: Tensor,
-    rstd: Tensor,
-    weight: Optional[Tensor],
-    bias: Optional[Tensor],
+    mean: TensorBase,
+    rstd: TensorBase,
+    weight: Optional[TensorBase],
+    bias: Optional[TensorBase],
     output_mask: List[bool],
-) -> Tuple[Optional[Tensor], Optional[Tensor], Optional[Tensor]]:
+) -> Tuple[Optional[TensorBase], Optional[TensorBase], Optional[TensorBase]]:
     input_shape = input.shape
     input_ndim = input.dim()
 
@@ -173,13 +173,13 @@ def native_layer_norm_backward(
     inner = a - b - c3
 
     if output_mask[0]:
-        d_input: Optional[Tensor] = (rstd_ / N) * inner
+        d_input: Optional[TensorBase] = (rstd_ / N) * inner
     else:
         d_input = torch.zeros_like(input)  # should be None but doesn't work with vjp
 
     if output_mask[1] and weight is not None:
         if len(outer_dim_indices) > 0:
-            d_weight: Optional[Tensor] = torch.sum(
+            d_weight: Optional[TensorBase] = torch.sum(
                 grad_out * x_hat, outer_dim_indices, False
             )
         else:
@@ -191,7 +191,7 @@ def native_layer_norm_backward(
 
     if output_mask[2] and bias is not None:
         if len(outer_dim_indices) > 0:
-            d_bias: Optional[Tensor] = torch.sum(grad_out, outer_dim_indices, False)
+            d_bias: Optional[TensorBase] = torch.sum(grad_out, outer_dim_indices, False)
         else:
             d_bias = grad_out.clone()
     elif bias is not None:
@@ -211,17 +211,17 @@ def prod(x: List[int]):
 
 @register_decomposition_for_jvp(aten.native_batch_norm_backward)
 def native_batch_norm_backward(
-    grad_out: Tensor,
-    input: Tensor,
-    weight: Optional[Tensor],
-    running_mean: Optional[Tensor],
-    running_var: Optional[Tensor],
-    save_mean: Optional[Tensor],
-    save_invstd: Optional[Tensor],
+    grad_out: TensorBase,
+    input: TensorBase,
+    weight: Optional[TensorBase],
+    running_mean: Optional[TensorBase],
+    running_var: Optional[TensorBase],
+    save_mean: Optional[TensorBase],
+    save_invstd: Optional[TensorBase],
     train: bool,
     eps: float,
     output_mask: List[bool],
-) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor]]:
+) -> Tuple[TensorBase, Optional[TensorBase], Optional[TensorBase]]:
     input_shape = input.shape
     input_rank = input.dim()
     assert input_rank >= 2, "rank of the input must be at least 2"
@@ -293,18 +293,18 @@ def native_batch_norm_backward(
 
 @register_decomposition_for_jvp(aten.batch_norm_backward)
 def batch_norm_backward(
-    grad_out: Tensor,
-    input: Tensor,
-    weight: Tensor,
-    running_mean: Optional[Tensor],
-    running_var: Optional[Tensor],
-    save_mean: Optional[Tensor],
-    save_var: Optional[Tensor],
+    grad_out: TensorBase,
+    input: TensorBase,
+    weight: TensorBase,
+    running_mean: Optional[TensorBase],
+    running_var: Optional[TensorBase],
+    save_mean: Optional[TensorBase],
+    save_var: Optional[TensorBase],
     update: bool,
     eps: float,
     output_mask: List[bool],
-    reserve: Tensor,
-) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor]]:
+    reserve: TensorBase,
+) -> Tuple[TensorBase, Optional[TensorBase], Optional[TensorBase]]:
     return native_batch_norm_backward(
         grad_out,
         input,

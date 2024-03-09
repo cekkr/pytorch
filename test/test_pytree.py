@@ -471,7 +471,7 @@ class TestGenericPytree(TestCase):
         values, spec = pytree_impl.tree_flatten(expected)
         # Check that values is actually List[Tensor] and not (ReturnType(...),)
         for value in values:
-            self.assertIsInstance(value, torch.Tensor)
+            self.assertIsInstance(value, torch.TensorBase)
         result = pytree_impl.tree_unflatten(values, spec)
 
         self.assertEqual(type(result), type(expected))
@@ -1119,7 +1119,7 @@ TreeSpec(tuple, None, [*,
 
     def test_tree_flatten_with_path_roundtrip(self):
         class ANamedTuple(NamedTuple):
-            x: torch.Tensor
+            x: torch.TensorBase
             y: int
             z: str
 
@@ -1149,7 +1149,7 @@ TreeSpec(tuple, None, [*,
 
     def test_tree_leaves_with_path(self):
         class ANamedTuple(NamedTuple):
-            x: torch.Tensor
+            x: torch.TensorBase
             y: int
             z: str
 

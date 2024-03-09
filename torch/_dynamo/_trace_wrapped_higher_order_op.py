@@ -67,7 +67,7 @@ def inner_trace(mode, *args, bw_state=None, **kwargs):
             return _trace_wrapped_op(*args, **dyn_kwargs, **kwargs)
 
     def unwrap_proxies(x):
-        if isinstance(x, torch.Tensor):
+        if isinstance(x, torch.TensorBase):
             return mode.tracer.unwrap_proxy(x)
         if isinstance(x, (list, tuple)):
             return type(x)(map(unwrap_proxies, x))
@@ -91,7 +91,7 @@ def inner_trace(mode, *args, bw_state=None, **kwargs):
         grad = args[1]  # module backward hooks
     else:
         grad = args[0]  # other backward hooks
-    grad = tree_map_only(torch.Tensor, torch.empty_like, grad)
+    grad = tree_map_only(torch.TensorBase, torch.empty_like, grad)
     track_tensor_tree(grad, out_proxy, constant=None, tracer=mode.tracer)
     return grad
 

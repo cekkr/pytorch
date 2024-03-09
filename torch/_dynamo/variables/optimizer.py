@@ -150,7 +150,7 @@ class OptimizerVariable(UserDefinedObjectVariable):
             install_guard(p_state_source.make_guard(GuardBuilder.DICT_KEYS))
             for k, v in value.items():
                 if (
-                    isinstance(v, torch.Tensor)
+                    isinstance(v, torch.TensorBase)
                     and v not in self.grad_to_source
                     and v not in self.tensor_to_source
                 ):
@@ -200,7 +200,7 @@ class OptimizerVariable(UserDefinedObjectVariable):
                 ), "py_arg should be a list in optimizer variable"
                 for i, val in enumerate(py_arg):
                     tx.output.side_effects.mutation(arg)
-                    if isinstance(val, torch.Tensor):
+                    if isinstance(val, torch.TensorBase):
                         arg.items.append(self.wrap_tensor(tx, val))
                     else:
                         from .builder import SourcelessBuilder, VariableBuilder

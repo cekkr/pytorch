@@ -541,7 +541,7 @@ class TestInductorOpInfo(TestCase):
                 mode = FakeTensorMode()
 
                 def map_to_fake(e):
-                    if isinstance(e, torch.Tensor):
+                    if isinstance(e, torch.TensorBase):
                         return mode.from_tensor(e)
                     else:
                         return e

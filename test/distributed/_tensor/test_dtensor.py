@@ -442,7 +442,7 @@ class DTensorTest(DTensorTestBase):
         ref = torch.ones((4, 2), device=self.device_type) + 1
         ref = ref.view(-1)
         out_data = out_view + 1
-        self.assertEqual(type(out_data), torch.Tensor)
+        self.assertEqual(type(out_data), torch.TensorBase)
         self.assertEqual(out_data, ref)
 
         # test async_op = False default
@@ -845,9 +845,11 @@ class TestDTensorPlacementTypes(DTensorTestBase):
                 assert_array_equal(expected_pad_sizes, pad_sizes)
 
                 unpadded_list = [
-                    shard_placement._unpad_tensor(tensor, pad_sizes[i])
-                    if pad_sizes[i] > 0
-                    else tensor
+                    (
+                        shard_placement._unpad_tensor(tensor, pad_sizes[i])
+                        if pad_sizes[i] > 0
+                        else tensor
+                    )
                     for i, tensor in enumerate(splitted_tensor_list)
                 ]
                 expected_is_tensor_empty = [

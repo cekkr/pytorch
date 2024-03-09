@@ -1683,7 +1683,7 @@ class TestUtilityFuns(_BaseTestCase):
 
     def test_onnx_function_substitution_pass(self):
         @torch.jit.script
-        def f(x: torch.Tensor, y: torch.Tensor):
+        def f(x: torch.TensorBase, y: torch.TensorBase):
             z = x - y
             return x + z
 
@@ -1716,8 +1716,8 @@ class TestUtilityFuns(_BaseTestCase):
         class MyModule(torch.nn.Module):
             def __init__(self):
                 super().__init__()
-                self.in_weight = torch.nn.Parameter(torch.Tensor(3, 3))
-                self.in_bias = torch.nn.Parameter(torch.Tensor(3))
+                self.in_weight = torch.nn.Parameter(torch.TensorBase(3, 3))
+                self.in_bias = torch.nn.Parameter(torch.TensorBase(3))
 
             def forward(self, x):
                 start = 0

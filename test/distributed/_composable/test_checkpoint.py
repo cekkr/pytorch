@@ -68,7 +68,7 @@ class MultiOutputModel(nn.Module):
         self.w1 = nn.Parameter(torch.randn((100, 100), device=device))
         self.w2 = nn.Parameter(torch.randn((100, 100), device=device))
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.TensorBase) -> torch.TensorBase:
         z = x @ self.w1
         z = nn.functional.relu(z)
         z = z @ self.w2
@@ -80,7 +80,9 @@ class MultiInputModel(nn.Module):
         super().__init__()
         self.w = nn.Parameter(torch.randn((100, 100), device=device))
 
-    def forward(self, xs: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
+    def forward(
+        self, xs: Tuple[torch.TensorBase, torch.TensorBase]
+    ) -> torch.TensorBase:
         assert len(xs) == 2, f"Expects 2 args but got {len(xs)}"
         x, y = xs
         z = x + y
@@ -89,7 +91,7 @@ class MultiInputModel(nn.Module):
 
 
 class TestCheckpoint(TestCase):
-    def _get_graph_size(self, out: torch.Tensor) -> int:
+    def _get_graph_size(self, out: torch.TensorBase) -> int:
         q = deque([out.grad_fn])
         num_functions = 0
         while len(q):
@@ -104,7 +106,7 @@ class TestCheckpoint(TestCase):
     def _test_tensor_only(
         self,
         net: nn.Module,
-        x: torch.Tensor,
+        x: torch.TensorBase,
     ) -> None:
         x1 = x.clone()
         x2 = x.clone()

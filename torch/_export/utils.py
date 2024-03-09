@@ -60,7 +60,7 @@ def _check_input_constraints_for_graph(
     for (key_path, arg), node in zip(flat_args_with_path, input_placeholders):
         node_val = node.meta.get("val")
         if isinstance(node_val, FakeTensor):
-            if not isinstance(arg, torch.Tensor):
+            if not isinstance(arg, torch.TensorBase):
                 raise RuntimeError(
                     f"Expected input at {get_keystr(key_path)} to be a tensor, but got {type(arg)}",
                 )
@@ -222,7 +222,7 @@ def is_buffer(program: ExportedProgram, node: torch.fx.Node) -> bool:
 def get_buffer(
     program: ExportedProgram,
     node: torch.fx.Node,
-) -> Optional[torch.Tensor]:
+) -> Optional[torch.TensorBase]:
     """
     Returns the buffer associated with the given node in the exported program.
     Returns None if the node is not a buffer within the exported program
@@ -252,7 +252,7 @@ def is_lifted_tensor_constant(
 def get_lifted_tensor_constant(
     program: ExportedProgram,
     node: torch.fx.Node,
-) -> Optional[torch.Tensor]:
+) -> Optional[torch.TensorBase]:
     """
     Returns the lifted tensor constant associated with the given node in the exported program.
     Returns None if the node is not a lifted tensor constant within the exported program

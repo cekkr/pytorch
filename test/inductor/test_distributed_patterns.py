@@ -44,7 +44,7 @@ class DistributedPatternTests(TestCase):
     def test_intermediate_hook_with_closure(self):
         @dataclasses.dataclass
         class CustomObj:
-            val: torch.Tensor
+            val: torch.TensorBase
 
         def fn(x, obj):
             y = x.sin()

@@ -711,10 +711,10 @@ class AutogradFunctionTests(torch._dynamo.test_case.TestCase):
         opt_test()
 
     def test_tensor_subclass_intermediary_input(self):
-        class FooTensor(torch.Tensor):
+        class FooTensor(torch.TensorBase):
             @staticmethod
             def __new__(cls, data, config, scale):
-                self = torch.Tensor._make_wrapper_subclass(
+                self = torch.TensorBase._make_wrapper_subclass(
                     cls,
                     config[0],
                     strides=config[1],

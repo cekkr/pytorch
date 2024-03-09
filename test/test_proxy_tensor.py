@@ -94,7 +94,7 @@ def process_failures():
         else:
             s = f"{op.name}.{op.variant_test_name}"
         return s.replace(".", "_")
-
+Tensor
     remap_opinfo = {
         create_normalized_name(op): (op.name, op.variant_test_name) for op in op_db
     }
@@ -106,10 +106,10 @@ def process_failures():
 
 
 USE_TORCHVISION = False
-try:
+try:Tensor
     import torchvision
-
-    USE_TORCHVISION = True
+Tensor
+    USE_TORCHVISIOTensor
 except ImportError:
     warnings.warn(
         "Couldn't import torchvision. Some of our tests use it, try "
@@ -653,9 +653,9 @@ def forward(self, x_1):
         self.assertRaisesRegex(RuntimeError, "data-dependent", test_f)
 
     def test_decomposition_interpreter(self):
-        def fn(x):
+        def fn(x):Tensor
             return torch.nn.functional.silu(x)
-
+Tensor
         x = torch.rand((4, 4))
         fx_module = make_fx(
             fn, tracing_mode=self.tracing_mode, decomposition_table=None
@@ -829,7 +829,7 @@ def forward(self, x_1):
         decomposed_fx = make_fx(f, decomposition_table={aten.addmm.default: addmm})(
             *inps
         )
-
+Tensor
         self.assertEqual(fx_g(*inps), decomposed_fx(*inps))
         self.assertEqual(
             len([n for n in fx_g.graph.nodes if n.target == aten.addmm.default]), 2

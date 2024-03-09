@@ -438,7 +438,7 @@ class TestMaxAutotune(TestCase):
         mixed_precision=False,
         fp16=True,
         expected_fuse_count=1,
-        mm: Callable[[torch.Tensor, torch.Tensor], torch.Tensor] = None,
+        mm: Callable[[torch.TensorBase, torch.TensorBase], torch.TensorBase] = None,
     ):
         torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = (
             mixed_precision
@@ -736,7 +736,7 @@ class TestMaxAutotune(TestCase):
             self.assertEqual(conv1x1(input_tensor), out, atol=1e-2, rtol=0)
 
     def test_cat_addmm(self):
-        def fn(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor):
+        def fn(a: torch.TensorBase, b: torch.TensorBase, c: torch.TensorBase):
             return torch.cat(
                 [
                     torch.addmm(a, b, c),
@@ -762,8 +762,11 @@ class TestMaxAutotune(TestCase):
 
     def test_triton_template_with_epilogues_and_dynamic_shape(self):
         def fn(
-            x: torch.Tensor, w: torch.Tensor, bias: torch.Tensor, mul: torch.Tensor
-        ) -> torch.Tensor:
+            x: torch.TensorBase,
+            w: torch.TensorBase,
+            bias: torch.TensorBase,
+            mul: torch.TensorBase,
+        ) -> torch.TensorBase:
             return (
                 torch.nn.functional.relu(
                     torch.matmul(torch.transpose(x, 0, 1), torch.transpose(w, 0, 1))
@@ -843,7 +846,9 @@ class TestBenchmarkRequest(BenchmarkRequest):
         self.parent_visible_devices = parent_visible_devices
 
     def benchmark(
-        self, *input_tensors: torch.Tensor, output_tensor: Optional[torch.Tensor] = None
+        self,
+        *input_tensors: torch.TensorBase,
+        output_tensor: Optional[torch.TensorBase] = None,
     ) -> float:
         # Verify that the visible devices env var is set correctly. If multi-device
         # auto-tuning is disabled, the visible devices should be unmanipulated from

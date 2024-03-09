@@ -29,7 +29,7 @@ class TestFullyShardOverlap(FSDPTest):
                 self.weight = nn.Parameter(torch.randn((dim, dim)))
                 self.sleep_ms = sleep_ms
 
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
+            def forward(self, x: torch.TensorBase) -> torch.TensorBase:
                 return nn.functional.relu(Matmul.apply(x, self.weight, self.sleep_ms))
 
         torch.manual_seed(42)
@@ -108,14 +108,14 @@ class TestFullyShardOverlap(FSDPTest):
 class Matmul(torch.autograd.Function):
     # Use CUDA sleeps to emulate compute time
     @staticmethod
-    def forward(ctx, input: torch.Tensor, weight: torch.Tensor, sleep_ms: int):
+    def forward(ctx, input: torch.TensorBase, weight: torch.TensorBase, sleep_ms: int):
         ctx.save_for_backward(input, weight)
         ctx.sleep_ms = sleep_ms
         torch.cuda._sleep(int(sleep_ms * get_cycles_per_ms()))
         return input @ weight
 
     @staticmethod
-    def backward(ctx, grad_output: torch.Tensor):
+    def backward(ctx, grad_output: torch.TensorBase):
         (input, weight) = ctx.saved_tensors
         torch.cuda._sleep(int(2 * ctx.sleep_ms * get_cycles_per_ms()))
         grad_input = grad_output @ weight.T

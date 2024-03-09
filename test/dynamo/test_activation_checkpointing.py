@@ -1020,8 +1020,8 @@ class ActivationCheckpointingViaTagsTests(torch._dynamo.test_case.TestCase):
 
         @checkpoint_wrapper
         def dot_prod_attention(
-            query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
-        ) -> torch.Tensor:
+            query: torch.TensorBase, key: torch.TensorBase, value: torch.TensorBase
+        ) -> torch.TensorBase:
             return (
                 torch.matmul(query, key.transpose(-2, -1))
                 .mul(1.0 / math.sqrt(key.shape[-1]))

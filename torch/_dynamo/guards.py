@@ -265,7 +265,7 @@ class GuardBuilder(GuardBuilderBase):
         # len(tensor_check_names) == len(tensor_check_examples).
         # TODO: something here
         self.tensor_check_names: List[str] = []
-        self.tensor_check_examples: List[torch.Tensor] = []
+        self.tensor_check_examples: List[torch.TensorBase] = []
         self.tensor_check_guards: List[Guard] = []
 
         self.check_fn_manager: CheckFunctionManager = check_fn_manager
@@ -726,7 +726,7 @@ class GuardBuilder(GuardBuilderBase):
                 value = value()
 
             value = value if value is not None else self.get(guard.name)
-            assert isinstance(value, torch.Tensor)
+            assert isinstance(value, torch.TensorBase)
 
             tensor_name = self.arg_ref(guard)
             # [Note - On Export Tensor Guards]
@@ -1087,12 +1087,16 @@ class CheckFunctionManager:
             structured_guard_fns.append(
                 lambda: {
                     "code": code_part,
-                    "stack": structured.from_traceback(guard.stack.summary())
-                    if guard.stack
-                    else None,
-                    "user_stack": structured.from_traceback(guard.user_stack)
-                    if guard.user_stack
-                    else None,
+                    "stack": (
+                        structured.from_traceback(guard.stack.summary())
+                        if guard.stack
+                        else None
+                    ),
+                    "user_stack": (
+                        structured.from_traceback(guard.user_stack)
+                        if guard.user_stack
+                        else None
+                    ),
                 }
             )
 

@@ -320,7 +320,7 @@ class HooksTests(torch._dynamo.test_case.TestCase):
         res.backward()
         self.assertEqual(res, f(out))
         self.assertEqual(cnts.frame_count, 2)
-        self.assertEqual(out.grad, torch.Tensor([2.0]))
+        self.assertEqual(out.grad, torch.TensorBase([2.0]))
 
     def test_intermediary_hooks_same_on_aot_eager(self):
         def my_hook(grad, *, k=0):

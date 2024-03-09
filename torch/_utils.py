@@ -38,9 +38,11 @@ def _type(self, dtype=None, non_blocking=False, **kwargs):
             raise RuntimeError("Cannot cast sparse tensor to dense tensor")
         new_module_name = dtype.__module__.replace(".sparse", "")
         new_values_type_name = new_module_name + "." + dtype.__name__
-        new_values = torch.Tensor._values(self).type(new_values_type_name, non_blocking)
+        new_values = torch.TensorBase._values(self).type(
+            new_values_type_name, non_blocking
+        )
         new_indices_type_name = new_module_name + ".LongTensor"
-        new_indices = torch.Tensor._indices(self).type(
+        new_indices = torch.TensorBase._indices(self).type(
             new_indices_type_name, non_blocking
         )
         return dtype(new_indices, new_values, self.size())
@@ -107,8 +109,8 @@ def _cuda(self, device=None, non_blocking=False, **kwargs):
     with torch.cuda.device(device):
         if self.is_sparse:
             new_type = getattr(torch.cuda.sparse, self.__class__.__name__)
-            indices = torch.Tensor._indices(self).cuda(device, non_blocking)
-            values = torch.Tensor._values(self).cuda(device, non_blocking)
+            indices = torch.TensorBase._indices(self).cuda(device, non_blocking)
+            values = torch.TensorBase._values(self).cuda(device, non_blocking)
             return new_type(indices, values, self.size())
         else:
             untyped_storage = torch.UntypedStorage(
@@ -185,14 +187,14 @@ def get_tensor_metadata(tensor):
     # Tensor's Metadata for serializing.
     # Currently, this only returns a dict[string, bool] specifing whether
     # `conj` or `neg` bit is set.
-    assert isinstance(tensor, torch.Tensor)
+    assert isinstance(tensor, torch.TensorBase)
     return torch._C._get_tensor_metadata(tensor)  # type: ignore[attr-defined]
 
 
 def set_tensor_metadata(tensor, metadata):
     # See `get_tensor_metadata` above
     assert isinstance(metadata, dict)
-    assert isinstance(tensor, torch.Tensor)
+    assert isinstance(tensor, torch.TensorBase)
     torch._C._set_tensor_metadata(tensor, metadata)  # type: ignore[attr-defined]
 
 
@@ -234,7 +236,7 @@ def _rebuild_tensor_v3(
     return t
 
 
-_sparse_tensors_to_validate: List["torch.Tensor"] = []
+_sparse_tensors_to_validate: List["torch.TensorBase"] = []
 
 
 # In _legacy_load() in serialization.py we unpickle storages after the sparse
@@ -349,7 +351,7 @@ def _rebuild_meta_tensor_no_storage(dtype, size, stride, requires_grad):
 def _rebuild_wrapper_subclass(
     cls, dtype, size, stride, storage_offset, layout, device, requires_grad
 ):
-    return torch.Tensor._make_wrapper_subclass(  # type: ignore[attr-defined]
+    return torch.TensorBase._make_wrapper_subclass(  # type: ignore[attr-defined]
         cls,
         size,
         strides=stride,
@@ -521,10 +523,10 @@ def _flatten_sparse_tensors(tensors):
         indices and the other containing the values.
     """
     flat_indices = torch._C._nn.flatten_dense_tensors(
-        [torch.Tensor._indices(t) for t in tensors]
+        [torch.TensorBase._indices(t) for t in tensors]
     )
     flat_values = torch._C._nn.flatten_dense_tensors(
-        [torch.Tensor._values(t) for t in tensors]
+        [torch.TensorBase._values(t) for t in tensors]
     )
     return flat_indices, flat_values
 
@@ -562,10 +564,10 @@ def _unflatten_sparse_tensors(flat, tensors):
     """
     flat_indices, flat_values = flat
     indices = torch._C._nn.unflatten_dense_tensors(
-        flat_indices, [torch.Tensor._indices(t) for t in tensors]
+        flat_indices, [torch.TensorBase._indices(t) for t in tensors]
     )
     values = torch._C._nn.unflatten_dense_tensors(
-        flat_values, [torch.Tensor._values(t) for t in tensors]
+        flat_values, [torch.TensorBase._values(t) for t in tensors]
     )
     outputs = []
     for t, i, v in zip(tensors, indices, values):
@@ -611,8 +613,8 @@ def _take_tensors(tensors, size_limit):
     for tensor in tensors:
         t = tensor.type()
         if tensor.is_sparse:
-            indices = torch.Tensor._indices(tensor)
-            values = torch.Tensor._values(tensor)
+            indices = torch.TensorBase._indices(tensor)
+            values = torch.TensorBase._values(tensor)
             size = (
                 indices.numel() * indices.element_size()
                 + values.numel() * values.element_size()

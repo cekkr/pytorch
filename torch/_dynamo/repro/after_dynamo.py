@@ -152,7 +152,7 @@ def generate_dynamo_fx_repro_string(
     for placeholder, arg in zip(fx_placeholder_targets(gm), args):
         if isinstance(arg, (int, torch.SymInt)):
             writer.symint(placeholder, arg)
-        elif isinstance(arg, torch.Tensor):
+        elif isinstance(arg, torch.TensorBase):
             # TODO: improve these names with FQN
             writer.tensor(placeholder, arg)
         else:

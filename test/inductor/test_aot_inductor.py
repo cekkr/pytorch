@@ -538,8 +538,8 @@ class AOTInductorTestsTemplate:
 
         dtype = torch.float16
 
-        a_scale = torch.Tensor([1.0]).to(device="cuda")
-        b_scale = torch.Tensor([1.0]).to(device="cuda")
+        a_scale = torch.TensorBase([1.0]).to(device="cuda")
+        b_scale = torch.TensorBase([1.0]).to(device="cuda")
         input_bias = torch.rand(32, device="cuda", dtype=dtype)
         weight_shape = (32, 16)
         weight = torch.rand(*weight_shape, device="cuda", dtype=dtype).T
@@ -988,7 +988,7 @@ class AOTInductorTestsTemplate:
             def __init__(self):
                 super().__init__()
 
-            def forward(self, x: Dict[str, torch.Tensor]):
+            def forward(self, x: Dict[str, torch.TensorBase]):
                 add_ = torch.zeros(5)
                 mul_ = torch.ones(5)
                 for v in x.values():
@@ -1482,8 +1482,8 @@ class AOTInductorTestsTemplate:
 
             def forward(
                 self,
-                x: torch.Tensor,
-                y: torch.Tensor,
+                x: torch.TensorBase,
+                y: torch.TensorBase,
             ):
                 torch._check(y.size(0) == x.size(0) + 1)
                 return x.sum(0) + y.sum(0)
@@ -1506,9 +1506,9 @@ class AOTInductorTestsTemplate:
 
             def forward(
                 self,
-                inp: torch.Tensor,
-                index: torch.Tensor,
-                src: torch.Tensor,
+                inp: torch.TensorBase,
+                index: torch.TensorBase,
+                src: torch.TensorBase,
             ):
                 return torch.scatter(inp, 1, index, src)
 
@@ -1527,9 +1527,9 @@ class AOTInductorTestsTemplate:
 
             def forward(
                 self,
-                inp: torch.Tensor,
-                index: torch.Tensor,
-                src: torch.Tensor,
+                inp: torch.TensorBase,
+                index: torch.TensorBase,
+                src: torch.TensorBase,
             ):
                 return torch.scatter_reduce(inp, 0, index, src, reduce="sum")
 
@@ -1551,9 +1551,9 @@ class AOTInductorTestsTemplate:
 
                 def forward(
                     self,
-                    self_tensor: torch.Tensor,
-                    indices: Tuple[torch.Tensor],
-                    values: torch.Tensor,
+                    self_tensor: torch.TensorBase,
+                    indices: Tuple[torch.TensorBase],
+                    values: torch.TensorBase,
                 ):
                     return torch.index_put(
                         self_tensor, indices, values, accumulate=True

@@ -53,7 +53,7 @@ class TraceDeviceMeshTestBase:
                 get_global_rank(dim_group, i) for i in range(dim_group_size)
             ]
 
-            def fn(tensor: torch.Tensor):
+            def fn(tensor: torch.TensorBase):
                 tensor = funcol.all_reduce(tensor, "sum", group=(mesh, dim))
                 # multiply with 1 to trigger wait on read during tracing.
                 return tensor * 1
@@ -78,7 +78,7 @@ class TraceDeviceMeshTestBase:
                 get_global_rank(dim_group, i) for i in range(dim_group_size)
             ]
 
-            def fn(tensor: torch.Tensor):
+            def fn(tensor: torch.TensorBase):
                 received_tensor = CommTensor(tensor.clone())
                 mesh.broadcast(received_tensor, mesh_dim=dim)
                 # multiply with 1 to trigger wait on read during tracing.
@@ -109,7 +109,7 @@ class TraceDeviceMeshTestBase:
                 for global_rank in global_ranks
             ]
 
-            def fn(to_receive: torch.Tensor, to_scatter: List[torch.Tensor]):
+            def fn(to_receive: torch.TensorBase, to_scatter: List[torch.TensorBase]):
                 to_scatter = [CommTensor(t) for t in to_scatter]
                 to_receive = CommTensor(to_receive)
                 mesh.scatter(to_receive, to_scatter, mesh_dim=dim)
@@ -136,7 +136,7 @@ class TraceDeviceMeshTestBase:
                 get_global_rank(dim_group, i) for i in range(dim_group_size)
             ]
 
-            def fn(tensor: torch.Tensor):
+            def fn(tensor: torch.TensorBase):
                 big_tensor = funcol.all_gather_tensor(
                     tensor, gather_dim=0, group=(mesh, dim)
                 )
@@ -201,7 +201,7 @@ class DataDependentModule(nn.Module):
         super().__init__()
         self.world_size = world_size
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.TensorBase) -> torch.TensorBase:
         raise RuntimeError(
             "This eager implementation shouldn't be executed."
             "This implementation is just an example of how to get around "
@@ -222,7 +222,7 @@ class DataDependentModule(nn.Module):
         )
 
         xs = [positive, negative]
-        ys = [torch.Tensor(out_sizes[i].item()) for i in range(out_sizes.numel())]
+        ys = [torch.TensorBase(out_sizes[i].item()) for i in range(out_sizes.numel())]
         dist.all_to_all(ys, xs)
 
         # some dummy compute
@@ -248,11 +248,11 @@ class DummyModel(nn.Module):
         return self.relu(self.l2(self.ddm(self.l1(x))))
 
 
-def ddm(x: torch.Tensor) -> torch.Tensor:
+def ddm(x: torch.TensorBase) -> torch.TensorBase:
     return x
 
 
-def ddm_backward(grad: torch.Tensor) -> torch.Tensor:
+def ddm_backward(grad: torch.TensorBase) -> torch.TensorBase:
     return grad
 
 
@@ -282,11 +282,11 @@ def _prop_ddm_backward(op_schema: OpSchema) -> OutputSharding:
 
 class DDMFunction(torch.autograd.Function):
     @staticmethod
-    def forward(ctx: Any, x: torch.Tensor) -> torch.Tensor:
+    def forward(ctx: Any, x: torch.TensorBase) -> torch.TensorBase:
         return torch.ops.dummy.ddm(x)
 
     @staticmethod
-    def backward(ctx: Any, grad_x: torch.Tensor) -> torch.Tensor:
+    def backward(ctx: Any, grad_x: torch.TensorBase) -> torch.TensorBase:
         return torch.ops.dummy.ddm_backward(grad_x)
 
 
@@ -393,7 +393,7 @@ class TraceTrainStepTest(DTensorTestBase):
             def transform(
                 self,
                 gm: fx.GraphModule,
-                flat_state: List[torch.Tensor],
+                flat_state: List[torch.TensorBase],
             ) -> fx.Graph:
                 # check dedup is successful, where there should only be 1 allreduce
                 self.outer.assertEqual(
@@ -460,7 +460,7 @@ class TraceTrainStepTest(DTensorTestBase):
             def transform(
                 self,
                 gm: fx.GraphModule,
-                flat_state: List[torch.Tensor],
+                flat_state: List[torch.TensorBase],
             ) -> fx.Graph:
                 nonlocal transform_targets
                 for node in gm.graph.nodes:
@@ -521,7 +521,7 @@ class TraceTrainStepTest(DTensorTestBase):
             def transform(
                 self,
                 gm: fx.GraphModule,
-                flat_state: List[torch.Tensor],
+                flat_state: List[torch.TensorBase],
             ) -> fx.Graph:
                 nonlocal transform_targets
                 for node in gm.graph.nodes:

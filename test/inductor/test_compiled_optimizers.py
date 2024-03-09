@@ -219,7 +219,7 @@ def make_test(
             if run_cudagraphs:
                 stack.enter_context(config.patch({"triton.cudagraphs": True}))
 
-            if isinstance(kwargs.get("lr", None), torch.Tensor):
+            if isinstance(kwargs.get("lr", None), torch.TensorBase):
                 kwargs["lr"] = kwargs["lr"].to(device)
 
             torch._dynamo.reset()

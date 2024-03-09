@@ -202,7 +202,7 @@ class MiscTests(torch._dynamo.test_case.TestCase):
         @torch.compile(backend="eager")
         def fn(x):
             x = x.sin()
-            if isinstance(x, torch.Tensor, invalid=True):
+            if isinstance(x, torch.TensorBase, invalid=True):
                 x = x.sin()
             return x
 
@@ -606,7 +606,9 @@ class MiscTests(torch._dynamo.test_case.TestCase):
             n = torch.randn(3)
             orig_args = (x, y, z, n)
 
-            compiled_args = pytree.tree_map_only(torch.Tensor, torch.clone, orig_args)
+            compiled_args = pytree.tree_map_only(
+                torch.TensorBase, torch.clone, orig_args
+            )
 
             log_stream, ctx = logs_to_string(
                 "torch._inductor.compile_fx", "post_grad_graphs"
@@ -629,7 +631,7 @@ def forward(self, arg0_1: "f32[3]", arg1_1: "f32[3]", arg2_1: "f32[3]", arg3_1: 
         return ()""",
                 )
 
-            eager_args = pytree.tree_map_only(torch.Tensor, torch.clone, orig_args)
+            eager_args = pytree.tree_map_only(torch.TensorBase, torch.clone, orig_args)
             f(*eager_args)
             self.assertEqual(compiled_args, eager_args)
         finally:
@@ -666,7 +668,9 @@ def forward(self, arg0_1: "f32[3]", arg1_1: "f32[3]", arg2_1: "f32[3]", arg3_1: 
             n = torch.randn(3)
             orig_args = (x, y, z, n)
 
-            compiled_args = pytree.tree_map_only(torch.Tensor, torch.clone, orig_args)
+            compiled_args = pytree.tree_map_only(
+                torch.TensorBase, torch.clone, orig_args
+            )
             log_stream, ctx = logs_to_string(
                 "torch._inductor.compile_fx", "post_grad_graphs"
             )
@@ -690,7 +694,7 @@ def forward(self, arg0_1: "f32[3]", arg1_1: "f32[3]", arg2_1: "f32[3]", arg3_1: 
         return (getitem_4, getitem_5)""",
                 )
 
-            eager_args = pytree.tree_map_only(torch.Tensor, torch.clone, orig_args)
+            eager_args = pytree.tree_map_only(torch.TensorBase, torch.clone, orig_args)
             eager_out = f(*eager_args)
             self.assertEqual(compiled_args, eager_args)
             self.assertEqual(compiled_out, eager_out)
@@ -760,7 +764,9 @@ def forward(self, arg0_1: "f32[3]", arg1_1: "f32[3]", arg2_1: "f32[3]", arg3_1: 
             n = torch.randn(3)
             orig_args = (x, y, z, n)
 
-            compiled_args = pytree.tree_map_only(torch.Tensor, torch.clone, orig_args)
+            compiled_args = pytree.tree_map_only(
+                torch.TensorBase, torch.clone, orig_args
+            )
             log_stream, ctx = logs_to_string(
                 "torch._inductor.compile_fx", "post_grad_graphs"
             )
@@ -780,7 +786,7 @@ def forward(self, arg0_1: "f32[3]", arg1_1: "f32[3]", arg2_1: "f32[3]", arg3_1: 
         return ()""",
                 )
 
-            eager_args = pytree.tree_map_only(torch.Tensor, torch.clone, orig_args)
+            eager_args = pytree.tree_map_only(torch.TensorBase, torch.clone, orig_args)
             f(*eager_args)
             self.assertEqual(compiled_args, eager_args)
         finally:
@@ -1093,8 +1099,8 @@ def forward(self, arg0_1: "f32[3]", arg1_1: "f32[3]", arg2_1: "f32[3]", arg3_1: 
     def test_builtin_isinstance(self):
         def fn(x):
             t = torch.arange(1, 3)
-            a = isinstance(x, torch.Tensor)
-            b = isinstance(t, torch.Tensor)
+            a = isinstance(x, torch.TensorBase)
+            b = isinstance(t, torch.TensorBase)
             c = isinstance(x, int)
             d = isinstance(3, int)
             e = isinstance([1, 2, 3], list)
@@ -1397,7 +1403,7 @@ utils_device.CURRENT_DEVICE == None""".split(
             nonlocal out
             out = a + b * 10
 
-        v = torch.Tensor([100])
+        v = torch.TensorBase([100])
         cnts = torch._dynamo.testing.CompileCounter()
         opt_fn = torch._dynamo.optimize(cnts)(fn)
         self.assertIsNone(opt_fn(v, v))
@@ -1412,7 +1418,7 @@ utils_device.CURRENT_DEVICE == None""".split(
             c = unsupported(a, b)
             out = a + b * 10 + c
 
-        v = torch.Tensor([100])
+        v = torch.TensorBase([100])
         cnts = torch._dynamo.testing.CompileCounter()
         opt_fn = torch._dynamo.optimize(cnts)(fn)
         self.assertIsNone(opt_fn(v, v))
@@ -1434,8 +1440,8 @@ utils_device.CURRENT_DEVICE == None""".split(
 
             return fn2
 
-        v1 = torch.Tensor([100])
-        v2 = torch.Tensor([200])
+        v1 = torch.TensorBase([100])
+        v2 = torch.TensorBase([200])
         cnts = torch._dynamo.testing.CompileCounter()
         opt_fn = torch._dynamo.optimize(cnts)(fn)
         opt_fn_ret = torch._dynamo.optimize(cnts)(opt_fn(v1, v2))
@@ -1448,8 +1454,8 @@ utils_device.CURRENT_DEVICE == None""".split(
         def fn(inputs):
             return inputs["a"] - inputs["b"] * 1.5
 
-        v1 = torch.Tensor([100])
-        v2 = torch.Tensor([200])
+        v1 = torch.TensorBase([100])
+        v2 = torch.TensorBase([200])
         cnts = torch._dynamo.testing.CompileCounter()
         opt_fn = torch._dynamo.optimize(cnts, nopython=True)(fn)
         self.assertEqual(opt_fn({"a": v1, "b": v2})[0], -200)
@@ -1467,8 +1473,8 @@ utils_device.CURRENT_DEVICE == None""".split(
                     total += inputs_b[k]
             return total
 
-        v1 = torch.Tensor([100])
-        v2 = torch.Tensor([200])
+        v1 = torch.TensorBase([100])
+        v2 = torch.TensorBase([200])
         cnts = torch._dynamo.testing.CompileCounter()
         opt_fn = torch._dynamo.optimize(cnts, nopython=True)(fn)
         self.assertEqual(
@@ -1497,8 +1503,8 @@ utils_device.CURRENT_DEVICE == None""".split(
                 total += inputs[k]
             return total
 
-        v1 = torch.Tensor([100])
-        v2 = torch.Tensor([200])
+        v1 = torch.TensorBase([100])
+        v2 = torch.TensorBase([200])
         cnts = torch._dynamo.testing.CompileCounter()
         opt_fn1 = torch._dynamo.optimize(cnts, nopython=True)(fn1)
         opt_fn2 = torch._dynamo.optimize(cnts, nopython=True)(fn2)
@@ -1513,8 +1519,8 @@ utils_device.CURRENT_DEVICE == None""".split(
         def fn1(inputs):
             return {k: v + 1 for k, v in inputs.items()}
 
-        v1 = torch.Tensor([100])
-        v2 = torch.Tensor([200])
+        v1 = torch.TensorBase([100])
+        v2 = torch.TensorBase([200])
         cnts = torch._dynamo.testing.CompileCounter()
         opt_fn1 = torch._dynamo.optimize(cnts)(fn1)
         self.assertEqual(opt_fn1({"a": v1, "b": v2})["a"], 101)
@@ -1526,8 +1532,8 @@ utils_device.CURRENT_DEVICE == None""".split(
         def fn2(inputs):
             return torch.sum(torch.cat([v + 1 for k, v in inputs.items()], 0))
 
-        v1 = torch.Tensor([100])
-        v2 = torch.Tensor([200])
+        v1 = torch.TensorBase([100])
+        v2 = torch.TensorBase([200])
         cnts = torch._dynamo.testing.CompileCounter()
         opt_fn2 = torch._dynamo.optimize(cnts)(fn2)
         self.assertEqual(opt_fn2({"a": v1, "b": v2}), 302)
@@ -1639,8 +1645,8 @@ utils_device.CURRENT_DEVICE == None""".split(
             tmp = mytuple(a, b, a + b)
             return mytuple(tmp.a, tmp[1], tmp.ab + b)
 
-        v1 = torch.Tensor([10])
-        v2 = torch.Tensor([20])
+        v1 = torch.TensorBase([10])
+        v2 = torch.TensorBase([20])
         cnts = torch._dynamo.testing.CompileCounter()
         opt_fn = torch._dynamo.optimize(cnts)(fn)
         self.assertEqual(opt_fn(v1, v2).ab, 50)
@@ -1655,9 +1661,9 @@ utils_device.CURRENT_DEVICE == None""".split(
             c = packed[2]
             return a + b + c
 
-        v1 = torch.Tensor([1])
-        v2 = torch.Tensor([2])
-        v3 = torch.Tensor([3])
+        v1 = torch.TensorBase([1])
+        v2 = torch.TensorBase([2])
+        v3 = torch.TensorBase([3])
         cnts = torch._dynamo.testing.CompileCounter()
         opt_fn = torch._dynamo.optimize(cnts)(fn)
         self.assertEqual(opt_fn(mytuple(v1, v2, v3))[0], 7)
@@ -1875,7 +1881,7 @@ utils_device.CURRENT_DEVICE == None""".split(
 
         cnts = torch._dynamo.testing.CompileCounter()
         opt_fn = torch.compile(fullgraph=True, backend="eager")(fn)
-        g = torch.Tensor.shape
+        g = torch.TensorBase.shape
 
         res = opt_fn(g, torch.ones(2, 2))
         exp_res = fn(g, torch.ones(2, 2))
@@ -1887,7 +1893,7 @@ utils_device.CURRENT_DEVICE == None""".split(
 
         cnts = torch._dynamo.testing.CompileCounter()
         opt_fn = torch._dynamo.optimize(cnts)(fn)
-        g = torch.Tensor.shape.__get__
+        g = torch.TensorBase.shape.__get__
 
         res = opt_fn(g, torch.ones(2, 2))
         exp_res = fn(g, torch.ones(2, 2))
@@ -1994,11 +2000,11 @@ utils_device.CURRENT_DEVICE == None""".split(
     def test_dataclass_fields(self):
         @dataclasses.dataclass
         class MyDataClass:
-            a: torch.Tensor
-            b: torch.Tensor = None
-            c: torch.Tensor = None
-            d: torch.Tensor = None
-            e: torch.Tensor = None
+            a: torch.TensorBase
+            b: torch.TensorBase = None
+            c: torch.TensorBase = None
+            d: torch.TensorBase = None
+            e: torch.TensorBase = None
 
         def fn(obj):
             class_fields = dataclasses.fields(obj)
@@ -2050,8 +2056,8 @@ utils_device.CURRENT_DEVICE == None""".split(
 
         @dataclasses.dataclass
         class MyDataClass:
-            a: torch.Tensor
-            b: torch.Tensor
+            a: torch.TensorBase
+            b: torch.TensorBase
 
         @torch.compile(backend=cnt, fullgraph=True)
         def fn():
@@ -2112,7 +2118,9 @@ utils_device.CURRENT_DEVICE == None""".split(
 
         def sample_to_args(s):
             args = (s.input, *sample.args)
-            return tuple(a.numpy() if isinstance(a, torch.Tensor) else a for a in args)
+            return tuple(
+                a.numpy() if isinstance(a, torch.TensorBase) else a for a in args
+            )
 
         samples = list(
             sample_inputs_take_along_dim(
@@ -2439,7 +2447,7 @@ utils_device.CURRENT_DEVICE == None""".split(
 
     def test_graph_break_correctly_when_passing_numpy_ndarray_to_torch_function(self):
         # from transformers/models/big_bird/modeling_big_bird.py
-        def fn(x: int, y: torch.Tensor):
+        def fn(x: int, y: torch.TensorBase):
             ndarray_list = [np.ones([2, x])]
             ndarray = np.stack(ndarray_list, axis=0)
             tensor = torch.tensor(ndarray, dtype=torch.long)
@@ -2547,7 +2555,7 @@ utils_device.CURRENT_DEVICE == None""".split(
         # test that we gracefully graph break on dtypes
         # that do not have pytorch equivalents.
         def fn(x):
-            return isinstance(x, torch.Tensor)
+            return isinstance(x, torch.TensorBase)
 
         cnts = torch._dynamo.testing.CompileCounter()
         opt_fn = torch._dynamo.optimize(cnts)(fn)
@@ -2590,7 +2598,7 @@ utils_device.CURRENT_DEVICE == None""".split(
             "int",
             np.intp,
             np.int32,
-            np.uint8
+            np.uint8,
             # np.dtype('int')       # XXX: as above
         ]
 
@@ -3360,7 +3368,7 @@ utils_device.CURRENT_DEVICE == None""".split(
 
     def test_typing_typevar(self):
         def fn(x):
-            def sumt(y: torch.Tensor) -> torch.Tensor:
+            def sumt(y: torch.TensorBase) -> torch.TensorBase:
                 return torch.sum(y)
 
             def foo(c: typing.Callable[[T], T], y: T) -> T:
@@ -3378,9 +3386,11 @@ utils_device.CURRENT_DEVICE == None""".split(
 
     def test_typing_union_and_optional(self):
         def fn(x):
-            a = torch.jit.annotate(typing.Dict[str, typing.Optional[torch.Tensor]], {})
+            a = torch.jit.annotate(
+                typing.Dict[str, typing.Optional[torch.TensorBase]], {}
+            )
             b = torch.jit.annotate(
-                typing.Dict[str, typing.Union[torch.Tensor, None]], {}
+                typing.Dict[str, typing.Union[torch.TensorBase, None]], {}
             )
             return a, b, x + 1
 
@@ -4315,7 +4325,7 @@ def fn():
         from torch.testing._internal.common_methods_invocations import SampleInput
 
         def fn(sample):
-            if isinstance(sample.input, torch.Tensor):
+            if isinstance(sample.input, torch.TensorBase):
                 return sample.input * 2
             return torch.zeros(())
 
@@ -4615,7 +4625,7 @@ def fn():
         dtype = torch.float32
         device = "cpu"
 
-        def check_sum_all(tensor: torch.Tensor) -> None:
+        def check_sum_all(tensor: torch.TensorBase) -> None:
             pylist = tensor.reshape(-1).tolist()
             self.assertTrue(same(tensor.sum(), torch.tensor(sum(pylist))))
 
@@ -4810,7 +4820,7 @@ def fn():
     def test_torch_nn_parameter_isinstance(self):
         def fn(x):
             a = torch.nn.Parameter(torch.rand(2, 3))
-            if isinstance(a, torch.Tensor):
+            if isinstance(a, torch.TensorBase):
                 return x + 1
             else:
                 return x - 1
@@ -6417,7 +6427,7 @@ def fn():
         from typing import cast
 
         def fn(x):
-            return cast(torch.Tensor, torch.add(x, 1.0))
+            return cast(torch.TensorBase, torch.add(x, 1.0))
 
         opt_fn = torch.compile(backend="eager", fullgraph=True)(fn)
 
@@ -7432,8 +7442,7 @@ def fn():
 
     def test_torch_compile_ctx_on_forward_and_training_step(self):
         class MyModel(torch.nn.Module):
-            def forward(self):
-                ...
+            def forward(self): ...
 
             def training_step(self):
                 self()
@@ -8210,7 +8219,7 @@ def ___make_guard_fn():
             def mapper(x):
                 return x.clone()
 
-            y = pytree.tree_map_only(torch.Tensor, mapper, xs)
+            y = pytree.tree_map_only(torch.TensorBase, mapper, xs)
             return y
 
         xs = [torch.tensor(i) for i in range(3)] + ["hi"]
@@ -8650,7 +8659,7 @@ def ___make_guard_fn():
         compiled = torch._dynamo.optimize(counter)(fn)(d2, a, b)
         self.assertEqual(eager, compiled)
         self.assertEqual(counter.frame_count, 1)
-        self.assertTrue(isinstance(compiled, torch.Tensor))
+        self.assertTrue(isinstance(compiled, torch.TensorBase))
 
     def test_yield_from(self):
         def yield_from_fn(t_list, k):
@@ -8782,7 +8791,7 @@ def ___make_guard_fn():
             opt_func = torch._dynamo.optimize("eager", nopython=True)(fn)
             a = torch.tensor([2, 3], device=device)
             res = opt_func(a)
-            self.assertIsInstance(res, torch.Tensor)
+            self.assertIsInstance(res, torch.TensorBase)
 
     def test_torch_dtype_python_type(self):
         def fn(target):
@@ -8803,7 +8812,7 @@ def ___make_guard_fn():
         opt_func = torch._dynamo.optimize("eager", nopython=True)(fn)
         a = torch.tensor([2, 3], dtype=dtype)
         res = opt_func(a)
-        self.assertIsInstance(res, torch.Tensor)
+        self.assertIsInstance(res, torch.TensorBase)
 
     def test_itertools_repeat(self):
         counters.clear()

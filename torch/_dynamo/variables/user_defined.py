@@ -87,7 +87,7 @@ class UserDefinedClassVariable(UserDefinedVariable):
     @functools.lru_cache(None)
     def _in_graph_classes():
         return set(tensortype_to_dtype.keys()) | {
-            torch.Tensor,
+            torch.TensorBase,
             torch.cuda.Stream,
             torch.cuda.Event,
         }
@@ -346,9 +346,11 @@ class UserDefinedClassVariable(UserDefinedVariable):
             var = tx.output.side_effects.track_object_new(
                 self.source,
                 self.value,
-                variables.UnspecializedNNModuleVariable
-                if issubclass(self.value, torch.nn.Module)
-                else UserDefinedObjectVariable,
+                (
+                    variables.UnspecializedNNModuleVariable
+                    if issubclass(self.value, torch.nn.Module)
+                    else UserDefinedObjectVariable
+                ),
                 {},
             )
             if (
@@ -799,7 +801,7 @@ class UserDefinedObjectVariable(UserDefinedVariable):
             or isinstance(
                 subobj,
                 (
-                    torch.Tensor,
+                    torch.TensorBase,
                     torch.nn.Module,
                 ),
             )

@@ -404,7 +404,7 @@ def _compute_keyset(args, kwargs, non_fallthrough_keys):
 
 def _get_tensors(args, kwargs):
     flat_all = _to_flat_tuple(args, kwargs)
-    tensor_args = [t for t in flat_all if isinstance(t, torch.Tensor)]
+    tensor_args = [t for t in flat_all if isinstance(t, torch.TensorBase)]
     return tuple(tensor_args)
 
 
@@ -706,9 +706,11 @@ class OpOverload(OperatorBase):
                             # It's generated in PyInterpreter.cpp, but seems to be generated in two places,
                             # where in one case we only include tensors with the python key, and in another
                             # we include **all** tensors.
-                            if isinstance(a, torch.Tensor) and torch._C._dispatch_keys(
-                                a
-                            ).has(torch._C.DispatchKey.Python):
+                            if isinstance(
+                                a, torch.TensorBase
+                            ) and torch._C._dispatch_keys(a).has(
+                                torch._C.DispatchKey.Python
+                            ):
                                 overload_types.append(type(a))
                         # TODO: check that I got these args correct (in C++, we pass in "0000"??)
 

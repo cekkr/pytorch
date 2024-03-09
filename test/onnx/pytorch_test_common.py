@@ -394,7 +394,7 @@ def xfail_if_model_type_is_not_exportedprogram(
 
 
 def flatten(x):
-    return tuple(function._iter_filter(lambda o: isinstance(o, torch.Tensor))(x))
+    return tuple(function._iter_filter(lambda o: isinstance(o, torch.TensorBase))(x))
 
 
 def set_rng_seed(seed):

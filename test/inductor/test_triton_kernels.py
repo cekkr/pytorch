@@ -222,14 +222,14 @@ def forward(self, x_1, output_1):
     @common_utils.parametrize("dynamic", [False, True])
     @common_utils.parametrize("backend", ["eager", "aot_eager", "inductor"])
     def test_triton_kernel_with_views(self, dynamic, backend):
-        def call_triton_take_view(x: torch.Tensor):
+        def call_triton_take_view(x: torch.TensorBase):
             output = torch.zeros_like(x)
             n_elements = output.numel()
             grid = lambda meta: (triton.cdiv(n_elements, meta["BLOCK_SIZE"]),)
             mul2_kernel[grid](x, output, n_elements, BLOCK_SIZE=16)
             return output
 
-        def call_triton_return_view(x: torch.Tensor):
+        def call_triton_return_view(x: torch.TensorBase):
             output = torch.zeros_like(x)
             n_elements = output.numel()
             grid = lambda meta: (triton.cdiv(n_elements, meta["BLOCK_SIZE"]),)
@@ -255,7 +255,7 @@ def forward(self, x_1, output_1):
     @common_utils.parametrize("grad_fn", [torch.no_grad, torch.enable_grad])
     @common_utils.parametrize("backend", ["eager", "aot_eager", "inductor"])
     def test_triton_kernel_with_grad_option(self, grad_fn, backend):
-        def call_triton(x: torch.Tensor):
+        def call_triton(x: torch.TensorBase):
             with grad_fn():
                 output = torch.zeros_like(x)
                 n_elements = output.numel()
@@ -270,7 +270,7 @@ def forward(self, x_1, output_1):
     @requires_cuda
     @common_utils.parametrize("backend", ["eager", "aot_eager", "inductor"])
     def test_triton_kernel_inner_triton_function(self, backend):
-        def f(x: torch.Tensor):
+        def f(x: torch.TensorBase):
             @triton.jit
             def pow2_kernel(
                 in_ptr0,
@@ -305,7 +305,9 @@ def forward(self, x_1, output_1):
     def test_triton_kernel_no_clones(self, grad, dynamic):
         from torch._inductor.utils import run_and_get_code
 
-        def call_triton(x: torch.Tensor, y: torch.Tensor, output: torch.Tensor):
+        def call_triton(
+            x: torch.TensorBase, y: torch.TensorBase, output: torch.TensorBase
+        ):
             n_elements = output.numel()
 
             tmp = torch.add(x, 1)
@@ -346,8 +348,8 @@ def forward(self, x_1, output_1):
         from torch._inductor.utils import run_and_get_code
 
         def add_in_loop(
-            x: torch.Tensor,
-            y: torch.Tensor,
+            x: torch.TensorBase,
+            y: torch.TensorBase,
         ):
             output = torch.zeros_like(x)
             n_elements = output.numel()
@@ -356,8 +358,8 @@ def forward(self, x_1, output_1):
             return output
 
         def call_triton_add(
-            x: torch.Tensor,
-            y: torch.Tensor,
+            x: torch.TensorBase,
+            y: torch.TensorBase,
         ):
             for i in range(4):
                 x = add_in_loop(x, y)
@@ -405,7 +407,7 @@ def forward(self, x_1, output_1):
                 x = tl.load(in_ptr0 + offsets, mask=mask)
                 tl.store(out_ptr + offsets, x, mask=mask)
 
-        def call_triton(x: torch.Tensor):
+        def call_triton(x: torch.TensorBase):
             output1 = torch.zeros_like(x)
             output2 = torch.zeros_like(x)
             n_elements = output1.numel()
@@ -461,8 +463,8 @@ def forward(self, x_1, output_1):
     @skipIfRocm
     def test_triton_kernel_dependancies(self):
         def call_triton(
-            x: torch.Tensor,
-            y: torch.Tensor,
+            x: torch.TensorBase,
+            y: torch.TensorBase,
         ):
             output = torch.zeros_like(x)
             n_elements = output.numel()
@@ -483,8 +485,8 @@ def forward(self, x_1, output_1):
     @skipIfRocm
     def test_triton_kernel_reinplace_inplaceable_pass(self):
         def call_triton(
-            x: torch.Tensor,
-            y: torch.Tensor,
+            x: torch.TensorBase,
+            y: torch.TensorBase,
         ):
             output = torch.zeros_like(x)
             n_elements = output.numel()
@@ -538,12 +540,12 @@ def forward(self, x_1, output_1):
 
         @torch.compile
         def call_triton(
-            x: torch.Tensor,
-            y: torch.Tensor,
-            xi: torch.Tensor,
-            yi: torch.Tensor,
-            output: torch.Tensor,
-            outputi: torch.Tensor,
+            x: torch.TensorBase,
+            y: torch.TensorBase,
+            xi: torch.TensorBase,
+            yi: torch.TensorBase,
+            output: torch.TensorBase,
+            outputi: torch.TensorBase,
         ):
             n_elements = output.numel()
 
@@ -598,7 +600,7 @@ def forward(self, x_1, output_1):
             tl.store(out_ptr + offsets, output, mask=mask)
 
         def call_triton(
-            x: torch.Tensor,
+            x: torch.TensorBase,
         ):
             output = torch.zeros_like(x)
             n_elements = output.numel()
@@ -633,7 +635,9 @@ def forward(self, x_1, output_1):
     @common_utils.parametrize("backend", ["eager", "aot_eager", "inductor"])
     @common_utils.parametrize("grid_type", [1, 2, 3])
     def test_triton_kernel_autotune(self, grad, dynamic, backend, grid_type):
-        def call_triton(x: torch.Tensor, y: torch.Tensor, output: torch.Tensor):
+        def call_triton(
+            x: torch.TensorBase, y: torch.TensorBase, output: torch.TensorBase
+        ):
             n_elements = output.numel()
 
             def grid_fn(meta):
@@ -668,7 +672,9 @@ def forward(self, x_1, output_1):
     @common_utils.parametrize("backend", ["eager", "aot_eager", "inductor"])
     @common_utils.parametrize("grid_type", [1, 2, 3])
     def test_triton_kernel_2d_autotune(self, grad, dynamic, backend, grid_type):
-        def call_triton(x: torch.Tensor, y: torch.Tensor, output: torch.Tensor):
+        def call_triton(
+            x: torch.TensorBase, y: torch.TensorBase, output: torch.TensorBase
+        ):
             x_elements = output.size()[0]
             y_elements = output.size()[1]
 
@@ -709,9 +715,9 @@ def forward(self, x_1, output_1):
     @patch.object(torch._inductor.config, "implicit_fallbacks", False)
     def test_triton_kernel_native(self, grad, dynamic, backend):
         def call_triton_add(
-            x: torch.Tensor,
-            y: torch.Tensor,
-            output: torch.Tensor,
+            x: torch.TensorBase,
+            y: torch.TensorBase,
+            output: torch.TensorBase,
             grid_type: int,
             num=1,
             positional=False,

@@ -40,7 +40,7 @@ def calculate_runtime(f, *args) -> float:
 DEVICE = "cuda"
 
 
-def T(*size, dtype=torch.float32, device=DEVICE, grad=False) -> torch.Tensor:
+def T(*size, dtype=torch.float32, device=DEVICE, grad=False) -> torch.TensorBase:
     return torch.randn(size, dtype=dtype, device=device, requires_grad=grad)
 
 

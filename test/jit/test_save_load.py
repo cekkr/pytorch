@@ -7,13 +7,13 @@ import sys
 from typing import NamedTuple, Optional
 
 import torch
-from torch import Tensor
-from torch.testing._internal.common_utils import TemporaryFileName, skipIfTorchDynamo
+from torch import TensorBase
+from torch.testing._internal.common_utils import skipIfTorchDynamo, TemporaryFileName
 
 # Make the helper files in test/ importable
 pytorch_test_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.append(pytorch_test_dir)
-from torch.testing._internal.jit_utils import JitTestCase, clear_class_registry
+from torch.testing._internal.jit_utils import clear_class_registry, JitTestCase
 
 
 if __name__ == "__main__":
@@ -151,7 +151,7 @@ class TestSaveLoad(JitTestCase):
 
         @torch.jit.interface
         class MyInterface:
-            def bar(self, x: Tensor) -> Tensor:
+            def bar(self, x: TensorBase) -> TensorBase:
                 pass
 
         @torch.jit.script
@@ -181,7 +181,7 @@ class TestSaveLoad(JitTestCase):
 
         @torch.jit.interface
         class MyInterface:
-            def not_bar(self, x: Tensor) -> Tensor:
+            def not_bar(self, x: TensorBase) -> TensorBase:
                 pass
 
         @torch.jit.script  # noqa: F811
@@ -237,7 +237,7 @@ class TestSaveLoad(JitTestCase):
 
         @torch.jit.interface
         class MyInterface:
-            def bar(self, x: Tensor) -> Tensor:
+            def bar(self, x: TensorBase) -> TensorBase:
                 pass
 
         @torch.jit.script
@@ -277,7 +277,7 @@ class TestSaveLoad(JitTestCase):
 
         @torch.jit.interface
         class MyInterface:
-            def not_bar(self, x: Tensor) -> Tensor:
+            def not_bar(self, x: TensorBase) -> TensorBase:
                 pass
 
         @torch.jit.script  # noqa: F811
@@ -424,7 +424,7 @@ class TestSaveLoad(JitTestCase):
             a: int
 
         class MyModule(torch.nn.Module):
-            def forward(self, x: FooTuple) -> torch.Tensor:
+            def forward(self, x: FooTuple) -> torch.TensorBase:
                 return torch.tensor(3)
 
         m_loaded = self.getExportImportCopy(torch.jit.script(MyModule()))
@@ -439,10 +439,10 @@ class TestSaveLoad(JitTestCase):
         global FooTuple  # see [local resolution in python]
 
         class FooTuple(NamedTuple):
-            a: 'int'
+            a: "int"
 
         class MyModule(torch.nn.Module):
-            def forward(self, x: FooTuple) -> torch.Tensor:
+            def forward(self, x: FooTuple) -> torch.TensorBase:
                 return torch.tensor(3)
 
         m_loaded = self.getExportImportCopy(torch.jit.script(MyModule()))
@@ -608,7 +608,6 @@ class TestSaveLoad(JitTestCase):
         self.assertTrue(m_params["bar.bias"].is_cpu)
         self.assertTrue(m_loaded_params["bar.bias"].is_cpu)
 
-
     def test_save_load_with_saved_traced_inputs(self):
         """
         Check that saving and loading with traced inputs works as expected
@@ -637,14 +636,18 @@ class TestSaveLoad(JitTestCase):
         # Validate that with no input specified the traced inputs are stored
         traced_module = torch.jit.trace(module, input_tensor)
         traced_inputs = list(traced_module.graph.inputs())
-        self.assertEqual(traced_module._c._retrieve_traced_inputs()['forward'], [input_tensor])
+        self.assertEqual(
+            traced_module._c._retrieve_traced_inputs()["forward"], [input_tensor]
+        )
         with TemporaryFileName() as fname:
             path = pathlib.Path(fname)
             traced_module.save(path)
             loaded_module = torch.jit.load(path, _restore_shapes=True)
             loaded_inputs = list(loaded_module.graph.inputs())
             self.assertEqual(traced_inputs[1].type(), loaded_inputs[1].type())
-            self.assertEqual(traced_inputs[1].type().sizes(), loaded_inputs[1].type().sizes())
+            self.assertEqual(
+                traced_inputs[1].type().sizes(), loaded_inputs[1].type().sizes()
+            )
             # Validate that if no shapes are requested previous functionality remains
             loaded_module = torch.jit.load(path)
             loaded_inputs = list(loaded_module.graph.inputs())
@@ -672,7 +675,7 @@ class TestSaveLoad(JitTestCase):
             "1000": (
                 torch.tensor([0]),
                 torch.tensor([], dtype=torch.int64),
-                torch.tensor([])
+                torch.tensor([]),
             )
         }
         traced_inputs, loaded_inputs = get_loaded_inputs(input1)
@@ -683,28 +686,32 @@ class TestSaveLoad(JitTestCase):
             "1000": (
                 torch.tensor([0]),
                 torch.tensor([1500000, 1500004], dtype=torch.int64),
-                torch.tensor([2.0, 3.0])
+                torch.tensor([2.0, 3.0]),
             )
         }
         traced_inputs, loaded_inputs = get_loaded_inputs(input2)
         self.assertEqual(traced_inputs[1].type(), loaded_inputs[1].type())
 
         # Testing list
-        input3 = [torch.tensor([0]),
-                  torch.tensor([1500000, 1500004], dtype=torch.int64),
-                  torch.tensor([2.0, 3.0])]
+        input3 = [
+            torch.tensor([0]),
+            torch.tensor([1500000, 1500004], dtype=torch.int64),
+            torch.tensor([2.0, 3.0]),
+        ]
 
         traced_inputs, loaded_inputs = get_loaded_inputs(input3)
         self.assertEqual(traced_inputs[1].type(), loaded_inputs[1].type())
 
         # Testing list of dict of list
-        input4 = [{
-            "1000": (
-                torch.tensor([0]),
-                torch.tensor([1500000, 1500004], dtype=torch.int64),
-                torch.tensor([2.0, 3.0])
-            )
-        }]
+        input4 = [
+            {
+                "1000": (
+                    torch.tensor([0]),
+                    torch.tensor([1500000, 1500004], dtype=torch.int64),
+                    torch.tensor([2.0, 3.0]),
+                )
+            }
+        ]
 
         traced_inputs, loaded_inputs = get_loaded_inputs(input4)
         self.assertEqual(traced_inputs[1].type(), loaded_inputs[1].type())
@@ -715,14 +722,17 @@ class TestSaveLoad(JitTestCase):
         Check if the model with string > 4GB can be loaded.
         """
         import psutil
+
         if psutil.virtual_memory().available < 60 * 1024 * 1024 * 1024:
             # Profiled the test execution, and got this number to be safe to run the test
-            self.skipTest("Doesn't have enough memory to run test_save_load_large_string_attribute")
+            self.skipTest(
+                "Doesn't have enough memory to run test_save_load_large_string_attribute"
+            )
 
         class Model(torch.nn.Module):
             def __init__(self):
                 super().__init__()
-                self.x = "x" * (2 ** 32 + 1)
+                self.x = "x" * (2**32 + 1)
 
             def forward(self, i) -> int:
                 return len(self.x) + i.numel()
@@ -793,12 +803,8 @@ class TestSaveLoadFlatbuffer(JitTestCase):
         class ContainsBoth(torch.nn.Module):
             def __init__(self):
                 super().__init__()
-                self.add_module(
-                    "second", torch.jit.load(second_saved_module)
-                )
-                self.add_module(
-                    "first", torch.jit.load(first_saved_module)
-                )
+                self.add_module("second", torch.jit.load(second_saved_module))
+                self.add_module("first", torch.jit.load(first_saved_module))
 
             def forward(self, x):
                 x = self.first(x)
@@ -846,12 +852,8 @@ class TestSaveLoadFlatbuffer(JitTestCase):
         class ContainsBoth(torch.nn.Module):
             def __init__(self):
                 super().__init__()
-                self.add_module(
-                    "second", torch.jit.load(second_saved_module)
-                )
-                self.add_module(
-                    "first", torch.jit.load(first_saved_module)
-                )
+                self.add_module("second", torch.jit.load(second_saved_module))
+                self.add_module("first", torch.jit.load(first_saved_module))
 
             def forward(self, x):
                 x = self.first(x)
@@ -870,7 +872,7 @@ class TestSaveLoadFlatbuffer(JitTestCase):
 
         @torch.jit.interface
         class MyInterface:
-            def bar(self, x: Tensor) -> Tensor:
+            def bar(self, x: TensorBase) -> TensorBase:
                 pass
 
         @torch.jit.script
@@ -897,7 +899,7 @@ class TestSaveLoadFlatbuffer(JitTestCase):
 
         @torch.jit.interface
         class MyInterface:
-            def not_bar(self, x: Tensor) -> Tensor:
+            def not_bar(self, x: TensorBase) -> TensorBase:
                 pass
 
         @torch.jit.script  # noqa: F811
@@ -931,12 +933,8 @@ class TestSaveLoadFlatbuffer(JitTestCase):
         class ContainsBoth(torch.nn.Module):
             def __init__(self):
                 super().__init__()
-                self.add_module(
-                    "second", torch.jit.load(second_saved_module)
-                )
-                self.add_module(
-                    "first", torch.jit.load(first_saved_module)
-                )
+                self.add_module("second", torch.jit.load(second_saved_module))
+                self.add_module("first", torch.jit.load(first_saved_module))
 
             def forward(self, x):
                 x = self.first(x)
@@ -953,7 +951,7 @@ class TestSaveLoadFlatbuffer(JitTestCase):
 
         @torch.jit.interface
         class MyInterface:
-            def bar(self, x: Tensor) -> Tensor:
+            def bar(self, x: TensorBase) -> TensorBase:
                 pass
 
         @torch.jit.script
@@ -991,7 +989,7 @@ class TestSaveLoadFlatbuffer(JitTestCase):
 
         @torch.jit.interface
         class MyInterface:
-            def not_bar(self, x: Tensor) -> Tensor:
+            def not_bar(self, x: TensorBase) -> TensorBase:
                 pass
 
         @torch.jit.script  # noqa: F811
@@ -1035,12 +1033,8 @@ class TestSaveLoadFlatbuffer(JitTestCase):
         class ContainsBoth(torch.nn.Module):
             def __init__(self):
                 super().__init__()
-                self.add_module(
-                    "second", torch.jit.load(second_saved_module)
-                )
-                self.add_module(
-                    "first", torch.jit.load(first_saved_module)
-                )
+                self.add_module("second", torch.jit.load(second_saved_module))
+                self.add_module("first", torch.jit.load(first_saved_module))
 
             def forward(self, x):
                 x, named_tuple_1 = self.first(x)
@@ -1079,7 +1073,7 @@ class TestSaveLoadFlatbuffer(JitTestCase):
             a: int
 
         class MyModule(torch.nn.Module):
-            def forward(self, x: FooTuple) -> torch.Tensor:
+            def forward(self, x: FooTuple) -> torch.TensorBase:
                 return torch.tensor(3)
 
         m_loaded = self.getExportImportCopy(torch.jit.script(MyModule()))
@@ -1118,18 +1112,18 @@ class TestSaveLoadFlatbuffer(JitTestCase):
 
         first_script_module = torch.jit.script(Foo())
         first_saved_module = io.BytesIO()
-        torch.jit.save_jit_module_to_flatbuffer(
-            first_script_module, first_saved_module)
+        torch.jit.save_jit_module_to_flatbuffer(first_script_module, first_saved_module)
         first_saved_module.seek(0)
-        ff_info = torch.jit._serialization.get_flatbuffer_module_info(first_saved_module)
-        self.assertEqual(ff_info['bytecode_version'], 9)
-        self.assertEqual(ff_info['operator_version'], 1)
-        self.assertEqual(ff_info['type_names'], set())
-        self.assertEqual(ff_info['opname_to_num_args'], {'aten::linear': 3})
+        ff_info = torch.jit._serialization.get_flatbuffer_module_info(
+            first_saved_module
+        )
+        self.assertEqual(ff_info["bytecode_version"], 9)
+        self.assertEqual(ff_info["operator_version"], 1)
+        self.assertEqual(ff_info["type_names"], set())
+        self.assertEqual(ff_info["opname_to_num_args"], {"aten::linear": 3})
 
-        self.assertEqual(len(ff_info['function_names']), 1)
-        self.assertTrue(next(iter(ff_info['function_names'])).endswith('forward'))
-
+        self.assertEqual(len(ff_info["function_names"]), 1)
+        self.assertTrue(next(iter(ff_info["function_names"])).endswith("forward"))
 
     def test_save_load_params_buffers_submodules(self):
         """
@@ -1179,14 +1173,13 @@ class TestSaveLoadFlatbuffer(JitTestCase):
             self.assertEqual(m_name, loaded_name)
             self.assertEqual(m_buffer, loaded_buffer)
 
-
     def test_save_load_with_extra_files(self):
         """
         Check that parameters, buffers, and submodules are the same after loading.
         """
 
         class Module(torch.nn.Module):
-            def forward(self, x: Tensor):
+            def forward(self, x: TensorBase):
                 return x
 
         module = Module()
@@ -1194,7 +1187,8 @@ class TestSaveLoadFlatbuffer(JitTestCase):
 
         extra_files = {"abc.json": b"[1,2,3]"}
         script_module_io = script_module._save_to_buffer_for_lite_interpreter(
-            _extra_files=extra_files, _use_flatbuffer=True)
+            _extra_files=extra_files, _use_flatbuffer=True
+        )
 
         re_extra_files = {}
         torch._C._get_model_extra_files_from_buffer(script_module_io, re_extra_files)

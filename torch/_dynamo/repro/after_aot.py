@@ -124,7 +124,7 @@ def wrap_compiler_debug(unconfigured_compiler_fn, compiler_name: str):
             # are available only for the first invocation.
             fake_mode = FakeTensorMode()
             copy_tensor_attrs = [
-                fake_mode.from_tensor(x) if isinstance(x, torch.Tensor) else x
+                fake_mode.from_tensor(x) if isinstance(x, torch.TensorBase) else x
                 for x in real_inputs
             ]
             if config.repro_level == 3:
@@ -162,7 +162,7 @@ def wrap_compiler_debug(unconfigured_compiler_fn, compiler_name: str):
                     out = inner_compiled_fn(real_inputs)
                     # sync cuda kernels to ensure IMA detection
                     for arg in example_inputs:
-                        if isinstance(arg, torch.Tensor) and arg.is_cuda:
+                        if isinstance(arg, torch.TensorBase) and arg.is_cuda:
                             torch.cuda.synchronize()
                             break
                     return out
@@ -232,7 +232,7 @@ isolate_fails_code_str = None
     for placeholder, arg in zip(fx_placeholder_targets(gm), args):
         if isinstance(arg, (int, torch.SymInt)):
             writer.symint(placeholder, arg)
-        elif isinstance(arg, torch.Tensor):
+        elif isinstance(arg, torch.TensorBase):
             # TODO: improve these names with FQN
             writer.tensor(placeholder, arg)
         else:
@@ -388,7 +388,7 @@ def isolate_fails(
 def inductor_fails(fx_g, args, check_str=None):
     has_cuda = False
     for arg in args:
-        if isinstance(arg, torch.Tensor) and arg.is_cuda:
+        if isinstance(arg, torch.TensorBase) and arg.is_cuda:
             has_cuda = True
             break
 
@@ -699,7 +699,7 @@ def repro_run(options, mod, load_args):
     else:
         need_sync = False
         for arg in args:
-            if isinstance(arg, torch.Tensor) and arg.is_cuda:
+            if isinstance(arg, torch.TensorBase) and arg.is_cuda:
                 need_sync = True
                 break
         ref = compiled(list(args))

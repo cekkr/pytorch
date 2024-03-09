@@ -1458,12 +1458,12 @@ def _isinstance(obj, target_type) -> bool:
 
 
 class _TensorExtractor(pickle.Pickler):
-    def __init__(self, *args, tensors: List[torch.Tensor], **kwargs):
+    def __init__(self, *args, tensors: List[torch.TensorBase], **kwargs):
         super().__init__(*args, **kwargs)
         self.tensors = tensors
 
     def persistent_id(self, obj):
-        if isinstance(obj, torch.Tensor):
+        if isinstance(obj, torch.TensorBase):
             self.tensors.append(obj)
             return ""
         # Since we just want to extract tensors, we don't mind if an object is
@@ -1494,7 +1494,7 @@ def _extract_tensors(obj):
 
     It extracts the tensors contained in the given object, through pickling.
     """
-    tensors: List[torch.Tensor] = []
+    tensors: List[torch.TensorBase] = []
     extractor = _TensorExtractor(io.BytesIO(), protocol=-1, tensors=tensors)
     extractor.dump(obj)
     return tensors

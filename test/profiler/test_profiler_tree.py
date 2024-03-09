@@ -12,7 +12,13 @@ import expecttest
 import torch
 from torch._C._profiler import _ExtraFields_PyCall, _ExtraFields_PyCCall
 from torch.testing._internal.common_utils import (
-    TestCase, run_tests, IS_WINDOWS, TEST_WITH_CROSSREF, IS_ARM64, skipIfTorchDynamo)
+    IS_ARM64,
+    IS_WINDOWS,
+    run_tests,
+    skipIfTorchDynamo,
+    TEST_WITH_CROSSREF,
+    TestCase,
+)
 from torch.utils._pytree import tree_map
 
 # These functions can vary from based on platform and build (e.g. with CUDA)
@@ -28,7 +34,6 @@ PRUNE_FUNCTIONS = {
     "torch/profiler/profiler.py(...): _transit_action": KEEP_ELLIPSES,
     "<built-in method __exit__ of torch._C.DisableTorchFunctionSubclass object at 0xXXXXXXXXXXXX>": PRUNE_ALL,
     "cudaStreamIsCapturing": PRUNE_ALL,
-
     # These show up only on CUDA, prune them so the CUDA and CPU expected results can be the same
     "cudaGetDeviceCount": PRUNE_ALL,
     "cudaGetDeviceProperties_v2": PRUNE_ALL,
@@ -45,18 +50,18 @@ PRUNE_FUNCTIONS = {
 ALLOW_CUDA_FAILURE = (torch.version.hip is not None) or IS_WINDOWS
 
 
-class TorchFunctionTensor(torch.Tensor):
+class TorchFunctionTensor(torch.TensorBase):
 
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
         return super().__torch_function__(func, types, args, kwargs)
 
 
-class TorchDispatchTensor(torch.Tensor):
+class TorchDispatchTensor(torch.TensorBase):
 
     @staticmethod
     def __new__(cls, elem):
-        t = torch.Tensor._make_subclass(cls, elem, elem.requires_grad)
+        t = torch.TensorBase._make_subclass(cls, elem, elem.requires_grad)
         t.elem = elem
         return t
 
@@ -67,7 +72,7 @@ class TorchDispatchTensor(torch.Tensor):
             return x.elem if isinstance(x, TorchDispatchTensor) else x
 
         def wrap(x):
-            return TorchDispatchTensor(x) if isinstance(x, torch.Tensor) else x
+            return TorchDispatchTensor(x) if isinstance(x, torch.TensorBase) else x
 
         args = tree_map(unwrap, args)
         kwargs = tree_map(unwrap, kwargs or {})
@@ -99,6 +104,7 @@ class ProfilerTree:
                 return out
             finally:
                 delattr(self, "tree_replicate")
+
         return begin_unit_test_marker
 
     @classmethod
@@ -140,10 +146,19 @@ class ProfilerTree:
         if flat_nodes and flat_nodes[-1][1] == "hipDeviceSynchronize":
             flat_nodes = flat_nodes[:-1]
 
-        min_depth = min([d + 1 for d, name in flat_nodes if "begin_unit_test_marker" in name] or [0])
+        min_depth = min(
+            [d + 1 for d, name in flat_nodes if "begin_unit_test_marker" in name] or [0]
+        )
         return textwrap.indent(
-            "\n".join([f"{'  ' * (d - min_depth)}{name.rstrip()}" for d, name in flat_nodes if d >= min_depth]),
-            " " * indent)
+            "\n".join(
+                [
+                    f"{'  ' * (d - min_depth)}{name.rstrip()}"
+                    for d, name in flat_nodes
+                    if d >= min_depth
+                ]
+            ),
+            " " * indent,
+        )
 
     @staticmethod
     def fmt_name(name: str) -> str:
@@ -172,18 +187,15 @@ class ProfilerTree:
             "void at::native::reduce_kernel",
             "void at::native::vectorized_elementwise_kernel",
             "void at::native::unrolled_elementwise_kernel",
-
             r"void [a-zA-Z0-9]+_kernel",  # Nvidia kernels.
         ):
             name = re.sub(
                 rf"{kernel_pattern}<.+>\(.+\)$",
                 f"{kernel_pattern.replace('[a-zA-Z0-9]+', '...')}<...>(...)",
-                name)
+                name,
+            )
 
-        return re.sub(
-            "object at 0x[0-9a-fA-F]+>",
-            "object at 0xXXXXXXXXXXXX>",
-            name)
+        return re.sub("object at 0x[0-9a-fA-F]+>", "object at 0xXXXXXXXXXXXX>", name)
 
     @classmethod
     def validate_node(cls, node):
@@ -204,6 +216,7 @@ class ProfilerTree:
                 parent_name = to_string(parent.extra_fields.callsite)
                 caller_name = to_string(extra_fields.caller)
                 assert parent_name == caller_name, f"{parent_name} vs. {caller_name}"
+
 
 @unittest.skipIf(IS_ARM64, "Not working on ARM")
 class TestProfilerTree(TestCase):
@@ -228,7 +241,9 @@ class TestProfilerTree(TestCase):
         self.maxDiff = None
 
         replicate = getattr(self, "tree_replicate", None)
-        self.assertIsNotNone(replicate, "Please annotate test with `@ProfilerTree.test`")
+        self.assertIsNotNone(
+            replicate, "Please annotate test with `@ProfilerTree.test`"
+        )
 
         # The profiler should produce deterministic results and should return
         # to a clean state after each run. As a result, only the first
@@ -297,7 +312,7 @@ class TestProfilerTree(TestCase):
             autograd::engine::evaluate_function: torch::autograd::AccumulateGrad
               torch::autograd::AccumulateGrad
                 aten::detach
-                  detach"""
+                  detach""",
         )
 
     @ProfilerTree.test
@@ -309,7 +324,9 @@ class TestProfilerTree(TestCase):
 
                 # Check that we correctly handle the case when a user
                 # annotation does not call `__exit__`.
-                _ = torch.autograd.profiler.record_function("Second Annotation").__enter__()
+                _ = torch.autograd.profiler.record_function(
+                    "Second Annotation"
+                ).__enter__()
 
                 y = x + 1
                 with torch.autograd.profiler.record_function("Third Annotation"):
@@ -343,7 +360,7 @@ class TestProfilerTree(TestCase):
                     torch::autograd::AccumulateGrad
                       aten::new_empty_strided
                         aten::empty_strided
-                      aten::copy_"""
+                      aten::copy_""",
         )
 
     @ProfilerTree.test
@@ -415,10 +432,12 @@ class TestProfilerTree(TestCase):
               torch::autograd::AccumulateGrad
                 aten::detach
                   detach
-            [memory]"""
+            [memory]""",
         )
 
-    @unittest.skipIf(TEST_WITH_CROSSREF, "crossref intercepts calls and changes the callsite.")
+    @unittest.skipIf(
+        TEST_WITH_CROSSREF, "crossref intercepts calls and changes the callsite."
+    )
     @ProfilerTree.test
     def test_profiler_experimental_tree_with_memory_and_stack(self):
         t1, t2 = torch.ones(1, requires_grad=True), torch.ones(1, requires_grad=True)
@@ -513,11 +532,13 @@ class TestProfilerTree(TestCase):
                 [memory]
               torch/profiler/profiler.py(...): __exit__
                 torch/profiler/profiler.py(...): stop
-                  ..."""
+                  ...""",
         )
 
     @skipIfTorchDynamo("too slow")
-    @unittest.skipIf(TEST_WITH_CROSSREF, "crossref intercepts calls and changes the callsite.")
+    @unittest.skipIf(
+        TEST_WITH_CROSSREF, "crossref intercepts calls and changes the callsite."
+    )
     @ProfilerTree.test
     def test_profiler_experimental_tree_with_stack_and_modules(self):
         class MyModule(torch.nn.Module):
@@ -529,7 +550,7 @@ class TestProfilerTree(TestCase):
                     torch.nn.ReLU(),
                 ]
 
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
+            def forward(self, x: torch.TensorBase) -> torch.TensorBase:
                 for l in self.layers:
                     x = l(x)
                 return x
@@ -641,10 +662,12 @@ class TestProfilerTree(TestCase):
                                 aten::clamp_min
               torch/profiler/profiler.py(...): __exit__
                 torch/profiler/profiler.py(...): stop
-                  ..."""
+                  ...""",
         )
 
-    @unittest.skipIf(TEST_WITH_CROSSREF, "crossref intercepts calls and changes the callsite.")
+    @unittest.skipIf(
+        TEST_WITH_CROSSREF, "crossref intercepts calls and changes the callsite."
+    )
     @ProfilerTree.test
     def test_profiler_experimental_tree_with_stack_and_torch_function(self):
         x = TorchFunctionTensor(torch.ones((1,)))
@@ -680,10 +703,12 @@ class TestProfilerTree(TestCase):
                       <built-in function isinstance>
               torch/profiler/profiler.py(...): __exit__
                 torch/profiler/profiler.py(...): stop
-                  ..."""
+                  ...""",
         )
 
-    @unittest.skipIf(TEST_WITH_CROSSREF, "crossref intercepts calls and changes the callsite.")
+    @unittest.skipIf(
+        TEST_WITH_CROSSREF, "crossref intercepts calls and changes the callsite."
+    )
     @ProfilerTree.test
     def test_profiler_experimental_tree_with_stack_and_torch_dispatch(self):
         x = TorchDispatchTensor(torch.ones((1,)))
@@ -711,7 +736,8 @@ class TestProfilerTree(TestCase):
                     ...
               torch/profiler/profiler.py(...): __exit__
                 torch/profiler/profiler.py(...): stop
-                  ...""")
+                  ...""",
+        )
 
     @unittest.skip("https://github.com/pytorch/pytorch/issues/83606")
     @unittest.skipIf(not torch.cuda.is_available(), "CUDA is required")
@@ -869,7 +895,9 @@ class TestProfilerTree(TestCase):
         )
 
     @unittest.skip("https://github.com/pytorch/pytorch/issues/83606")
-    @unittest.skipIf(TEST_WITH_CROSSREF, "crossref intercepts calls and changes the callsite.")
+    @unittest.skipIf(
+        TEST_WITH_CROSSREF, "crossref intercepts calls and changes the callsite."
+    )
     @unittest.skipIf(not torch.cuda.is_available(), "CUDA is required")
     @ProfilerTree.test
     def test_profiler_experimental_tree_cuda_detailed(self):
@@ -1065,5 +1093,5 @@ class TestProfilerTree(TestCase):
         )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     run_tests()

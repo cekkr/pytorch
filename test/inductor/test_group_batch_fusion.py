@@ -37,7 +37,7 @@ class MyModule(torch.nn.Module):
             torch.nn.Linear(z, z, has_bias).to(self.device) for _ in range(self.seq_len)
         ]
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.TensorBase) -> torch.TensorBase:
         x1 = [x + 0.1 * i for i in range(self.seq_len)]
         x2 = [self.seq1[i](x1[i]) for i in range(self.seq_len)]
         x3 = [x2[i] - 0.1 * i for i in range(self.seq_len)]
@@ -67,7 +67,7 @@ class MyModule2(torch.nn.Module):
         self.bn1 = torch.nn.BatchNorm1d(8)
         self.bn2 = torch.nn.BatchNorm1d(8)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.TensorBase) -> torch.TensorBase:
         t = torch.split(x, [6, 8, 10], dim=1)
         a0 = self.bn0(self.linear0(t[0] + 0.1))
         a1 = self.bn1(self.linear1(t[1] + 0.2))

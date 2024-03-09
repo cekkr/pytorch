@@ -389,7 +389,7 @@ class TestWithNCCL(MultiProcessTestCase):
         self._init_process_group()
         device = torch.device(f"cuda:{self.rank}")
 
-        def func(arg: torch.Tensor) -> torch.Tensor:
+        def func(arg: torch.TensorBase) -> torch.TensorBase:
             buf0 = arg + 42
             ar0 = funcol.all_reduce(buf0, "avg", "0")
             ar0 = funcol.wait_tensor(ar0)
@@ -450,7 +450,7 @@ class CompileTest(TestCase):
     @fresh_inductor_cache()
     @run_with_native_funcol
     def test_inductor_all_reduce_single(self):
-        def func(arg: torch.Tensor) -> torch.Tensor:
+        def func(arg: torch.TensorBase) -> torch.TensorBase:
             buf0 = arg + 42
             # Expect in-place with inductor allocated buf
             ar0 = funcol.all_reduce(buf0, "avg", "0")
@@ -487,7 +487,7 @@ class CompileTest(TestCase):
     @fresh_inductor_cache()
     @run_with_native_funcol
     def test_inductor_all_reduce_coalesced(self):
-        def func(args: List[torch.Tensor]) -> torch.Tensor:
+        def func(args: List[torch.TensorBase]) -> torch.TensorBase:
             bufs = [arg + 42 for arg in args]
             # Expect in-place with inductor allocated buf
             ar0 = funcol.all_reduce_coalesced(bufs, "avg", "0")
@@ -533,7 +533,7 @@ class CompileTest(TestCase):
     @fresh_inductor_cache()
     @run_with_native_funcol
     def test_inductor_inplace_op_on_view(self):
-        def func(arg: torch.Tensor) -> torch.Tensor:
+        def func(arg: torch.TensorBase) -> torch.TensorBase:
             buf0 = (arg + 10)[:2]
             ar0 = funcol.all_reduce(buf0, "avg", "0")
             ar0 = funcol.wait_tensor(ar0)
@@ -561,7 +561,7 @@ class CompileTest(TestCase):
     @fresh_inductor_cache()
     @run_with_native_funcol
     def test_inductor_reuse_buffer_after_inplace_collective(self):
-        def func(arg: torch.Tensor) -> torch.Tensor:
+        def func(arg: torch.TensorBase) -> torch.TensorBase:
             # Expect allocation
             buf0 = arg + 42
             ar0 = funcol.all_reduce(buf0, "avg", "0")
@@ -596,7 +596,7 @@ class CompileTest(TestCase):
     @fresh_inductor_cache()
     @run_with_native_funcol
     def test_inductor_all_gather_into_tensor_single(self):
-        def func(arg: torch.Tensor) -> torch.Tensor:
+        def func(arg: torch.TensorBase) -> torch.TensorBase:
             ag0 = funcol.all_gather_tensor(arg, 0, "0")
             ag0 = funcol.wait_tensor(ag0)
             return ag0
@@ -623,7 +623,7 @@ class CompileTest(TestCase):
     @fresh_inductor_cache()
     @run_with_native_funcol
     def test_inductor_all_gather_into_tensor_coalesced(self):
-        def func(args: List[torch.Tensor]) -> torch.Tensor:
+        def func(args: List[torch.TensorBase]) -> torch.TensorBase:
             ag0 = funcol.all_gather_into_tensor_coalesced(args, "0")
             ag0 = [funcol.wait_tensor(out) for out in ag0]
             return ag0
@@ -658,7 +658,7 @@ class CompileTest(TestCase):
     @fresh_inductor_cache()
     @run_with_native_funcol
     def test_inductor_reduce_scatter_tensor_single(self):
-        def func(arg: torch.Tensor) -> torch.Tensor:
+        def func(arg: torch.TensorBase) -> torch.TensorBase:
             rs0 = funcol.reduce_scatter_tensor(arg, "avg", 0, "0")
             rs0 = funcol.wait_tensor(rs0)
             return rs0
@@ -685,7 +685,7 @@ class CompileTest(TestCase):
     @fresh_inductor_cache()
     @run_with_native_funcol
     def test_inductor_reduce_scatter_tensor_coalesced(self):
-        def func(args: List[torch.Tensor]) -> torch.Tensor:
+        def func(args: List[torch.TensorBase]) -> torch.TensorBase:
             rs0 = funcol.reduce_scatter_tensor_coalesced(
                 args, "avg", [0] * len(args), "0"
             )
@@ -729,10 +729,10 @@ class CompileTest(TestCase):
             return lst
 
         def func(
-            input: torch.Tensor,
-            output_split_sizes: torch.Tensor,
-            input_split_sizes: torch.Tensor,
-        ) -> torch.Tensor:
+            input: torch.TensorBase,
+            output_split_sizes: torch.TensorBase,
+            input_split_sizes: torch.TensorBase,
+        ) -> torch.TensorBase:
             output = funcol.all_to_all_single(
                 input,
                 _tolist_with_constrain_as_size(output_split_sizes),
@@ -771,7 +771,7 @@ class CompileTest(TestCase):
     @fresh_inductor_cache()
     @run_with_native_funcol
     def test_inductor_broadcast(self):
-        def func(arg: torch.Tensor) -> torch.Tensor:
+        def func(arg: torch.TensorBase) -> torch.TensorBase:
             buf0 = arg + 42
             # Expect in-place with inductor allocated buf
             br0 = funcol.broadcast(buf0, 1, "0")
@@ -808,7 +808,7 @@ class CompileTest(TestCase):
     @fresh_inductor_cache()
     @run_with_native_funcol
     def test_ranks_and_tag(self):
-        def func(arg: torch.Tensor) -> torch.Tensor:
+        def func(arg: torch.TensorBase) -> torch.TensorBase:
             buf0 = arg + 42
             # Expect in-place with inductor allocated buf
             ar0 = funcol.all_reduce(buf0, "avg", [0, 1], "")

@@ -110,13 +110,15 @@ class Model(Module):
             self.inner = FSDP(
                 self.inner,
                 ignored_modules=([self.inner] if ignore_inner else []),
-                mixed_precision=MixedPrecision(
-                    param_dtype=torch.float16,
-                    reduce_dtype=torch.float16,
-                    buffer_dtype=torch.float16,
-                )
-                if mixed_precision
-                else None,
+                mixed_precision=(
+                    MixedPrecision(
+                        param_dtype=torch.float16,
+                        reduce_dtype=torch.float16,
+                        buffer_dtype=torch.float16,
+                    )
+                    if mixed_precision
+                    else None
+                ),
                 process_group=process_group,
             )
         self.outer = Linear(*OUTER_SHAPE)
@@ -140,7 +142,7 @@ class TestDummyModel(torch.nn.Module):
         self.net1 = nn.Sequential(nn.Linear(8, 16), nn.ReLU())
         self.net2 = nn.Sequential(nn.Linear(16, 16), nn.ReLU())
         self.net3 = self.net2
-        self.random_parameter = nn.Parameter(torch.Tensor(10))
+        self.random_parameter = nn.Parameter(torch.TensorBase(10))
         self.shared_parameter = self.random_parameter
 
     def forward(self, x):
@@ -811,7 +813,7 @@ class TestFSDPStateDict(FSDPTest):
             if move_to_cpu:
                 for key in list(state_dict.keys()):
                     tensor = state_dict[key]
-                    if isinstance(tensor, torch.Tensor):
+                    if isinstance(tensor, torch.TensorBase):
                         state_dict[key] = tensor.cpu()
                     else:
                         shards = tensor.local_shards()
@@ -1058,13 +1060,15 @@ class TestFSDPStateDict(FSDPTest):
         fsdp_model = FSDP(
             model,
             ignored_modules=ignored_modules,
-            mixed_precision=MixedPrecision(
-                param_dtype=torch.float16,
-                reduce_dtype=torch.float16,
-                buffer_dtype=torch.float16,
-            )
-            if mixed_precision
-            else None,
+            mixed_precision=(
+                MixedPrecision(
+                    param_dtype=torch.float16,
+                    reduce_dtype=torch.float16,
+                    buffer_dtype=torch.float16,
+                )
+                if mixed_precision
+                else None
+            ),
         )
         prefix_str = "foo." if prefix else ""
         with FSDP.state_dict_type(fsdp_model, STATE_DICT_MAPPING[state_dict_type]):

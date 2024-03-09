@@ -470,10 +470,10 @@ class TestStateDict(DTensorTestBase, VerifyStateDictMixin):
                 return v.device == cpu_device
 
         self.assertTrue(
-            tree_all_only((torch.Tensor, DTensor, ShardedTensor), is_cpu, mst)
+            tree_all_only((torch.TensorBase, DTensor, ShardedTensor), is_cpu, mst)
         )
         self.assertTrue(
-            tree_all_only((torch.Tensor, DTensor, ShardedTensor), is_cpu, ost)
+            tree_all_only((torch.TensorBase, DTensor, ShardedTensor), is_cpu, ost)
         )
 
         mst, ost = get_state_dict(
@@ -495,10 +495,10 @@ class TestStateDict(DTensorTestBase, VerifyStateDictMixin):
 
         if self.rank == 0:
             self.assertTrue(
-                tree_all_only((torch.Tensor, DTensor, ShardedTensor), is_cpu, mst)
+                tree_all_only((torch.TensorBase, DTensor, ShardedTensor), is_cpu, mst)
             )
             self.assertTrue(
-                tree_all_only((torch.Tensor, DTensor, ShardedTensor), is_cpu, ost)
+                tree_all_only((torch.TensorBase, DTensor, ShardedTensor), is_cpu, ost)
             )
         else:
             self.assertEqual(mst, {})

@@ -153,7 +153,7 @@ class NestedModel(torch.nn.Module):
         )
         self.relu = torch.nn.ReLU()
 
-    def forward(self, x) -> torch.Tensor:
+    def forward(self, x) -> torch.TensorBase:
         x = self.relu(self.block0(x))
         x = self.relu(self.block1(x))
         x = self.relu(self.block2(x))
@@ -1542,7 +1542,7 @@ class TestFSDPOptimState(FSDPTest):
                 self.lin2 = nn.Linear(5, 5)
                 self.relu = nn.ReLU()
 
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
+            def forward(self, x: torch.TensorBase) -> torch.TensorBase:
                 # Do not use `lin1`, which is the parameter passed to the
                 # optimizer and the one checked for "step" state to see if it
                 # is tensor or float

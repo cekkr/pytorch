@@ -1168,10 +1168,10 @@ class FunctionTests(torch._dynamo.test_case.TestCase):
         return mytuple(tmp.x, tmp[1], tmp.xy + b)
 
     class MyNamedTuple(NamedTuple):
-        first: torch.Tensor
-        second: torch.Tensor
+        first: torch.TensorBase
+        second: torch.TensorBase
 
-        def add(self) -> torch.Tensor:
+        def add(self) -> torch.TensorBase:
             return self.first + self.second
 
         @staticmethod
@@ -1308,7 +1308,7 @@ class FunctionTests(torch._dynamo.test_case.TestCase):
     @make_test
     def test_context_wrapping_nested_functions_no_closure(x):
         @torch.no_grad()
-        def augment(x: torch.Tensor) -> torch.Tensor:
+        def augment(x: torch.TensorBase) -> torch.TensorBase:
             return (x + 1) * 2
 
         return augment(x)
@@ -1386,7 +1386,7 @@ class FunctionTests(torch._dynamo.test_case.TestCase):
         )
 
     @make_test
-    def test_mean_sum_np(x: torch.Tensor):
+    def test_mean_sum_np(x: torch.TensorBase):
         x_mean = np.mean(x.numpy(), 1)
         x_sum = np.sum(x_mean)
         x_sum_array = np.asarray(x_sum)
@@ -2300,8 +2300,8 @@ class DefaultsTests(torch._dynamo.test_case.TestCase):
         @dataclass
         class Output:
             scalar: int = 2
-            named_tensors: Dict[str, torch.Tensor] = field(default_factory=dict)
-            lists: List[torch.Tensor] = field(default_factory=list)
+            named_tensors: Dict[str, torch.TensorBase] = field(default_factory=dict)
+            lists: List[torch.TensorBase] = field(default_factory=list)
 
             def scale(self):
                 return self.scalar * 2
@@ -2504,7 +2504,7 @@ class DefaultsTests(torch._dynamo.test_case.TestCase):
     def test_is_init_in_compile_vmapped_mutated_tensor_tensor(self):
         def fn(z):
             x = z.clone()
-            y = torch.vmap(torch.Tensor.acos_)(x)
+            y = torch.vmap(torch.TensorBase.acos_)(x)
             _ = y is z
             return y is x
 
@@ -2517,7 +2517,7 @@ class DefaultsTests(torch._dynamo.test_case.TestCase):
     @torch._dynamo.config.patch(capture_func_transforms=True)
     def test_is_vmapped_mutated_tensor_tensor(self):
         def fn(x):
-            y = torch.vmap(torch.Tensor.acos_)(x)
+            y = torch.vmap(torch.TensorBase.acos_)(x)
             return y is x
 
         fn_opt = torch.compile(backend="eager", fullgraph=True, dynamic=True)(fn)
@@ -2577,7 +2577,7 @@ class DefaultsTests(torch._dynamo.test_case.TestCase):
 
         def fn(param, param2):
             y = param.add_(1)  # Tensor method
-            z = torch.Tensor.add_(y, 1)  # torch function
+            z = torch.TensorBase.add_(y, 1)  # torch function
             tensor_list = set([param2])
             return y in tensor_list and z in tensor_list
 

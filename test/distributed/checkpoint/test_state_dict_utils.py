@@ -150,7 +150,7 @@ class TestStateDictUtils(DTensorTestBase):
 
             # Verify if _offload_state_dict_to_cpu works
             for v in cpu_state_dict.values():
-                if isinstance(v, torch.Tensor):
+                if isinstance(v, torch.TensorBase):
                     self.assertFalse(v.is_cuda)
             self.assertEqual(cpu_state_dict["tensor1"], torch.arange(10))
             self.assertEqual(cpu_state_dict["tensor2"], torch.ones(10))

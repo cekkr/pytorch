@@ -41,7 +41,7 @@ class AotAutogradFallbackTests(torch._dynamo.test_case.TestCase):
                     64, 64, num_layers=2, bidirectional=True
                 )
 
-            def forward(self, permute: torch.Tensor):
+            def forward(self, permute: torch.TensorBase):
                 self_mod_model_lstm_lstm = self.self_mod_model_lstm_lstm(permute)
                 return (self_mod_model_lstm_lstm,)
 
@@ -77,7 +77,10 @@ class AotAutogradFallbackTests(torch._dynamo.test_case.TestCase):
         aot_fn(x, y)
 
     def test_mutation1(self):
-        def fn(_stack0: torch.Tensor, diagonal_chunked_attention_scores: torch.Tensor):
+        def fn(
+            _stack0: torch.TensorBase,
+            diagonal_chunked_attention_scores: torch.TensorBase,
+        ):
             getitem = diagonal_chunked_attention_scores[
                 (
                     slice(None, None, None),
@@ -103,7 +106,10 @@ class AotAutogradFallbackTests(torch._dynamo.test_case.TestCase):
         aot_fn(x, y)
 
     def test_negative_testing_mutation(self):
-        def fn(_stack0: torch.Tensor, diagonal_chunked_attention_scores: torch.Tensor):
+        def fn(
+            _stack0: torch.TensorBase,
+            diagonal_chunked_attention_scores: torch.TensorBase,
+        ):
             getitem = diagonal_chunked_attention_scores[
                 (
                     slice(None, None, None),

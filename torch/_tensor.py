@@ -147,9 +147,13 @@ class Tensor():
 
         if name == 'to':
             def ignore(*args, **kwargs):
-                if isinstance(args[0], str):
-                    setattr(self, 'gpuDevice', str)
-                return self
+                dev = args[0]
+                if isinstance(dev, str):
+                    setattr(self, 'gpuDevice', dev)
+                    return self
+                else:
+                    return attr(*args, **kwargs)
+                
             return ignore
 
         if callable(attr):
@@ -181,8 +185,11 @@ class Tensor():
                     value.toCPU()
 
                 if isinstance(result, TensorBase):
-                    result = Tensor(result, self.gpuDevice)
-                    result.toCPU()
+                    if name == 'cpu':
+                        self.target = result 
+                    else:                    
+                        result = Tensor(result, self.gpuDevice)
+                        result.toCPU()
 
                 return result
 
@@ -192,7 +199,9 @@ class Tensor():
 
     def toGPU(self):
         if self.target.is_cpu:
-            self.target = self.target.to(self.gpuDevice)
+            dev = getattr(self, 'gpuDevice')
+            if dev is not None and dev is not 'cpu':
+                self.target = self.target.to(self.gpuDevice)
 
         return self.target
 

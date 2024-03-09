@@ -466,8 +466,8 @@ class SubGraphTests(torch._dynamo.test_case.TestCase):
             return x + 7
 
         v1 = torch.randn(10)
-        t = torch.Tensor([True])
-        f = torch.Tensor([False])
+        t = torch.TensorBase([True])
+        f = torch.TensorBase([False])
         cnt = torch._dynamo.testing.CompileCounter()
         opt_fn = torch._dynamo.optimize(cnt)(fn)
         for a in (t, f):

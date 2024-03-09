@@ -348,7 +348,7 @@ class TestCompiledAutograd(TestCase):
 
         # First backward pass; keep the computation graph
         y.backward(retain_graph=True)
-        self.assertEqual(x.grad, torch.Tensor([4]))  # dy/dx at x=2 is 4
+        self.assertEqual(x.grad, torch.TensorBase([4]))  # dy/dx at x=2 is 4
 
         # Note - this will run under both the eager and compiled regime.
         def fn():
@@ -356,7 +356,7 @@ class TestCompiledAutograd(TestCase):
             x.grad = torch.tensor([0.0])
             # Second and Third backward pass; keep the computation graph
             y.backward(retain_graph=True)
-            self.assertEqual(x.grad, torch.Tensor([4]))  # dy/dx at x=2 is 4
+            self.assertEqual(x.grad, torch.TensorBase([4]))  # dy/dx at x=2 is 4
             return x.grad
 
         self.check_output_and_recompiles(fn, count=1)
@@ -368,7 +368,7 @@ class TestCompiledAutograd(TestCase):
         # First backward pass; keep the computation graph
         def eager_check():
             y.backward(retain_graph=True)
-            self.assertEqual(x.grad, torch.Tensor([4]))  # dy/dx at x=2 is 4
+            self.assertEqual(x.grad, torch.TensorBase([4]))  # dy/dx at x=2 is 4
             x.grad = torch.tensor([0.0])
 
         eager_check()

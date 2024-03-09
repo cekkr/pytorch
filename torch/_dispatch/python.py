@@ -79,7 +79,7 @@ def check_metadata_matches(n, r, desc):
     # on one side and a list on the other
     assert len(n_vals) == len(r_vals), f"{len(n_vals)} != {len(r_vals)}"
     for i, nv, rv in zip(range(len(n_vals)), n_vals, r_vals):
-        if not isinstance(rv, torch.Tensor):
+        if not isinstance(rv, torch.TensorBase):
             continue
         check_tensor_metadata_matches(nv, rv, lambda: f"{desc()} output {i}")
 
@@ -93,7 +93,7 @@ class Lit:
 
 
 def _fmt(a: object) -> object:
-    if isinstance(a, torch.Tensor):
+    if isinstance(a, torch.TensorBase):
         return Lit(
             f"torch.empty_strided({tuple(a.size())}, {a.stride()}, dtype={a.dtype})"
         )
@@ -112,7 +112,7 @@ def make_crossref_functionalize(op, final_key):
         fake_mode = FakeTensorMode()
 
         def fakeify_defun(t):
-            if isinstance(t, torch.Tensor):
+            if isinstance(t, torch.TensorBase):
                 if torch._is_functional_tensor(t):
                     r = torch._from_functional_tensor(t)
                     # NB: This assumes that the inner tensor sizes/strides match
@@ -128,7 +128,7 @@ def make_crossref_functionalize(op, final_key):
             return t
 
         def maybe_detach(t):
-            if isinstance(t, torch.Tensor):
+            if isinstance(t, torch.TensorBase):
                 return t.detach()
             else:
                 return t

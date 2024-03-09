@@ -22,7 +22,7 @@ from torch.testing._internal.inductor_utils import HAS_CPU
 class TestCustomPassBase(TestCase):
     def _clone_inputs(self, inputs):
         def clone(x):
-            if not isinstance(x, torch.Tensor):
+            if not isinstance(x, torch.TensorBase):
                 return x
             return x.clone()
 

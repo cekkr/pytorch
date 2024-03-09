@@ -160,7 +160,7 @@ class TestDynamoWithONNXRuntime(onnx_test_common._TestONNXRuntime):
         for example_args in example_args_collection:
             baseline_result = model(*example_args)
             result = compiled_model(*example_args)
-            if isinstance(baseline_result, torch.Tensor):
+            if isinstance(baseline_result, torch.TensorBase):
                 torch.testing.assert_close(
                     baseline_result, result, atol=atol, rtol=rtol
                 )
@@ -254,7 +254,7 @@ class TestDynamoWithONNXRuntime(onnx_test_common._TestONNXRuntime):
             (torch.randn(batch, dtype=torch.float32),) for batch in (2, 4, 6, 8, 10)
         )
 
-        def elementwise_model(x: torch.Tensor):
+        def elementwise_model(x: torch.TensorBase):
             y = x.relu()
             z = y.sigmoid()
             return z
@@ -301,7 +301,7 @@ class TestDynamoWithONNXRuntime(onnx_test_common._TestONNXRuntime):
             (torch.randn(batch, dtype=torch.float32),) for batch in (2, 4, 8)
         )
 
-        def elementwise_model_with_multiple_outputs(w: torch.Tensor):
+        def elementwise_model_with_multiple_outputs(w: torch.TensorBase):
             x = w + w
             y = x.relu()
             z = y * y
@@ -344,7 +344,7 @@ class TestDynamoWithONNXRuntime(onnx_test_common._TestONNXRuntime):
                 self.fc1 = nn.Linear(2, 4, bias=True)
                 self.fc2 = nn.Linear(4, 2, bias=True)
 
-            def forward(self, tensor_x: torch.Tensor):
+            def forward(self, tensor_x: torch.TensorBase):
                 tensor_x = self.fc1(tensor_x)
                 tensor_x = torch.sigmoid(tensor_x)
                 tensor_x = self.fc2(tensor_x)
@@ -675,7 +675,7 @@ class TestDynamoWithONNXRuntime(onnx_test_common._TestONNXRuntime):
                 self.fc1 = nn.Linear(2, 4, bias=True)
                 self.fc2 = nn.Linear(4, 2, bias=True)
 
-            def forward(self, tensor_x: torch.Tensor):
+            def forward(self, tensor_x: torch.TensorBase):
                 tensor_x = self.fc1(tensor_x)
                 tensor_x = torch.sigmoid(tensor_x)
                 tensor_x = self.fc2(tensor_x)
@@ -787,7 +787,7 @@ class TestDynamoWithONNXRuntime(onnx_test_common._TestONNXRuntime):
             # Record the ONNX model seen by the transform.
             recorded_models.append(onnx_model)
 
-        def example_model(x: torch.Tensor):
+        def example_model(x: torch.TensorBase):
             y = torch.sigmoid(x)
             z = x + y
             return z
@@ -814,7 +814,7 @@ class TestDynamoWithONNXRuntime(onnx_test_common._TestONNXRuntime):
                     if node.op_type == "Relu":
                         node.op_type = "Sigmoid"
 
-        def another_example_model(x: torch.Tensor):
+        def another_example_model(x: torch.TensorBase):
             y = torch.relu(x)
             z = x + y
             return z

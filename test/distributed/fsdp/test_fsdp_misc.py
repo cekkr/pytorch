@@ -1064,7 +1064,7 @@ class TestFSDPMiscWorldSize1(FSDPTestMultiThread):
                     torch.randn((in_dim, out_dim), device=device)
                 )
 
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
+            def forward(self, x: torch.TensorBase) -> torch.TensorBase:
                 return x @ self.weight
 
             def __setattr__(self, name: str, value: Any) -> None:

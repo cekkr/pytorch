@@ -2,10 +2,10 @@
 
 import os
 import sys
+import warnings
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
-import warnings
-from typing import List, Any, Dict, Tuple, Optional
 
 # Make the helper files in test/ importable
 pytorch_test_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -18,6 +18,7 @@ if __name__ == "__main__":
         "\tpython test/test_jit.py TESTNAME\n\n"
         "instead."
     )
+
 
 # Tests for torch.jit.isinstance
 class TestIsinstance(JitTestCase):
@@ -56,7 +57,7 @@ class TestIsinstance(JitTestCase):
 
     def test_list_tensor(self):
         def list_tensor_test(x: Any):
-            assert torch.jit.isinstance(x, List[torch.Tensor])
+            assert torch.jit.isinstance(x, List[torch.TensorBase])
             assert not torch.jit.isinstance(x, Tuple[int])
 
         x = [torch.tensor([1]), torch.tensor([2]), torch.tensor([3])]
@@ -73,7 +74,7 @@ class TestIsinstance(JitTestCase):
 
     def test_dict_tensor(self):
         def dict_int_tensor_test(x: Any):
-            assert torch.jit.isinstance(x, Dict[int, torch.Tensor])
+            assert torch.jit.isinstance(x, Dict[int, torch.TensorBase])
 
         x = {2: torch.tensor([2])}
         self.checkScript(dict_int_tensor_test, (x,))
@@ -89,14 +90,14 @@ class TestIsinstance(JitTestCase):
 
     def test_tuple_tensor(self):
         def tuple_tensor_test(x: Any):
-            assert torch.jit.isinstance(x, Tuple[torch.Tensor, torch.Tensor])
+            assert torch.jit.isinstance(x, Tuple[torch.TensorBase, torch.TensorBase])
 
         x = (torch.tensor([1]), torch.tensor([[2], [3]]))
         self.checkScript(tuple_tensor_test, (x,))
 
     def test_optional(self):
         def optional_test(x: Any):
-            assert torch.jit.isinstance(x, Optional[torch.Tensor])
+            assert torch.jit.isinstance(x, Optional[torch.TensorBase])
             assert not torch.jit.isinstance(x, Optional[str])
 
         x = torch.ones(3, 3)
@@ -104,7 +105,7 @@ class TestIsinstance(JitTestCase):
 
     def test_optional_none(self):
         def optional_test_none(x: Any):
-            assert torch.jit.isinstance(x, Optional[torch.Tensor])
+            assert torch.jit.isinstance(x, Optional[torch.TensorBase])
             # assert torch.jit.isinstance(x, Optional[str])
             # TODO: above line in eager will evaluate to True while in
             #       the TS interpreter will evaluate to False as the
@@ -154,14 +155,14 @@ class TestIsinstance(JitTestCase):
 
     def test_list_tensor_type_true(self):
         def list_tensor_type_true(x: Any):
-            assert torch.jit.isinstance(x, List[torch.Tensor])
+            assert torch.jit.isinstance(x, List[torch.TensorBase])
 
         x = [torch.rand(3, 3), torch.rand(4, 3)]
         self.checkScript(list_tensor_type_true, (x,))
 
     def test_tensor_type_false(self):
         def list_tensor_type_false(x: Any):
-            assert not torch.jit.isinstance(x, List[torch.Tensor])
+            assert not torch.jit.isinstance(x, List[torch.TensorBase])
 
         x = [1, 2, 3]
         self.checkScript(list_tensor_type_false, (x,))
@@ -199,7 +200,7 @@ class TestIsinstance(JitTestCase):
     def test_type_refinement(self):
         def type_refinement(obj: Any):
             hit = False
-            if torch.jit.isinstance(obj, List[torch.Tensor]):
+            if torch.jit.isinstance(obj, List[torch.TensorBase]):
                 hit = not hit
                 for el in obj:
                     # perform some tensor operation
@@ -223,15 +224,21 @@ class TestIsinstance(JitTestCase):
 
         x = ["1", "2", "3"]
 
-        err_msg = "Attempted to use List without a contained type. " \
+        err_msg = (
+            "Attempted to use List without a contained type. "
             r"Please add a contained type, e.g. List\[int\]"
+        )
 
-        with self.assertRaisesRegex(RuntimeError, err_msg,):
+        with self.assertRaisesRegex(
+            RuntimeError,
+            err_msg,
+        ):
             torch.jit.script(list_no_contained_type)
-        with self.assertRaisesRegex(RuntimeError, err_msg,):
+        with self.assertRaisesRegex(
+            RuntimeError,
+            err_msg,
+        ):
             list_no_contained_type(x)
-
-
 
     def test_tuple_no_contained_type(self):
         def tuple_no_contained_type(x: Any):
@@ -239,12 +246,20 @@ class TestIsinstance(JitTestCase):
 
         x = ("1", "2", "3")
 
-        err_msg = "Attempted to use Tuple without a contained type. " \
+        err_msg = (
+            "Attempted to use Tuple without a contained type. "
             r"Please add a contained type, e.g. Tuple\[int\]"
+        )
 
-        with self.assertRaisesRegex(RuntimeError, err_msg,):
+        with self.assertRaisesRegex(
+            RuntimeError,
+            err_msg,
+        ):
             torch.jit.script(tuple_no_contained_type)
-        with self.assertRaisesRegex(RuntimeError, err_msg,):
+        with self.assertRaisesRegex(
+            RuntimeError,
+            err_msg,
+        ):
             tuple_no_contained_type(x)
 
     def test_optional_no_contained_type(self):
@@ -253,12 +268,20 @@ class TestIsinstance(JitTestCase):
 
         x = ("1", "2", "3")
 
-        err_msg = "Attempted to use Optional without a contained type. " \
+        err_msg = (
+            "Attempted to use Optional without a contained type. "
             r"Please add a contained type, e.g. Optional\[int\]"
+        )
 
-        with self.assertRaisesRegex(RuntimeError, err_msg,):
+        with self.assertRaisesRegex(
+            RuntimeError,
+            err_msg,
+        ):
             torch.jit.script(optional_no_contained_type)
-        with self.assertRaisesRegex(RuntimeError, err_msg,):
+        with self.assertRaisesRegex(
+            RuntimeError,
+            err_msg,
+        ):
             optional_no_contained_type(x)
 
     def test_dict_no_contained_type(self):
@@ -267,12 +290,20 @@ class TestIsinstance(JitTestCase):
 
         x = {"a": "aa"}
 
-        err_msg = "Attempted to use Dict without contained types. " \
+        err_msg = (
+            "Attempted to use Dict without contained types. "
             r"Please add contained type, e.g. Dict\[int, int\]"
+        )
 
-        with self.assertRaisesRegex(RuntimeError, err_msg,):
+        with self.assertRaisesRegex(
+            RuntimeError,
+            err_msg,
+        ):
             torch.jit.script(dict_no_contained_type)
-        with self.assertRaisesRegex(RuntimeError, err_msg,):
+        with self.assertRaisesRegex(
+            RuntimeError,
+            err_msg,
+        ):
             dict_no_contained_type(x)
 
     def test_tuple_rhs(self):
@@ -316,7 +347,7 @@ class TestIsinstance(JitTestCase):
     def test_empty_container_special_cases(self):
         # Should not throw "Boolean value of Tensor with no values is
         # ambiguous" error
-        torch._jit_internal.check_empty_containers(torch.Tensor([]))
+        torch._jit_internal.check_empty_containers(torch.TensorBase([]))
 
         # Should not throw "Boolean value of Tensor with more than
         # one value is ambiguous" error

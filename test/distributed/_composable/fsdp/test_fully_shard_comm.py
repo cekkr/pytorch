@@ -151,7 +151,7 @@ class TestFullyShardCollectiveOps(FSDPTestMultiThread):
             orig_params: List[nn.Parameter], module: nn.Module
         ):
             for orig_param, param in zip(orig_params, module.parameters()):
-                self.assertIsInstance(param, torch.Tensor)
+                self.assertIsInstance(param, torch.TensorBase)
                 self.assertIsInstance(param, nn.Parameter)
                 self.assertEqual(param, orig_param.to(param.dtype))
 

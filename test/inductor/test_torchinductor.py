@@ -295,7 +295,9 @@ def compute_grads(args, kwrags, results, grads):
     def gather_leaf_tensors(args, kwargs):
         args = pytree.arg_tree_leaves(*args, **kwargs)
         leaf_tensors = [
-            arg for arg in args if isinstance(arg, torch.Tensor) and arg.requires_grad
+            arg
+            for arg in args
+            if isinstance(arg, torch.TensorBase) and arg.requires_grad
         ]
         return leaf_tensors
 
@@ -315,7 +317,7 @@ def compute_grads(args, kwrags, results, grads):
 
 
 def clone_preserve_strides(x, device=None):
-    if not isinstance(x, torch.Tensor):
+    if not isinstance(x, torch.TensorBase):
         return x
     buffer = torch.as_strided(
         x, (x.untyped_storage().size() // x.element_size(),), (1,), 0
@@ -389,7 +391,7 @@ def check_model(
 
         ref_inputs = [clone_preserve_strides(x) for x in example_inputs]
         expect_dtypes = [
-            x.dtype if isinstance(x, torch.Tensor) else None
+            x.dtype if isinstance(x, torch.TensorBase) else None
             for x in pytree.tree_leaves(eager_result)
         ]
         del eager_result
@@ -399,7 +401,7 @@ def check_model(
         # check_lowp is ignored here, it's kept just to be able to call `common` with extra arg
         def upcast_fn(x):
             nonlocal has_lowp_args
-            if isinstance(x, torch.Tensor) and (
+            if isinstance(x, torch.TensorBase) and (
                 x.dtype == torch.float16 or x.dtype == torch.bfloat16
             ):
                 has_lowp_args = True
@@ -446,9 +448,11 @@ def check_model(
 
     def reference_to_expect(actual_flat, correct_flat):
         return tuple(
-            y.to(x.dtype)
-            if isinstance(y, torch.Tensor) and y.dtype.is_floating_point
-            else y
+            (
+                y.to(x.dtype)
+                if isinstance(y, torch.TensorBase) and y.dtype.is_floating_point
+                else y
+            )
             for x, y in zip(actual_flat, correct_flat)
         )
 
@@ -484,7 +488,7 @@ def check_model(
         )
     else:
         for correct_val, actual_val in zip(correct_flat, actual_flat):
-            if isinstance(correct_val, torch.Tensor):
+            if isinstance(correct_val, torch.TensorBase):
                 assert correct_val.device == actual_val.device
                 assert correct_val.size() == actual_val.size()
                 strides_equal, _ = torch._prims_common.check_significant_strides(
@@ -523,7 +527,7 @@ def check_model(
             results_that_require_grad = [
                 x
                 for x in flat_results
-                if isinstance(x, torch.Tensor) and x.requires_grad
+                if isinstance(x, torch.TensorBase) and x.requires_grad
             ]
             self.assertEqual(len(results_that_require_grad), 0)
         else:
@@ -597,7 +601,7 @@ def check_model_gpu(
     if check_lowp:
 
         def downcast_fn(x):
-            if not isinstance(x, torch.Tensor) or not x.dtype == torch.float:
+            if not isinstance(x, torch.TensorBase) or not x.dtype == torch.float:
                 return x
             return torch.empty_strided(
                 x.size(), x.stride(), device=GPU_TYPE, dtype=torch.half
@@ -1601,7 +1605,7 @@ class CommonTemplate:
         def fn(x):
             return torch.linspace(0, 2, 0, device=x.device)
 
-        self.common(fn, (torch.Tensor([]),))
+        self.common(fn, (torch.TensorBase([]),))
 
     def test_tensor1(self):
         def fn(x):
@@ -2608,12 +2612,16 @@ class CommonTemplate:
                 x = F.batch_norm(
                     x,
                     # If buffers are not to be tracked, ensure that they won't be updated
-                    self.running_mean
-                    if not self.training or self.track_running_stats
-                    else None,
-                    self.running_var
-                    if not self.training or self.track_running_stats
-                    else None,
+                    (
+                        self.running_mean
+                        if not self.training or self.track_running_stats
+                        else None
+                    ),
+                    (
+                        self.running_var
+                        if not self.training or self.track_running_stats
+                        else None
+                    ),
                     self.weight,
                     self.bias,
                     bn_training,
@@ -3381,7 +3389,7 @@ class CommonTemplate:
                 super().__init__()
                 self.register_buffer("buf", torch.ones(4, 4))
                 self.w = torch.nn.Parameter(
-                    torch.Tensor([[4, 5], [1, 2], [6, 7], [8, 9]])
+                    torch.TensorBase([[4, 5], [1, 2], [6, 7], [8, 9]])
                 )
 
             def forward(self, x):
@@ -3930,7 +3938,7 @@ class CommonTemplate:
                 )
                 self.self_2 = torch.nn.LeakyReLU(negative_slope=0.1, inplace=True)
 
-            def forward(self, l_input_: torch.Tensor):
+            def forward(self, l_input_: torch.TensorBase):
                 self_0 = self.self_0(l_input_)
                 self_1 = self.self_1(self_0)
                 self_2 = self.self_2(self_1)
@@ -6561,12 +6569,12 @@ class CommonTemplate:
             c = 4
             d = torch.tensor([2.0, 1, 0])
             args = (a, b[0], b[1], c, d)
-            cloned_args = pytree.tree_map_only(torch.Tensor, torch.clone, args)
+            cloned_args = pytree.tree_map_only(torch.TensorBase, torch.clone, args)
             mod = make_fx(f)(*cloned_args)
-            cloned_args = pytree.tree_map_only(torch.Tensor, torch.clone, args)
+            cloned_args = pytree.tree_map_only(torch.TensorBase, torch.clone, args)
             compiled_f = compile_fx_inner(mod, cloned_args)
 
-            cloned_args = pytree.tree_map_only(torch.Tensor, torch.clone, args)
+            cloned_args = pytree.tree_map_only(torch.TensorBase, torch.clone, args)
             compiled_f(list(cloned_args))
             f(*args)
             self.assertEqual(cloned_args, args)
@@ -6603,12 +6611,12 @@ class CommonTemplate:
             d = torch.tensor([2.0, 1, 0])
             args = (a, b[0], b[1], c, d)
 
-            cloned_args = pytree.tree_map_only(torch.Tensor, torch.clone, args)
+            cloned_args = pytree.tree_map_only(torch.TensorBase, torch.clone, args)
             mod = make_fx(f)(*cloned_args)
-            cloned_args = pytree.tree_map_only(torch.Tensor, torch.clone, args)
+            cloned_args = pytree.tree_map_only(torch.TensorBase, torch.clone, args)
             compiled_f = compile_fx_inner(mod, cloned_args)
 
-            cloned_args = pytree.tree_map_only(torch.Tensor, torch.clone, args)
+            cloned_args = pytree.tree_map_only(torch.TensorBase, torch.clone, args)
             compiled_out = compiled_f(list(cloned_args))
             out = f(*args)
             self.assertEqual(cloned_args, args)
@@ -6631,12 +6639,12 @@ class CommonTemplate:
 
             a = torch.tensor([0.0, 1.0, 2])
             args = (a,)
-            cloned_args = pytree.tree_map_only(torch.Tensor, torch.clone, args)
+            cloned_args = pytree.tree_map_only(torch.TensorBase, torch.clone, args)
             mod = make_fx(f)(*cloned_args)
-            cloned_args = pytree.tree_map_only(torch.Tensor, torch.clone, args)
+            cloned_args = pytree.tree_map_only(torch.TensorBase, torch.clone, args)
             compiled_f = compile_fx_inner(mod, cloned_args)
 
-            cloned_args = pytree.tree_map_only(torch.Tensor, torch.clone, args)
+            cloned_args = pytree.tree_map_only(torch.TensorBase, torch.clone, args)
             compiled_f(list(cloned_args))
             f(*args)
             self.assertEqual(cloned_args, args)
@@ -6659,9 +6667,9 @@ class CommonTemplate:
             a = torch.tensor([0.0, 1.0, 2])
             b = [torch.tensor([2.0, 3.0, 5.0]), torch.tensor([1.0, 4.0, 6.0])]
             args = (a, b)
-            cloned_args = pytree.tree_map_only(torch.Tensor, torch.clone, args)
+            cloned_args = pytree.tree_map_only(torch.TensorBase, torch.clone, args)
             mod = make_fx(f)(*cloned_args)
-            cloned_args = pytree.tree_map_only(torch.Tensor, torch.clone, args)
+            cloned_args = pytree.tree_map_only(torch.TensorBase, torch.clone, args)
 
             with self.assertRaisesRegex(
                 torch._inductor.exc.LoweringException,
@@ -6756,7 +6764,7 @@ class CommonTemplate:
             ):
                 super().__init__()
 
-            def forward(self, v1: torch.Tensor):
+            def forward(self, v1: torch.TensorBase):
                 vx = v1.min(dim=1).values
                 v2 = torch.randn_like(vx)
                 return v2
@@ -7914,7 +7922,7 @@ class CommonTemplate:
                 B, N, C = x.shape
                 return self.get_rel_indices(N)
 
-            def get_rel_indices(self, num_patches: int) -> torch.Tensor:
+            def get_rel_indices(self, num_patches: int) -> torch.TensorBase:
                 img_size = int(num_patches**0.5)
                 ind = torch.arange(img_size)
                 return ind
@@ -8565,7 +8573,7 @@ class CommonTemplate:
         self.common(fn, args)
 
     def test_cumsum_pattern_matcher_issue(self):
-        def fn(input_ids) -> torch.Tensor:
+        def fn(input_ids) -> torch.TensorBase:
             input_shape = input_ids.size()
             input_ids = input_ids.view(-1, input_shape[-1])
             batch_size, seq_length = input_shape
@@ -8857,7 +8865,7 @@ class CommonTemplate:
     def test_buffer_use_after_remove(self):
         # https://github.com/pytorch/pytorch/issues/102857
 
-        def rotvec_to_rotmat(rotvec) -> torch.Tensor:
+        def rotvec_to_rotmat(rotvec) -> torch.TensorBase:
             """Simplified rotvec to rotmat code from RoMa
             (https://github.com/naver/roma/blob/06e4b0cdc1c802a60a012bb19c581d6600c63358/roma/mappings.py#L371)
             """
@@ -9278,7 +9286,7 @@ if HAS_GPU and RUN_GPU and not TEST_WITH_ASAN:
             def noop_backend(
                 self,
                 model_: torch.fx.GraphModule,
-                example_inputs_: typing.List[torch.Tensor],
+                example_inputs_: typing.List[torch.TensorBase],
             ):
                 """
                 The Noop backend does not compile the fx graph it is given.
@@ -9329,7 +9337,7 @@ if HAS_GPU and RUN_GPU and not TEST_WITH_ASAN:
         def test_divisible_by_16_covers_numel_args(self):
             torch._dynamo.reset()
 
-            def fn(a: torch.Tensor) -> torch.Tensor:
+            def fn(a: torch.TensorBase) -> torch.TensorBase:
                 return torch.sum(a)
 
             kernels = self.get_kernels(fn, [torch.randn([256, 256], device=GPU_TYPE)])
@@ -9360,7 +9368,7 @@ if HAS_GPU and RUN_GPU and not TEST_WITH_ASAN:
             torch._dynamo.reset()
 
         def test_optimize_indexing_dtype(self):
-            def fn(x: torch.Tensor) -> torch.Tensor:
+            def fn(x: torch.TensorBase) -> torch.TensorBase:
                 return aten.upsample_bilinear2d.vec(x, None, True, [2.0, 2.0])
 
             fn_opt = torch._dynamo.optimize("inductor")(fn)
@@ -9372,12 +9380,12 @@ if HAS_GPU and RUN_GPU and not TEST_WITH_ASAN:
             self.assertEqual(fn_opt(*inps), fn(*inps))
 
         def test_optimize_indexing_dtype_with_constraint(self):
-            def fn1(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+            def fn1(a: torch.TensorBase, b: torch.TensorBase) -> torch.TensorBase:
                 x = torch.arange(0, b.shape[0], device=GPU_TYPE)
                 y = ((x + x) / 3).int()
                 return a[y.to(torch.int64)]
 
-            def fn2(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+            def fn2(a: torch.TensorBase, b: torch.TensorBase) -> torch.TensorBase:
                 torch._constrain_as_size(b.shape[0], 2, 100)
                 return fn1(a, b)
 
@@ -9425,11 +9433,11 @@ if HAS_GPU and RUN_GPU and not TEST_WITH_ASAN:
 
                     kwargs = kwargs if kwargs else {}
                     for arg in pytree.arg_tree_leaves(*args, **kwargs):
-                        if isinstance(arg, torch.Tensor):
+                        if isinstance(arg, torch.TensorBase):
                             live_tensors[arg] = True
 
                     out = func(*args, **kwargs)
-                    if not isinstance(out, torch.Tensor):
+                    if not isinstance(out, torch.TensorBase):
                         return out
 
                     live_tensors[out] = True
@@ -9447,7 +9455,7 @@ if HAS_GPU and RUN_GPU and not TEST_WITH_ASAN:
 
         # See https://github.com/pytorch/pytorch/issues/100348
         def test_inductor_detach_view(self):
-            def fn(x: torch.Tensor) -> torch.Tensor:
+            def fn(x: torch.TensorBase) -> torch.TensorBase:
                 a = x * 2
                 return a, a.detach()
 
@@ -9491,7 +9499,7 @@ if HAS_GPU and RUN_GPU and not TEST_WITH_ASAN:
                             msg=f"Upper bound {'' if upper else 'not '}elided:{line}",
                         )
 
-            def fn(x: torch.Tensor) -> torch.Tensor:
+            def fn(x: torch.TensorBase) -> torch.TensorBase:
                 s = 1.0 * torch.arange(x.shape[0], device=x.device)
                 return x[s.long()]
 
@@ -9826,7 +9834,7 @@ if HAS_GPU and RUN_GPU and not TEST_WITH_ASAN:
             self.assertTrue("end_graph" in code)
 
         def test_split_op_with_sym(self):
-            def fn(x: torch.Tensor) -> torch.Tensor:
+            def fn(x: torch.TensorBase) -> torch.TensorBase:
                 # split(tensor, sympy.Integer), split(tensor, sympy.Expr)
                 return torch.split(x, x.shape[0]), torch.split(x, x.shape[0] // 2)
 

@@ -28,25 +28,25 @@ class TestContract(TestCase):
     @skipIfTorchDynamo("Dynamo does not support the state key")
     def test_add_hooks(self):
         def forward_pre_hook(
-            module: nn.Module, inp: Tuple[torch.Tensor]
-        ) -> Tuple[torch.Tensor]:
+            module: nn.Module, inp: Tuple[torch.TensorBase]
+        ) -> Tuple[torch.TensorBase]:
             return inp
 
         def forward_hook(
-            module: nn.Module, inp: Tuple[torch.Tensor], out: torch.Tensor
-        ) -> torch.Tensor:
+            module: nn.Module, inp: Tuple[torch.TensorBase], out: torch.TensorBase
+        ) -> torch.TensorBase:
             return out
 
         def backward_pre_hook(
-            module: nn.Module, grad_output: torch.Tensor
-        ) -> torch.Tensor:
+            module: nn.Module, grad_output: torch.TensorBase
+        ) -> torch.TensorBase:
             return grad_output
 
         def backward_hook(
             module: nn.Module,
-            grad_input: Tuple[torch.Tensor],
-            grad_output: torch.Tensor,
-        ) -> Tuple[torch.Tensor]:
+            grad_input: Tuple[torch.TensorBase],
+            grad_output: torch.TensorBase,
+        ) -> Tuple[torch.TensorBase]:
             return grad_input
 
         @contract()
@@ -94,8 +94,8 @@ class TestContract(TestCase):
     @skipIfTorchDynamo("Dynamo does not support the state key")
     def test_state(self):
         def check_and_update_state_hook(
-            module: nn.Module, inp: Tuple[torch.Tensor]
-        ) -> Tuple[torch.Tensor]:
+            module: nn.Module, inp: Tuple[torch.TensorBase]
+        ) -> Tuple[torch.TensorBase]:
             self.assertEqual(api.state(module).dummy_state, 7)
             api.state(module).dummy_state = 8
             return inp

@@ -38,7 +38,7 @@ class GraphBuilder:
         self.latest_id = 0
         self.input_to_kind: Dict[torch.fx.Node, InputKind] = {}
 
-    def input(self, name: str, value: torch.Tensor, kind: InputKind):
+    def input(self, name: str, value: torch.TensorBase, kind: InputKind):
         node = self.graph.placeholder(name)
         node.meta["val"] = value
         self.nodes[name] = node
@@ -115,9 +115,11 @@ class GraphBuilder:
                         kind=self.input_to_kind[node],
                         arg=TensorArgument(name=node.name),
                         target=None,
-                        persistent=True
-                        if self.input_to_kind[node] == InputKind.BUFFER
-                        else None,
+                        persistent=(
+                            True
+                            if self.input_to_kind[node] == InputKind.BUFFER
+                            else None
+                        ),
                     )
                 )
         return input_specs

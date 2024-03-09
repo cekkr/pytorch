@@ -279,15 +279,15 @@ class TestInductorDynamic(TestCase):
             try:
 
                 @custom_ops.custom_op("test::foo")
-                def foo(x: torch.Tensor, y: int) -> torch.Tensor:
+                def foo(x: torch.TensorBase, y: int) -> torch.TensorBase:
                     raise NotImplementedError()
 
                 @custom_ops.impl("test::foo")
-                def foo_impl(x: torch.Tensor, y: int) -> torch.Tensor:
+                def foo_impl(x: torch.TensorBase, y: int) -> torch.TensorBase:
                     return x.clone()
 
                 @torch.library.impl_abstract("test::foo", lib=lib)
-                def foo_meta(x: torch.Tensor, y: int) -> torch.Tensor:
+                def foo_meta(x: torch.TensorBase, y: int) -> torch.TensorBase:
                     return x.clone()
 
                 @torch.compile(fullgraph=True)
@@ -380,16 +380,16 @@ class TestInductorDynamic(TestCase):
             try:
 
                 @custom_ops.custom_op("test::foo")
-                def foo(x: torch.Tensor) -> torch.Tensor:
+                def foo(x: torch.TensorBase) -> torch.TensorBase:
                     raise NotImplementedError()
 
                 @custom_ops.impl("test::foo")
-                def foo_impl(x: torch.Tensor) -> torch.Tensor:
+                def foo_impl(x: torch.TensorBase) -> torch.TensorBase:
                     stride = x.item()
                     return torch.empty_strided((1,), (stride,), device=x.device)
 
                 @torch.library.impl_abstract("test::foo", lib=lib)
-                def foo_meta(x: torch.Tensor) -> torch.Tensor:
+                def foo_meta(x: torch.TensorBase) -> torch.TensorBase:
                     ctx = torch.library.get_ctx()
                     stride = ctx.new_dynamic_size()
                     return torch.empty_strided((1,), (stride,), device=x.device)

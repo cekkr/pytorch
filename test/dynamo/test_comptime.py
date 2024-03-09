@@ -295,7 +295,7 @@ y = TensorVariable()
                 # side-effectful operations into the graph)
                 y.as_proxy() + 4
                 ctx.print_graph(verbose=False, file=FILE)
-                SELF.assertIs(y.python_type(), torch.Tensor)
+                SELF.assertIs(y.python_type(), torch.TensorBase)
                 lit = ctx.get_local("lit")
                 SELF.assertEqual(lit.as_python_constant(), 2)
 

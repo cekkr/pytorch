@@ -22,7 +22,7 @@ _type_to_assert_reason = {
     # As this does not exist, we cannot add sets to this invariant.
     list: "List types must use ListVariable.",
     dict: "Dict types must use ConstDictVariable.",
-    torch.Tensor: "Tensor types must use TensorVariable.",
+    torch.TensorBase: "Tensor types must use TensorVariable.",
     torch.SymInt: "SymInts must use SymNodeVariable. "
     "If the underlying value is static, we will create a ConstantVariable and specialize.",
     torch.SymFloat: "SymInts must use SymNodeVariable",

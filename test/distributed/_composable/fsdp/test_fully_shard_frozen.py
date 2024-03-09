@@ -96,7 +96,7 @@ class TestFullyShardFrozen(FSDPTest):
             if "bias" in n
         )
 
-        def assert_fn(output: torch.Tensor):
+        def assert_fn(output: torch.TensorBase):
             self.assertEqual(output.numel(), expected_numel)
 
         reduce_scatter = functools.partial(
@@ -117,7 +117,7 @@ class TestFullyShardFrozen(FSDPTest):
         ), patch_register_post_backward_hook_backward(backward_with_count):
             for iter_idx in range(10):
                 inp = torch.randn((8, lin_dim), device=device)
-                losses: List[torch.Tensor] = []
+                losses: List[torch.TensorBase] = []
                 for _model, _optim in ((ref_model, ref_optim), (model, optim)):
                     _optim.zero_grad(set_to_none=(iter_idx % 2 == 0))
                     losses.append(_model(inp).sum())
@@ -188,7 +188,7 @@ class TestFullyShardFrozen(FSDPTest):
         inp = torch.randn((8, lin_dim), device="cuda")
         with patch_register_post_backward_hook_backward(backward_with_count):
             for iter_idx in range(num_iters):
-                losses: List[torch.Tensor] = []
+                losses: List[torch.TensorBase] = []
                 for _model, _optim in ((ref_model, ref_optim), (model, optim)):
                     # Unfreeze the parameters on the last step to emulate some
                     # kinds of fine-tuning
@@ -231,7 +231,7 @@ class TestFullyShardFrozen(FSDPTest):
                 self.layer_with_grad = nn.Linear(5, 5, device=device)
                 self.layer_no_grad.requires_grad_(False)
 
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
+            def forward(self, x: torch.TensorBase) -> torch.TensorBase:
                 x = self.layer_0(x)
                 for _ in range(3):
                     x = self.layer_no_grad(F.relu(self.layer_with_grad(x)))
@@ -252,7 +252,7 @@ class TestFullyShardFrozen(FSDPTest):
         optim = torch.optim.Adam(model.parameters(), lr=1e-2)
         for iter_idx in range(10):
             inp = torch.randn((8, 5), device="cuda")
-            losses: List[torch.Tensor] = []
+            losses: List[torch.TensorBase] = []
             for _model, _optim in ((ref_model, ref_optim), (model, optim)):
                 _optim.zero_grad(set_to_none=(iter_idx % 2 == 0))
                 losses.append(_model(inp).sum())

@@ -374,17 +374,17 @@ class _TorchDynamoContext:
             # Assume that the underlying node metadata of `fn`,
             # a GraphModule instance, accurately represents
             # all instances of type(fn).
-            code_context.get_context(lazy_gm.forward.__code__)[
-                "orig_graphmodule"
-            ] = weakref.ref(lazy_gm)
+            code_context.get_context(lazy_gm.forward.__code__)["orig_graphmodule"] = (
+                weakref.ref(lazy_gm)
+            )
 
             if not isinstance(fn, _LazyGraphModule):
                 # replace fn with the real forward method
                 fn = lazy_gm.forward
         elif isinstance(fn, GraphModule):
-            code_context.get_context(fn.forward.__code__)[
-                "orig_graphmodule"
-            ] = weakref.ref(fn)
+            code_context.get_context(fn.forward.__code__)["orig_graphmodule"] = (
+                weakref.ref(fn)
+            )
 
         # Optimize the forward method of torch.nn.Module object
         if isinstance(fn, torch.nn.Module):
@@ -678,9 +678,11 @@ def optimize(
         hooks,
         backend_ctx_ctor,
         dynamic=dynamic,
-        compiler_config=backend.get_compiler_config()
-        if hasattr(backend, "get_compiler_config")
-        else None,
+        compiler_config=(
+            backend.get_compiler_config()
+            if hasattr(backend, "get_compiler_config")
+            else None
+        ),
     )
 
 
@@ -779,7 +781,7 @@ class FlattenInputOutputSignature(torch.fx.interpreter.Transformer):
         matched_input_elements_positions: List[int],
         flat_results: List[Any],
         matched_output_elements_positions: List[int],
-        example_fake_inputs: List[torch.Tensor],
+        example_fake_inputs: List[torch.TensorBase],
         flat_args_dynamic_dims: List[Set[int]],
         fake_mode: Optional[fake_tensor.FakeTensorMode] = None,
     ):
@@ -799,15 +801,17 @@ class FlattenInputOutputSignature(torch.fx.interpreter.Transformer):
             else:
                 # Fill node.mata["val"] with faketensor from the input,
                 # if it's not found in matched_input_elements_positions
-                if fake_mode is not None and isinstance(flat_args[i], torch.Tensor):
+                if fake_mode is not None and isinstance(flat_args[i], torch.TensorBase):
                     # TODO(zhxchen17) Also preserve all the user constraints here.
                     arg.node.meta["val"] = fake_mode.from_tensor(
                         flat_args[i],
                         symbolic_context=StatelessSymbolicContext(
                             dynamic_sizes=[
-                                DimDynamic.DYNAMIC
-                                if d in flat_args_dynamic_dims[i]
-                                else DimDynamic.STATIC
+                                (
+                                    DimDynamic.DYNAMIC
+                                    if d in flat_args_dynamic_dims[i]
+                                    else DimDynamic.STATIC
+                                )
                                 for d in range(len(flat_args[i].shape))
                             ],
                             constraint_sizes=[None] * len(flat_args[i].shape),
@@ -932,7 +936,7 @@ def rewrite_signature(
 
     def check_user_input_output(flat_values, error_type):
         supported_types = [
-            torch.Tensor,
+            torch.TensorBase,
             torch.SymInt,
             torch.SymFloat,
             torch.SymBool,
@@ -1213,7 +1217,7 @@ def export(
         graph = None
         out_guards = None
         graph_captured_input = None
-        graph_captured_result: Optional[Tuple[torch.Tensor, ...]] = None
+        graph_captured_result: Optional[Tuple[torch.TensorBase, ...]] = None
         fake_mode = None
 
         def guard_export_print(guards: _guards.GuardsSet):
@@ -1401,7 +1405,7 @@ def export(
             assert graph is not None
             for node in graph.graph.nodes:
                 if node.op == "get_attr" and isinstance(
-                    getattr(graph, node.target), torch.Tensor
+                    getattr(graph, node.target), torch.TensorBase
                 ):
                     node.meta["val"] = fake_mode.from_tensor(
                         getattr(graph, node.target), static_shapes=True

@@ -37,9 +37,13 @@ def _check_val(node: torch.fx.Node) -> None:
             return True
         elif isinstance(val, (int, bool, str, float)):
             return True
-        elif isinstance(val, (torch.memory_format, torch.dtype, torch.device, torch.layout)):
+        elif isinstance(
+            val, (torch.memory_format, torch.dtype, torch.device, torch.layout)
+        ):
             return True
-        elif isinstance(val, (FakeTensor, torch.Tensor)):  # TODO(zhxchen17) Remove Tensor.
+        elif isinstance(
+            val, (FakeTensor, torch.TensorBase)
+        ):  # TODO(zhxchen17) Remove Tensor.
             return True
         elif isinstance(val, (SymInt, SymFloat, SymBool)):
             return True
@@ -65,7 +69,7 @@ def _check_val(node: torch.fx.Node) -> None:
 
 
 class _VerifierMeta(type):
-    _registry: Dict[str, Type['Verifier']] = {}
+    _registry: Dict[str, Type["Verifier"]] = {}
 
     def __new__(metacls, name, bases, attrs):
         if bases:
@@ -82,12 +86,15 @@ class _VerifierMeta(type):
         metacls._registry[attrs["dialect"]] = ret  # type: ignore[assignment]
         return ret
 
+
 def getattr_recursive(obj: Any, target: str) -> Any:
-    target_atoms = target.split('.')
+    target_atoms = target.split(".")
     attr_itr = obj
     for i, atom in enumerate(target_atoms):
         if not hasattr(attr_itr, atom):
-            raise RuntimeError(f"Node referenced nonexistent target {'.'.join(target_atoms[:i])}")
+            raise RuntimeError(
+                f"Node referenced nonexistent target {'.'.join(target_atoms[:i])}"
+            )
         attr_itr = getattr(attr_itr, atom)
     return attr_itr
 
@@ -170,12 +177,14 @@ class Verifier(metaclass=_VerifierMeta):
                 # TODO (tmanlaibaatar)
                 # Predispatch export is able to contain autograd ops.
                 # These will be modeled as HOO later
-                torch._C._set_grad_enabled
-
+                torch._C._set_grad_enabled,
             )
 
             if not isinstance(op, _allowed_op_types()):
-                if op not in _allowed_builtin_ops() and op not in _allowed_torch_functions:
+                if (
+                    op not in _allowed_builtin_ops()
+                    and op not in _allowed_torch_functions
+                ):
                     raise SpecViolationError(
                         f"Operator '{op}' is not an allowed operator type: {_allowed_op_types()}\n"
                         f"Valid builtin ops: {_allowed_builtin_ops()}"
@@ -185,9 +194,7 @@ class Verifier(metaclass=_VerifierMeta):
             if isinstance(op, OpOverload):
                 # All ops functional
                 if not is_functional(op):
-                    raise SpecViolationError(
-                        f"operator '{op}' is not functional"
-                    )
+                    raise SpecViolationError(f"operator '{op}' is not functional")
             self.check_valid_op(op)
 
         for mod in gm.modules():
@@ -215,13 +222,17 @@ class Verifier(metaclass=_VerifierMeta):
 
                     attr = getattr_recursive(mod, node.target)
                     if isinstance(attr, torch.nn.Module):
+
                         def _is_type(name, ty):
                             return isinstance(getattr(attr, name, None), ty)
+
                         if type(attr).__name__ == "LoweredBackendModule":
-                            if _is_type("backend_id", str) \
-                                    and _is_type("processed_bytes", bytes) \
-                                    and _is_type("compile_specs", list) \
-                                    and hasattr(attr, "original_module"):
+                            if (
+                                _is_type("backend_id", str)
+                                and _is_type("processed_bytes", bytes)
+                                and _is_type("compile_specs", list)
+                                and hasattr(attr, "original_module")
+                            ):
                                 continue
                             else:
                                 backend_id = getattr(attr, "backend_id", None)
@@ -241,7 +252,6 @@ class Verifier(metaclass=_VerifierMeta):
                             f"Valid get_attr types: {_allowed_getattr_types()}"
                         )
 
-
                 elif node.op == "placeholder":
                     _check_val(node)
                 # TODO(zhxchen17)
@@ -256,7 +266,9 @@ def _verify_exported_program_signature(exported_program) -> None:
     gs = exported_program.graph_signature
 
     # Check every node in the signature exists in the graph
-    input_node_names = [node.name for node in exported_program.graph.nodes if node.op == "placeholder"]
+    input_node_names = [
+        node.name for node in exported_program.graph.nodes if node.op == "placeholder"
+    ]
 
     if len(input_node_names) != len(gs.input_specs):
         raise SpecViolationError(
@@ -286,9 +298,7 @@ def _verify_exported_program_signature(exported_program) -> None:
 
             param = input_spec.target
             if param not in exported_program.state_dict:
-                raise SpecViolationError(
-                    f"Parameter {param} is not in the state dict."
-                )
+                raise SpecViolationError(f"Parameter {param} is not in the state dict.")
 
             if not isinstance(exported_program.state_dict[param], torch.nn.Parameter):
                 raise SpecViolationError(
@@ -311,10 +321,11 @@ def _verify_exported_program_signature(exported_program) -> None:
                     f"Buffer {buffer} is missing a persistence flag"
                 )
 
-            if input_spec.persistent is True and buffer not in exported_program.state_dict:
-                raise SpecViolationError(
-                    f"Buffer {buffer} is not in the state dict."
-                )
+            if (
+                input_spec.persistent is True
+                and buffer not in exported_program.state_dict
+            ):
+                raise SpecViolationError(f"Buffer {buffer} is not in the state dict.")
 
             if input_spec.persistent is False and buffer in exported_program.state_dict:
                 raise SpecViolationError(
@@ -356,9 +367,7 @@ def _verify_exported_program_signature(exported_program) -> None:
                     f"Constant tensor {input_spec.name} is not a tensor argument. Found {input_spec.arg} instead."
                 )
         else:
-            raise SpecViolationError(
-                f"Unknown InputKind {input_spec.kind}."
-            )
+            raise SpecViolationError(f"Unknown InputKind {input_spec.kind}.")
 
     # Check outputs
     output_node = list(exported_program.graph.nodes)[-1]
@@ -379,7 +388,7 @@ def _verify_exported_program_signature(exported_program) -> None:
     num_tokens = len(gs.output_tokens)
     end = len(gs.buffers_to_mutate) + len(gs.user_inputs_to_mutate) + num_tokens
     mutate_nodes: List[str] = output_nodes[num_tokens:end]
-    user_output_nodes = output_nodes[end:end + len(gs.user_outputs)]
+    user_output_nodes = output_nodes[end : end + len(gs.user_outputs)]
 
     for mutation_node in mutate_nodes:
         if mutation_node in gs.buffers_to_mutate:
@@ -394,7 +403,8 @@ def _verify_exported_program_signature(exported_program) -> None:
                 raise SpecViolationError(
                     f"User input output {mutation_node} does not point to a user input that exists. \n"
                     f"Dict of user inputs that are mutated, in order: {gs.user_inputs_to_mutate} \n"
-                    f"User input nodes available: {gs.user_inputs} \n")
+                    f"User input nodes available: {gs.user_inputs} \n"
+                )
         else:
             raise SpecViolationError(
                 f"Mutation node {mutation_node} is neither a buffer nor a user input. "

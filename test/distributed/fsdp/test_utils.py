@@ -57,7 +57,7 @@ class TestUtils(TestCase):
         class SomeDataClass:
             some_key: str
             some_float: float
-            some_tensor: List[torch.Tensor]
+            some_tensor: List[torch.TensorBase]
 
         # create a mixed bag of data.
         data = [1, "str"]

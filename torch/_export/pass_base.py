@@ -4,8 +4,9 @@ import typing
 from contextlib import nullcontext
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
-import torch
 from functorch.experimental.control_flow import _unstack_pytree
+
+import torch
 from torch import fx
 from torch._dispatch.python import enable_python_dispatcher
 from torch._export.pass_infra.node_metadata import NodeMetadata
@@ -53,15 +54,16 @@ class _ExportPassBaseDeprecatedDoNotUse(PassBase):
     def _create_dummy_node_metadata():
         return NodeMetadata({"stack_trace": "".join(traceback.format_stack(limit=1))})
 
-
     class ExportTracer(PythonKeyTracer):
-        def __init__(self, callback: "_ExportPassBaseDeprecatedDoNotUse", codegen: CodeGen) -> None:
+        def __init__(
+            self, callback: "_ExportPassBaseDeprecatedDoNotUse", codegen: CodeGen
+        ) -> None:
             super().__init__()
             self.callback = callback
             self.root = torch.nn.Module()
             self.graph = torch.fx.Graph()
             self.graph.set_codegen(codegen)
-            self.tensor_attrs: Dict[str, torch.Tensor] = {}  # type: ignore[assignment]
+            self.tensor_attrs: Dict[str, torch.TensorBase] = {}  # type: ignore[assignment]
             self.fake_tensor_mode: Optional[FakeTensorMode] = None
             self.submodules: Dict[torch.nn.Module, str] = {}
 
@@ -80,7 +82,7 @@ class _ExportPassBaseDeprecatedDoNotUse(PassBase):
                 a = a.constant
             node = super().create_arg(a)
             if (
-                isinstance(a, torch.Tensor)
+                isinstance(a, torch.TensorBase)
                 and isinstance(node, torch.fx.Node)
                 and node.op == "get_attr"
             ):
@@ -89,15 +91,27 @@ class _ExportPassBaseDeprecatedDoNotUse(PassBase):
             return node
 
         def set_metadata(
-            self, node: torch.fx.Node, value: Argument,
+            self,
+            node: torch.fx.Node,
+            value: Argument,
         ) -> None:
             # propagate the fake tensor or sym nodes
             def make_val(
                 x: Argument,
-            ) -> Union[FakeTensor, torch.SymInt, torch.SymFloat, torch.SymBool, int, float, bool, str, None]:
+            ) -> Union[
+                FakeTensor,
+                torch.SymInt,
+                torch.SymFloat,
+                torch.SymBool,
+                int,
+                float,
+                bool,
+                str,
+                None,
+            ]:
                 if isinstance(x, FakeTensor):
                     return x
-                elif isinstance(x, torch.Tensor):
+                elif isinstance(x, torch.TensorBase):
                     if x.is_quantized:
                         # TODO (tmanlaibaatar) properly support Quantized FakeTensor
                         x = torch.dequantize(x)
@@ -121,7 +135,18 @@ class _ExportPassBaseDeprecatedDoNotUse(PassBase):
                         )
                         fake_tensor = None
                     return fake_tensor
-                elif isinstance(x, (torch.SymInt, torch.SymFloat, torch.SymBool, int, float, bool, str)):
+                elif isinstance(
+                    x,
+                    (
+                        torch.SymInt,
+                        torch.SymFloat,
+                        torch.SymBool,
+                        int,
+                        float,
+                        bool,
+                        str,
+                    ),
+                ):
                     return x
                 else:
                     return None
@@ -130,7 +155,7 @@ class _ExportPassBaseDeprecatedDoNotUse(PassBase):
 
             # Set the tensor_metadata for values that do not have a corresponding FakeTensor
             def make_tensor_meta(x: Argument) -> Optional[TensorMetadata]:
-                if not isinstance(x, FakeTensor) and isinstance(x, torch.Tensor):
+                if not isinstance(x, FakeTensor) and isinstance(x, torch.TensorBase):
                     if x.is_quantized:
                         # TODO (tmanlaibaatar) properly support Quantized FakeTensor
                         x = torch.dequantize(x)
@@ -150,7 +175,9 @@ class _ExportPassBaseDeprecatedDoNotUse(PassBase):
             node.meta["tensor_meta"] = pytree.tree_map(make_tensor_meta, value)
 
     class ExportInterpreter(fx.Interpreter):
-        def __init__(self, callback: "_ExportPassBaseDeprecatedDoNotUse", gm: fx.GraphModule) -> None:
+        def __init__(
+            self, callback: "_ExportPassBaseDeprecatedDoNotUse", gm: fx.GraphModule
+        ) -> None:
             super().__init__(gm)
             self.callback = callback
             self.node: torch.fx.Node = next(iter(gm.graph.nodes))
@@ -189,7 +216,9 @@ class _ExportPassBaseDeprecatedDoNotUse(PassBase):
             elif target in _TORCH_SYM_OPS:
                 assert callable(target)
                 return self.callback.call_sym(target, args, meta)
-            elif isinstance(target, (torch._ops.OpOverload, torch._ops.OpOverloadPacket)):
+            elif isinstance(
+                target, (torch._ops.OpOverload, torch._ops.OpOverloadPacket)
+            ):
                 return self.callback.call_operator(
                     target,
                     args,
@@ -266,7 +295,9 @@ class _ExportPassBaseDeprecatedDoNotUse(PassBase):
         if isinstance(target, torch._ops.OpOverload):
             name = self.tracer.graph._target_to_str(target.overloadpacket.__name__)
 
-        res_proxy = self.tracer.create_proxy(kind, target, args_proxy, kwargs_proxy, name=name)
+        res_proxy = self.tracer.create_proxy(
+            kind, target, args_proxy, kwargs_proxy, name=name
+        )
         res_proxy.node.meta.update(meta.data)
         self.tracer.set_metadata(res_proxy.node, res_data)
         return ProxyValue(res_data, res_proxy)

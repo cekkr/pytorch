@@ -122,7 +122,7 @@ class TestMixedPrecision(FSDPTest):
         cast_forward_inputs_submodule: bool,
         use_root_no_params: bool,
     ):
-        forward_inputs: Dict[nn.Module, torch.Tensor] = {}
+        forward_inputs: Dict[nn.Module, torch.TensorBase] = {}
         float16 = MixedPrecision(
             param_dtype=torch.float16,
             cast_root_forward_inputs=cast_root_forward_inputs_submodule,
@@ -148,7 +148,7 @@ class TestMixedPrecision(FSDPTest):
         return x, fsdp
 
     def _validate_eval(
-        self, input: Dict[nn.Module, torch.Tensor], fsdp_model: nn.Module
+        self, input: Dict[nn.Module, torch.TensorBase], fsdp_model: nn.Module
     ):
         # validate eval mode always forces full precision
         fsdp_model.eval()
@@ -159,7 +159,7 @@ class TestMixedPrecision(FSDPTest):
 
     def _backward_or_validate_error(
         self,
-        input: Dict[nn.Module, torch.Tensor],
+        input: Dict[nn.Module, torch.TensorBase],
         fsdp_model: nn.Module,
         cast_root_forward_inputs_submodule: bool,
         cast_forward_inputs_submodule: bool,

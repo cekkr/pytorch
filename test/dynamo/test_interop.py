@@ -50,7 +50,7 @@ class InteropTests(torch._dynamo.test_case.TestCase):
         x = torch.randn(3, 5, 3)
 
         def fn(x):
-            return torch.vmap(torch.Tensor.t)(x)
+            return torch.vmap(torch.TensorBase.t)(x)
 
         fn_opt = torch.compile(fn, backend=cnts, fullgraph=True)
         fn_opt_traceable = torch.compile(traceable(fn), backend=cnts, fullgraph=True)

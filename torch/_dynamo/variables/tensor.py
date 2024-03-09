@@ -139,7 +139,7 @@ class TensorVariable(VariableTracker):
         return self.class_type
 
     @staticmethod
-    def specialize(value: torch.Tensor):
+    def specialize(value: torch.TensorBase):
         props = {
             "dtype": value.dtype,
             "device": value.device,
@@ -195,7 +195,7 @@ class TensorVariable(VariableTracker):
             example_value = getattr(fake_val, name)
             if name in attrs:
                 # attrs returned from tensor_flatten are always tensors
-                assert isinstance(example_value, torch.Tensor)
+                assert isinstance(example_value, torch.TensorBase)
                 from .builder import wrap_fx_proxy
 
                 return wrap_fx_proxy(tx=tx, proxy=proxy, example_value=example_value)
@@ -341,7 +341,7 @@ class TensorVariable(VariableTracker):
                 from .misc import GetAttrVariable
 
                 try:
-                    static_attr = inspect.getattr_static(torch.Tensor, name)
+                    static_attr = inspect.getattr_static(torch.TensorBase, name)
                 except AttributeError:
                     return None
 

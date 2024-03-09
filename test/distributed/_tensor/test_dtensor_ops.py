@@ -580,10 +580,10 @@ class TestDTensorOps(DTensorOpTestBase):
         flat_rs = pytree.tree_leaves(rs)
         self.assertEqual(len(flat_dtensor_rs), len(flat_rs))
         for dtensor_r, r in zip(flat_dtensor_rs, flat_rs):
-            if not isinstance(r, torch.Tensor):
+            if not isinstance(r, torch.TensorBase):
                 continue
 
-            self.assertIsInstance(dtensor_r, torch.Tensor)
+            self.assertIsInstance(dtensor_r, torch.TensorBase)
             self.assertEqualOnRank(
                 dtensor_r.shape,
                 r.shape,
@@ -643,7 +643,7 @@ class TestDTensorOps(DTensorOpTestBase):
                         # TODO remove this once issue above fixed.
                         flat_args = pytree.tree_leaves(dtensor_rs)
                         if any(
-                            isinstance(e, torch.Tensor) and e.numel() == 0
+                            isinstance(e, torch.TensorBase) and e.numel() == 0
                             for e in flat_args
                         ):
                             continue

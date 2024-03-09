@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, overload, Tuple, Union
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 from torch._C import ScriptObject
 from torch.futures import Future
 
@@ -25,20 +25,20 @@ def _register_builtin_comm_hook(
     comm_hook_type: BuiltinCommHookType,
 ): ...
 def _set_global_rank(rank: int) -> None: ...
-def _hash_tensors(tensors: List[Tensor]) -> int: ...
+def _hash_tensors(tensors: List[TensorBase]) -> int: ...
 
 class GradBucket:
     def index(self) -> int: ...
-    def buffer(self) -> Tensor: ...
-    def gradients(self) -> List[Tensor]: ...
+    def buffer(self) -> TensorBase: ...
+    def gradients(self) -> List[TensorBase]: ...
     def is_last(self) -> bool: ...
-    def set_buffer(self, tensor: Tensor) -> None: ...
-    def parameters(self) -> List[Tensor]: ...
+    def set_buffer(self, tensor: TensorBase) -> None: ...
+    def parameters(self) -> List[TensorBase]: ...
 
 class Reducer:
     def __init__(
         self,
-        params: List[Tensor],
+        params: List[TensorBase],
         bucket_indices: List[List[int]],
         per_bucket_size_limits: List[int],
         process_group: ProcessGroup,
@@ -50,7 +50,7 @@ class Reducer:
         first_bucket_types_cap: int = ...,  # kDefaultFirstBucketBytes in reducer.hpp
     ): ...
     def prepare_for_forward(self) -> None: ...
-    def prepare_for_backward(self, output: List[Tensor]) -> None: ...
+    def prepare_for_backward(self, output: List[TensorBase]) -> None: ...
     def get_backward_stats(self) -> List[int]: ...
     def _install_post_backward_futures(self, futures: List[Future]) -> None: ...
     def _rebuild_buckets(self) -> bool: ...
@@ -61,14 +61,16 @@ class Reducer:
         work: Work,
         use_static_world_size: bool,
     ): ...
-    def _get_local_used_map(self) -> Tensor: ...
+    def _get_local_used_map(self) -> TensorBase: ...
     def _set_ddp_runtime_logging_sample_rate(self, sample_rate: int) -> None: ...
     def _set_static_graph(self) -> None: ...
     def _run_comm_hook(self, bucket: GradBucket) -> Future: ...
     def set_logger(self, logger: Logger) -> None: ...
     def _remove_autograd_hooks(self) -> None: ...
     def _check_reducer_finalized(self) -> None: ...
-    def _set_sparse_metadata(self, global_unique_ids: Dict[str, Tensor]) -> None: ...
+    def _set_sparse_metadata(
+        self, global_unique_ids: Dict[str, TensorBase]
+    ) -> None: ...
     def _reset_state(self) -> None: ...
     def _update_process_group(self, new_process_group: ProcessGroup) -> None: ...
 
@@ -245,7 +247,7 @@ class Work:
     def get_future(self) -> Future: ...
     def source_rank(self) -> int: ...
     def _source_rank(self) -> int: ...
-    def result(self) -> List[Tensor]: ...
+    def result(self) -> List[TensorBase]: ...
     def synchronize(self): ...
     def boxed(self) -> ScriptObject: ...
     @staticmethod
@@ -281,146 +283,147 @@ class ProcessGroup:
         UCC = ...
         MPI = ...
         CUSTOM = ...
+
     def __init__(self, store: Store, rank: int, size: int, options: Options): ...
     def rank(self) -> int: ...
     def size(self) -> int: ...
     @overload
     def broadcast(
         self,
-        tensors: List[Tensor],
+        tensors: List[TensorBase],
         opts=...,
     ) -> Work: ...
     @overload
     def broadcast(
         self,
-        tensor: Tensor,
+        tensor: TensorBase,
         root: int,
     ) -> Work: ...
     @overload
     def allreduce(
         self,
-        tensors: List[Tensor],
+        tensors: List[TensorBase],
         opts: AllreduceOptions = ...,
     ) -> Work: ...
     @overload
     def allreduce(
         self,
-        tensors: List[Tensor],
+        tensors: List[TensorBase],
         op=...,
     ) -> Work: ...
     @overload
     def allreduce(
         self,
-        tensor: Tensor,
+        tensor: TensorBase,
         op=...,
     ) -> Work: ...
     def allreduce_coalesced(
         self,
-        tensors: List[Tensor],
+        tensors: List[TensorBase],
         opts=...,
     ) -> Work: ...
     def reduce_scatter_tensor_coalesced(
         self,
-        outputTensors: List[Tensor],
-        inputTensors: List[Tensor],
+        outputTensors: List[TensorBase],
+        inputTensors: List[TensorBase],
         opts: Optional[ReduceScatterOptions] = None,
     ) -> Work: ...
     @overload
     def reduce(
         self,
-        tensors: List[Tensor],
+        tensors: List[TensorBase],
         opts=...,
     ) -> Work: ...
     @overload
     def reduce(
         self,
-        tensor: Tensor,
+        tensor: TensorBase,
         root: int,
         op=...,
     ) -> Work: ...
     @overload
     def allgather(
         self,
-        output_tensors: List[List[Tensor]],
-        input_tensors: List[Tensor],
+        output_tensors: List[List[TensorBase]],
+        input_tensors: List[TensorBase],
         opts=...,
     ) -> Work: ...
     @overload
     def allgather(
         self,
-        output_tensors: List[Tensor],
-        input_tensor: Tensor,
+        output_tensors: List[TensorBase],
+        input_tensor: TensorBase,
     ) -> Work: ...
     def _allgather_base(
         self,
-        output: Tensor,
-        input: Tensor,
+        output: TensorBase,
+        input: TensorBase,
         opts=...,
     ) -> Work: ...
     def allgather_coalesced(
         self,
-        output_lists: List[List[Tensor]],
-        input_list: List[Tensor],
+        output_lists: List[List[TensorBase]],
+        input_list: List[TensorBase],
         opts=...,
     ) -> Work: ...
     def allgather_into_tensor_coalesced(
         self,
-        output_lists: List[Tensor],
-        input_list: List[Tensor],
+        output_lists: List[TensorBase],
+        input_list: List[TensorBase],
         opts=...,
     ) -> Work: ...
     @overload
     def gather(
         self,
-        output_tensors: List[List[Tensor]],
-        input_tensors: List[Tensor],
+        output_tensors: List[List[TensorBase]],
+        input_tensors: List[TensorBase],
         opts=...,
     ) -> Work: ...
     @overload
     def gather(
         self,
-        output_tensors: List[Tensor],
-        input_tensor: Tensor,
+        output_tensors: List[TensorBase],
+        input_tensor: TensorBase,
         root: int,
     ) -> Work: ...
     @overload
     def scatter(
         self,
-        output_tensors: List[Tensor],
-        input_tensors: List[List[Tensor]],
+        output_tensors: List[TensorBase],
+        input_tensors: List[List[TensorBase]],
         opts=...,
     ) -> Work: ...
     @overload
     def scatter(
         self,
-        output_tensor: Tensor,
-        input_tensors: List[Tensor],
+        output_tensor: TensorBase,
+        input_tensors: List[TensorBase],
         root: int,
     ) -> Work: ...
     @overload
     def reduce_scatter(
         self,
-        output_tensors: List[Tensor],
-        input_tensors: List[List[Tensor]],
+        output_tensors: List[TensorBase],
+        input_tensors: List[List[TensorBase]],
         opts=...,
     ) -> Work: ...
     @overload
     def reduce_scatter(
         self,
-        output_tensors: Tensor,
-        input_tensor: List[Tensor],
+        output_tensors: TensorBase,
+        input_tensor: List[TensorBase],
     ) -> Work: ...
     def _reduce_scatter_base(
         self,
-        outputTensor: Tensor,
-        inputTensor: Tensor,
+        outputTensor: TensorBase,
+        inputTensor: TensorBase,
         opts: Optional[ReduceScatterOptions],
     ) -> Work: ...
     @overload
     def alltoall_base(
         self,
-        output_tensor: Tensor,
-        input_tensor: Tensor,
+        output_tensor: TensorBase,
+        input_tensor: TensorBase,
         output_split_sizes: List[int],
         input_split_sizes: List[int],
         opts=...,
@@ -428,37 +431,37 @@ class ProcessGroup:
     @overload
     def alltoall_base(
         self,
-        output: Tensor,
-        input: Tensor,
+        output: TensorBase,
+        input: TensorBase,
         output_split_sizes: List[int],
         input_split_sizes: List[int],
     ) -> Work: ...
     @overload
     def alltoall(
         self,
-        output_tensor: List[Tensor],
-        input_tensor: List[Tensor],
+        output_tensor: List[TensorBase],
+        input_tensor: List[TensorBase],
         opts=...,
     ) -> Work: ...
     @overload
     def alltoall(
         self,
-        output: List[Tensor],
-        input: List[Tensor],
+        output: List[TensorBase],
+        input: List[TensorBase],
     ) -> Work: ...
     def send(
         self,
-        tensors: List[Tensor],
+        tensors: List[TensorBase],
         dstRank: int,
         tag: int,
     ) -> Work: ...
     def recv(
         self,
-        tensors: List[Tensor],
+        tensors: List[TensorBase],
         srcRank: int,
         tag: int,
     ) -> Work: ...
-    def recv_anysource(self, tensors: List[Tensor], tag: int) -> Work: ...
+    def recv_anysource(self, tensors: List[TensorBase], tag: int) -> Work: ...
     def barrier(self, opts=...) -> Work: ...
     def boxed(self) -> ScriptObject: ...
     @staticmethod
@@ -563,24 +566,24 @@ class ProcessGroupMPI(Backend):
     def create(ranks: List[int]) -> ProcessGroupMPI: ...
 
 def _compute_bucket_assignment_by_size(
-    tensors: List[Tensor],
+    tensors: List[TensorBase],
     bucket_size_limits: List[int],
     expect_sparse_gradient: List[bool] = ...,
     tensor_indices: List[int] = ...,
 ) -> Tuple[List[List[int]], List[int]]: ...
 def _broadcast_coalesced(
     process_group: ProcessGroup,
-    tensors: List[Tensor],
+    tensors: List[TensorBase],
     buffer_size: int,
     src: int,
 ): ...
 def _test_python_store(store: Store): ...
 def _verify_params_across_processes(
     process_group: ProcessGroup,
-    params: List[Tensor],
+    params: List[TensorBase],
     logger: Optional[Logger],
 ): ...
-def _make_nccl_premul_sum(factor: Union[float, List[Tensor]]) -> ReduceOp: ...
+def _make_nccl_premul_sum(factor: Union[float, List[TensorBase]]) -> ReduceOp: ...
 def _register_process_group(
     group_name: str,
     process_group: ProcessGroup,

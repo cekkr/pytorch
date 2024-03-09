@@ -6,7 +6,7 @@ from typing import cast, List
 
 import torch
 import torch.distributed as dist
-from torch import rand, randn, Tensor
+from torch import rand, randn, TensorBase
 from torch.distributed._tensor import DeviceMesh, distribute_tensor, Replicate, Shard
 from torch.distributed._tensor.debug import CommDebugMode
 from torch.distributed._tensor.ops.view_ops import (
@@ -274,7 +274,7 @@ class TestViewOps(DTensorTestBase):
         )
 
         self.dimmap_test(
-            Tensor.expand,
+            TensorBase.expand,
             (randn(24, 1, 36, 1), 36, 24, 42, -1, 24),
             (
                 Broadcast(Singleton(), 36),
@@ -286,7 +286,7 @@ class TestViewOps(DTensorTestBase):
         )
 
         self.dimmap_test(
-            Tensor.expand,
+            TensorBase.expand,
             (randn(24, 1, 36, 1), (36, 24, 42, -1, 24)),
             (
                 Broadcast(Singleton(), 36),
@@ -362,7 +362,7 @@ class TestViewOps(DTensorTestBase):
         self.dimmap_test(torch.ravel, (randn(()),), (Singleton(),))
 
         self.dimmap_test(
-            Tensor.repeat,
+            TensorBase.repeat,
             (randn(24, 36), 1, 2, 1, 1, 2),
             (
                 Singleton(),
@@ -414,27 +414,27 @@ class TestViewOps(DTensorTestBase):
         )
 
         self.dimmap_test(
-            Tensor.view,
+            TensorBase.view,
             (randn(6, 12, 24), 72, 24),
             (Flatten((InputDim(0), InputDim(1))), InputDim(2)),
         )
 
-        self.dimmap_test(Tensor.view, (randn(1, 1, 12), -1), (InputDim(2),))
+        self.dimmap_test(TensorBase.view, (randn(1, 1, 12), -1), (InputDim(2),))
 
         self.dimmap_test(
-            Tensor.view,
+            TensorBase.view,
             (randn(1, 1, 42, 24), -1),
             (Flatten((InputDim(2), InputDim(3))),),
         )
 
         self.dimmap_test(
-            Tensor.view,
+            TensorBase.view,
             (randn(1, 1, 42, 1, 24, 1), -1),
             (Flatten((InputDim(2), InputDim(4))),),
         )
 
         self.dimmap_test(
-            Tensor.view,
+            TensorBase.view,
             (randn(48, 35, 26), (24, 4, 35, 13)),
             (
                 Split(

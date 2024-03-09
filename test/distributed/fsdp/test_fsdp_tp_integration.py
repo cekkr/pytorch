@@ -176,7 +176,7 @@ class TestTPFSDPIntegration(FSDPTest):
         tp_pg: Optional[dist.ProcessGroup],
         fsdp_pg: Optional[dist.ProcessGroup],
         sharded_param_names: Optional[List[str]],
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         """
         Returns all unsharded gradients as a single flattened tensor. This
         returns the same value on all ranks.

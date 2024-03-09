@@ -83,7 +83,7 @@ class TestPatternMatcherBase(TestCase):
 
     def _clone_inputs(self, inputs):
         def clone(x):
-            if not isinstance(x, torch.Tensor):
+            if not isinstance(x, torch.TensorBase):
                 return x
             return x.clone()
 
@@ -1229,9 +1229,11 @@ class TestPatternMatcher(TestPatternMatcherBase):
             inputs,
             check_autocast=torch.bfloat16 if int8_mixed_bf16 else torch.float,
             check_quantization=True,
-            matcher_check_fn=matcher_check_fn
-            if matcher_check_fn is not None
-            else _default_matcher_check_fn,
+            matcher_check_fn=(
+                matcher_check_fn
+                if matcher_check_fn is not None
+                else _default_matcher_check_fn
+            ),
             is_qat=is_qat,
             is_dynamic=is_dynamic,
         )

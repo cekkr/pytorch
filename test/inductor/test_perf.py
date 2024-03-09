@@ -797,7 +797,7 @@ class InplacingTests(TestCase):
     @requires_cuda
     @skipIfRocm
     def test_inplace_triton_kernel_v1(self):
-        def f(x: torch.Tensor, y: torch.Tensor):
+        def f(x: torch.TensorBase, y: torch.TensorBase):
             output = torch.zeros_like(x)
             n_elements = output.numel()
             grid = (n_elements,)
@@ -810,7 +810,7 @@ class InplacingTests(TestCase):
     @requires_cuda
     @skipIfRocm
     def test_inplace_triton_kernel_v2(self):
-        def f(x: torch.Tensor, y: torch.Tensor):
+        def f(x: torch.TensorBase, y: torch.TensorBase):
             output = torch.zeros_like(x)
             n_elements = output.numel()
             grid = (n_elements,)
@@ -824,7 +824,7 @@ class InplacingTests(TestCase):
     @requires_cuda
     @skipIfRocm
     def test_inplace_triton_kernel_v3(self):
-        def f(x: torch.Tensor, y: torch.Tensor):
+        def f(x: torch.TensorBase, y: torch.TensorBase):
             output = torch.zeros_like(x)
             n_elements = output.numel()
             grid = (n_elements,)
@@ -838,7 +838,7 @@ class InplacingTests(TestCase):
     @requires_cuda
     @skipIfRocm
     def test_inplace_triton_kernel_v4(self):
-        def f(x: torch.Tensor, y: torch.Tensor):
+        def f(x: torch.TensorBase, y: torch.TensorBase):
             x_view = x.view(-1)
             output = torch.zeros_like(x)
             n_elements = output.numel()
@@ -853,7 +853,7 @@ class InplacingTests(TestCase):
     @requires_cuda
     @skipIfRocm
     def test_inplace_triton_kernel_v5(self):
-        def f(x: torch.Tensor, y: torch.Tensor):
+        def f(x: torch.TensorBase, y: torch.TensorBase):
             x_view = x.view(-1)
             output = torch.zeros_like(x)
             n_elements = output.numel()
@@ -868,7 +868,7 @@ class InplacingTests(TestCase):
     @requires_cuda
     @skipIfRocm
     def test_inplace_triton_kernel_v6(self):
-        def f(x: torch.Tensor, y: torch.Tensor):
+        def f(x: torch.TensorBase, y: torch.TensorBase):
             output = torch.zeros_like(x)
             n_elements = output.numel()
             grid = (n_elements,)

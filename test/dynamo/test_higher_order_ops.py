@@ -116,7 +116,7 @@ def default_args_generator(seed_value):
     for i in range(3):
         new_flat_arg = []
         for val in flat_args:
-            if isinstance(val, torch.Tensor):
+            if isinstance(val, torch.TensorBase):
                 new_val = val + 0.1 * i
             elif isinstance(val, int):
                 new_val = val + 1 * i
@@ -1620,11 +1620,11 @@ def forward(self):
         mod_for_compile = torch.compile(mod, backend=cnt, dynamic=True, fullgraph=False)
         mod_for_eager = Module()
 
-        res = mod_for_compile(torch.Tensor([[6, 4, 5], [3, 4, 5], [6, 6, 6]]))
+        res = mod_for_compile(torch.TensorBase([[6, 4, 5], [3, 4, 5], [6, 6, 6]]))
         # There is graph break right when we enter body of map
         self.assertEqual(len(backend.graphs), 0)
         self.assertEqual(
-            res, mod_for_eager(torch.Tensor([[6, 4, 5], [3, 4, 5], [6, 6, 6]]))
+            res, mod_for_eager(torch.TensorBase([[6, 4, 5], [3, 4, 5], [6, 6, 6]]))
         )
 
     def test_map_side_effect(self):
@@ -1652,11 +1652,11 @@ def forward(self):
         mod_for_compile = torch.compile(mod, backend=cnt, dynamic=True, fullgraph=False)
         mod_for_eager = Module()
 
-        res = mod_for_compile(torch.Tensor([[6, 4, 5], [3, 4, 5], [6, 6, 6]]))
-        res = mod_for_compile(torch.Tensor([[6, 4, 5], [3, 4, 5], [6, 6, 6]]))
+        res = mod_for_compile(torch.TensorBase([[6, 4, 5], [3, 4, 5], [6, 6, 6]]))
+        res = mod_for_compile(torch.TensorBase([[6, 4, 5], [3, 4, 5], [6, 6, 6]]))
 
-        eager = mod_for_eager(torch.Tensor([[6, 4, 5], [3, 4, 5], [6, 6, 6]]))
-        eager = mod_for_eager(torch.Tensor([[6, 4, 5], [3, 4, 5], [6, 6, 6]]))
+        eager = mod_for_eager(torch.TensorBase([[6, 4, 5], [3, 4, 5], [6, 6, 6]]))
+        eager = mod_for_eager(torch.TensorBase([[6, 4, 5], [3, 4, 5], [6, 6, 6]]))
 
         self.assertEqual(len(backend.graphs), 0)
         self.assertEqual(res, eager)

@@ -38,7 +38,7 @@ requires_cuda = unittest.skipUnless(HAS_CUDA, "requires cuda")
 compile_full_eager = torch.compile(backend="eager", fullgraph=True)
 
 
-class BaseTorchFunction(torch.Tensor):
+class BaseTorchFunction(torch.TensorBase):
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
         if kwargs is None:
@@ -46,7 +46,7 @@ class BaseTorchFunction(torch.Tensor):
         return super().__torch_function__(func, types, args, kwargs)
 
 
-class MockSubclass(torch.Tensor):
+class MockSubclass(torch.TensorBase):
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
         if kwargs is None:
@@ -54,13 +54,13 @@ class MockSubclass(torch.Tensor):
         return func(*args, **kwargs)
 
 
-class DummyNDim(torch.Tensor):
+class DummyNDim(torch.TensorBase):
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
         if kwargs is None:
             kwargs = {}
 
-        if func == torch.Tensor.ndim.__get__:
+        if func == torch.TensorBase.ndim.__get__:
             return 10
 
         return super().__torch_function__(func, types, args, kwargs)
@@ -81,29 +81,29 @@ class WrapperSubclass:
         return func(*args, **kwargs)
 
 
-class SigmoidToExpSubclass(torch.Tensor):
+class SigmoidToExpSubclass(torch.TensorBase):
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
         if kwargs is None:
             kwargs = {}
 
-        if func == torch.Tensor.sigmoid:
-            return super().__torch_function__(torch.Tensor.exp, types, args, kwargs)
+        if func == torch.TensorBase.sigmoid:
+            return super().__torch_function__(torch.TensorBase.exp, types, args, kwargs)
 
         return super().__torch_function__(func, types, args, kwargs)
 
 
 # Wrapper subclass with two inner tensors: data and scale
 # data has same shape as outer, and scale has single dim size
-class ScaledTensor(torch.Tensor):
+class ScaledTensor(torch.TensorBase):
     def __new__(
         cls,
-        data: torch.Tensor,
-        scale: torch.Tensor,
+        data: torch.TensorBase,
+        scale: torch.TensorBase,
         *,
         constant: int = 0,
     ):
-        return torch.Tensor._make_wrapper_subclass(
+        return torch.TensorBase._make_wrapper_subclass(
             cls,
             data.size(),
             strides=data.stride(),
@@ -114,7 +114,9 @@ class ScaledTensor(torch.Tensor):
             device=data.device,
         )
 
-    def __init__(self, data: torch.Tensor, scale: torch.Tensor, constant: int = 0):
+    def __init__(
+        self, data: torch.TensorBase, scale: torch.TensorBase, constant: int = 0
+    ):
         self._data = data
         self._scale = scale
         self._constant = constant
@@ -195,7 +197,7 @@ class SubclassTests(torch._dynamo.test_case.TestCase):
         cls._exit_stack.close()
 
     def test_no_call_to_new(self):
-        class BadNewTorchFunction(torch.Tensor):
+        class BadNewTorchFunction(torch.TensorBase):
             def __new__(cls, *args, **kwargs):
                 raise RuntimeError("Oops!")
 
@@ -299,7 +301,7 @@ class SubclassTests(torch._dynamo.test_case.TestCase):
         self.assertIsInstance(res, MockSubclass)
 
     def test_return_local_subclass(self):
-        class LocalSubclass(torch.Tensor):
+        class LocalSubclass(torch.TensorBase):
             @classmethod
             def __torch_function__(cls, func, types, args=(), kwargs=None):
                 if kwargs is None:
@@ -328,7 +330,7 @@ class SubclassTests(torch._dynamo.test_case.TestCase):
     @parametrize(
         "input_type",
         [
-            subtest(torch.Tensor, "tensor"),
+            subtest(torch.TensorBase, "tensor"),
             subtest(DummyNDim, "subclass"),
         ],
     )
@@ -366,7 +368,7 @@ class SubclassTests(torch._dynamo.test_case.TestCase):
         self.assertEqual(res_exp, res_exp2)
 
     def test_user_overidden_method_unsupported(self):
-        class LocalSubclass(torch.Tensor):
+        class LocalSubclass(torch.TensorBase):
             @classmethod
             def __torch_function__(cls, func, types, args=(), kwargs=None):
                 if kwargs is None:
@@ -391,7 +393,7 @@ class SubclassTests(torch._dynamo.test_case.TestCase):
             fn(x)
 
     def test_user_overidden_attr_unsupported(self):
-        class LocalSubclass(torch.Tensor):
+        class LocalSubclass(torch.TensorBase):
             @classmethod
             def __torch_function__(cls, func, types, args=(), kwargs=None):
                 if kwargs is None:
@@ -415,7 +417,7 @@ class SubclassTests(torch._dynamo.test_case.TestCase):
             fn(x)
 
     def test_user_overidden_property_unsupported(self):
-        class LocalSubclass(torch.Tensor):
+        class LocalSubclass(torch.TensorBase):
             def __init__(self):
                 self._ndim = 10
 
@@ -448,7 +450,7 @@ class SubclassTests(torch._dynamo.test_case.TestCase):
             fn(x)
 
     def test_overridden_method_guarding(self):
-        class LocalSubclass(torch.Tensor):
+        class LocalSubclass(torch.TensorBase):
             @classmethod
             def __torch_function__(cls, func, types, args=(), kwargs=None):
                 if kwargs is None:
@@ -755,7 +757,7 @@ class GraphModule(torch.nn.Module):
                     return torch.tensor(123)
                 return func(*args, **kwargs)
 
-        class LocalSubclass(torch.Tensor):
+        class LocalSubclass(torch.TensorBase):
             @classmethod
             def __torch_function__(cls, func, types, args=(), kwargs=None):
                 if kwargs is None:
@@ -781,12 +783,12 @@ class GraphModule(torch.nn.Module):
         # Holds an inner tensor, that has a distinct shape from the outer wrapper tensor.
         # Also adds additional guards on the inner tensor's sizes.
         # When the first input to an op has x.shape[0] > 5, we insert an extra add node.
-        class DoubleSizeMaybeAddGeThreeTensor(torch.Tensor):
+        class DoubleSizeMaybeAddGeThreeTensor(torch.TensorBase):
             @staticmethod
             def __new__(cls, inner):
                 # Double the outer-most dimension
                 outer_shape = (inner.shape[0] * 2,) + inner.shape[1:]
-                return torch.Tensor._make_wrapper_subclass(
+                return torch.TensorBase._make_wrapper_subclass(
                     # TODO: right now, _make_wrapper_subclass's dynamic shape interaction is not great.
                     # Calling the overload that has kwargs causes us to go down the first overload path,
                     # which will **always** specialize sizes.

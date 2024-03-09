@@ -194,7 +194,9 @@ class WrapperBackend:
     def __init__(self, backend: CompilerFn):
         self.backend: CompilerFn = backend
 
-    def __call__(self, gm: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+    def __call__(
+        self, gm: torch.fx.GraphModule, example_inputs: List[torch.TensorBase]
+    ):
         self.restore = checkpoint_params(gm)
         self.gm = gm
         copy_gm = copy.deepcopy(self.gm)
@@ -314,9 +316,9 @@ class OutputGraph(Checkpointable[OutputGraphState]):
         # We use this map to interpret (i.e., check for violations of) constraints,
         # specifically equality constraints, which have shared tensor ids in them.
         # This map should also be generally useful, e.g., for (de)serialization.
-        self.tracked_fakes_id_to_source: Dict[
-            int, List[Source]
-        ] = collections.defaultdict(list)
+        self.tracked_fakes_id_to_source: Dict[int, List[Source]] = (
+            collections.defaultdict(list)
+        )
         # Stores the full fqn of a param or buffer to the relevant source.
         self.param_name_to_source: Optional[Dict[str, Source]] = dict()
         self.side_effects = SideEffects()
@@ -733,7 +735,7 @@ class OutputGraph(Checkpointable[OutputGraphState]):
 
     def register_attr_or_module(
         self,
-        target: Union[torch.nn.Module, torch.Tensor, Any],
+        target: Union[torch.nn.Module, torch.TensorBase, Any],
         *names,
         **options,
     ):
@@ -745,7 +747,7 @@ class OutputGraph(Checkpointable[OutputGraphState]):
         source = options["source"]
         assert not isinstance(source, ParamBufferSource)
 
-        if isinstance(target, torch.Tensor):
+        if isinstance(target, torch.TensorBase):
             tracer = self.current_tracer
             if not self.is_root_tracer():
                 # For higher order ops, we don't want to insert the get_attr in
@@ -1133,9 +1135,9 @@ class OutputGraph(Checkpointable[OutputGraphState]):
             register_finalizer(gm)
 
         gm.compile_subgraph_reason = self.compile_subgraph_reason
-        gm.meta[
-            "dynamo_flat_name_to_original_fqn"
-        ] = self.dynamo_flat_name_to_original_fqn.copy()
+        gm.meta["dynamo_flat_name_to_original_fqn"] = (
+            self.dynamo_flat_name_to_original_fqn.copy()
+        )
 
         graph_code_log.debug("%s", lazy_format_graph_code(name, gm))
         torch._logging.trace_structured(
@@ -1248,7 +1250,7 @@ class OutputGraph(Checkpointable[OutputGraphState]):
 
         return compiled_fn
 
-    def example_inputs(self) -> List[torch.Tensor]:
+    def example_inputs(self) -> List[torch.TensorBase]:
         result = []
         for arg in self.graphargs:
             result.append(arg.example)
@@ -1395,7 +1397,7 @@ class OutputGraph(Checkpointable[OutputGraphState]):
                         defs.append(s)
 
                 match_symbol(node.meta["example_value"], lambda: node)
-                if isinstance(t := node.meta["example_value"], torch.Tensor):
+                if isinstance(t := node.meta["example_value"], torch.TensorBase):
                     for i, s in enumerate(t.size()):
                         match_symbol(
                             s, lambda: self.graph.call_method("size", (node, i))
@@ -1679,7 +1681,7 @@ class SubgraphTracer(fx.Tracer):
         # create unique node names
         self.input_name_to_proxy: Dict[str, fx.Proxy] = {}
         # Node => computed real value (see utils.get_real_value)
-        self.real_value_cache: Dict[fx.Node, torch.Tensor] = {}
+        self.real_value_cache: Dict[fx.Node, torch.TensorBase] = {}
 
         # SubgraphTracers can be nested. See NOTE [HigherOrderOperator tracing design]
         self.parent = parent

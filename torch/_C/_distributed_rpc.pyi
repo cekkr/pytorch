@@ -139,7 +139,7 @@ def _invoke_rpc_builtin(
 def _invoke_rpc_python_udf(
     dst: WorkerInfo,
     pickledPythonUDF: str,
-    tensors: List[torch.Tensor],
+    tensors: List[torch.TensorBase],
     rpcTimeoutSeconds: float,
     isAsyncExecution: bool,
 ): ...
@@ -161,7 +161,7 @@ def _invoke_remote_builtin(
 def _invoke_remote_python_udf(
     dst: WorkerInfo,
     pickledPythonUDF: str,
-    tensors: List[torch.Tensor],
+    tensors: List[torch.TensorBase],
     rpcTimeoutSeconds: float,
     isAsyncExecution: bool,
 ): ...

@@ -149,7 +149,7 @@ class TestFSDPCheckpoint(FSDPTest):
     def _test_checkpoint_fully_shard_cast_forward_inputs(
         self, checkpoint_strict_submodule: bool
     ):
-        forward_inputs: Dict[nn.Module, torch.Tensor] = {}
+        forward_inputs: Dict[nn.Module, torch.TensorBase] = {}
         fp16_mp = MixedPrecision(param_dtype=torch.float16, cast_forward_inputs=True)
         fp32_mp = MixedPrecision(param_dtype=torch.float32, cast_forward_inputs=True)
 
@@ -359,7 +359,7 @@ class TestFSDPCheckpoint(FSDPTest):
             if "u1" in fqn:
                 self.assertIsInstance(tensor, ShardedTensor)
             elif "u2" in fqn:
-                self.assertIsInstance(tensor, torch.Tensor)
+                self.assertIsInstance(tensor, torch.TensorBase)
         # Ensure that get_state_dict_type can still correctly get the settings.
         _ = FSDP.get_state_dict_type(model)
 

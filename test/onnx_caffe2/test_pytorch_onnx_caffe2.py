@@ -100,7 +100,7 @@ def do_export(model, inputs, *args, **kwargs):
     out = torch.onnx._export(model, inputs, f, *args, **kwargs)
     if isinstance(model, torch.jit.ScriptModule):
         # Special case for common case of passing a single Tensor
-        if isinstance(inputs, torch.Tensor):
+        if isinstance(inputs, torch.TensorBase):
             inputs = (inputs,)
         out = model(*inputs)
     return f.getvalue(), out
@@ -138,7 +138,7 @@ class TestCaffe2Backend_opset9(pytorch_test_common.ExportTestCase):
         cuda_model = model.cuda()
         # input might be nested - we want to move everything to GPU
         cuda_input = function._nested_map(
-            lambda o: isinstance(o, (Variable, torch.Tensor)),
+            lambda o: isinstance(o, (Variable, torch.TensorBase)),
             lambda o: o.cuda(),
         )(input)
         return cuda_model, cuda_input
@@ -2497,8 +2497,8 @@ class TestCaffe2Backend_opset9(pytorch_test_common.ExportTestCase):
         class TupleModel(torch.jit.ScriptModule):
             @torch.jit.script_method
             def forward(
-                self, a: Tuple[torch.Tensor, torch.Tensor]
-            ) -> Tuple[torch.Tensor, torch.Tensor]:
+                self, a: Tuple[torch.TensorBase, torch.TensorBase]
+            ) -> Tuple[torch.TensorBase, torch.TensorBase]:
                 return a
 
         x = (torch.randn(3, 4), torch.randn(4, 3))
@@ -2511,9 +2511,9 @@ class TestCaffe2Backend_opset9(pytorch_test_common.ExportTestCase):
             @torch.jit.script_method
             def forward(
                 self,
-                a: torch.Tensor,
-                b: Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]],
-            ) -> torch.Tensor:
+                a: torch.TensorBase,
+                b: Tuple[torch.TensorBase, Tuple[torch.TensorBase, torch.TensorBase]],
+            ) -> torch.TensorBase:
                 return a + b[0] + b[1][0] + b[1][1]
 
         x = torch.randn(4, 5)

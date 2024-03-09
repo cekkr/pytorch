@@ -191,7 +191,7 @@ class GraphArg:
     # Sometimes, the Tensor we pass to example is freshly allocated (smh).
     # Then we cannot only keep a weak reference to it.  This lets you
     # stash a strong reference too.
-    example_strong_ref: Optional[torch.Tensor] = None
+    example_strong_ref: Optional[torch.TensorBase] = None
 
     @property
     def example(self):
@@ -203,7 +203,7 @@ class GraphArg:
             return self._example
 
     def __post_init__(self):
-        if isinstance(self._example, torch.Tensor):
+        if isinstance(self._example, torch.TensorBase):
             self._example = TensorWeakRef(self._example)
             assert is_fake(self.fake_tensor)
 
@@ -321,7 +321,7 @@ class VariableBuilder:
         entries = [
             (
                 (
-                    torch.Tensor,
+                    torch.TensorBase,
                     torch.nn.Parameter,
                     torch._subclasses.FakeTensor,
                     torch._subclasses.functional_tensor.FunctionalTensor,
@@ -964,14 +964,14 @@ class VariableBuilder:
             self.install_guards(GuardBuilder.CONSTANT_MATCH)
             return ConstantVariable.create(value=value)
 
-    def assert_not_wrapped_by_this_graph(self, value: torch.Tensor):
+    def assert_not_wrapped_by_this_graph(self, value: torch.TensorBase):
         if is_fake(value) and maybe_get_fake_mode(value) is self.tx.fake_mode:
             raise InternalTorchDynamoError(
                 "Cannot wrap a Tensor that has already been",
                 "wrapped by this instance of Dynamo",
             )
 
-    def wrap_tensor(self, value: torch.Tensor):
+    def wrap_tensor(self, value: torch.TensorBase):
         source = self.get_source()
 
         # We cannot already be tracking the tensor, which implies
@@ -1017,7 +1017,7 @@ class VariableBuilder:
             subclass_type = type(value)
         else:
             assert type(value) in (
-                torch.Tensor,
+                torch.TensorBase,
                 torch.nn.Parameter,
                 torch._subclasses.fake_tensor.FakeTensor,
                 torch._subclasses.functional_tensor.FunctionalTensor,
@@ -1056,7 +1056,7 @@ class VariableBuilder:
             self.install_guards(GuardBuilder.TYPE_MATCH)
 
         if (
-            isinstance(value, torch.Tensor)
+            isinstance(value, torch.TensorBase)
             and value.is_nested
             and not isinstance(value, NestedTensor)
         ):
@@ -1079,9 +1079,11 @@ class VariableBuilder:
         self.install_guards(
             functools.partial(
                 GuardBuilder.TENSOR_MATCH,
-                value=value
-                if isinstance(source, NumpyTensorSource)
-                else TensorWeakRef(value),
+                value=(
+                    value
+                    if isinstance(source, NumpyTensorSource)
+                    else TensorWeakRef(value)
+                ),
             )
         )
 
@@ -1250,7 +1252,7 @@ class VariableBuilder:
             if not isinstance(self.get_source(), RandomValueSource):
                 install_guard(self.get_source().make_guard(GuardBuilder.TYPE_MATCH))
             options = {"source": self.get_source()}
-            if isinstance(wrapped_value, torch.Tensor):
+            if isinstance(wrapped_value, torch.TensorBase):
                 options.update({"raw_value": value})
 
             proxy = self.tx.output.root_tracer.create_graph_input(
@@ -1289,7 +1291,7 @@ class VariableBuilder:
                 proxy.node.meta["grapharg"] = GraphArg(
                     self.get_source(),
                     wrapped_value,
-                    isinstance(wrapped_value, torch.Tensor),
+                    isinstance(wrapped_value, torch.TensorBase),
                     fake_tensor_value,
                     is_tensor=False,
                     example_strong_ref=wrapped_value,
@@ -1389,7 +1391,7 @@ def wrap_fx_proxy_cls(
     initial_example_value = example_value
 
     def _clone_input(value):
-        if isinstance(value, torch.Tensor):
+        if isinstance(value, torch.TensorBase):
             # tensor subclasses will not be converted to FakeTensors and need to be cloned
             if not (
                 isinstance(value, FakeTensor)
@@ -1415,7 +1417,7 @@ def wrap_fx_proxy_cls(
         elif maybe_get_fake_mode(example_value) is tx.fake_mode:
             pass
 
-        elif isinstance(example_value, torch.Tensor):
+        elif isinstance(example_value, torch.TensorBase):
             if tx.export:
                 # The legacy behavior for real value cache with subclasses was
                 # to perform a clone WITHOUT preserving the subclass.  It's
@@ -1437,7 +1439,7 @@ def wrap_fx_proxy_cls(
             example_value = wrap_to_fake_tensor_and_record(
                 example_value, tx=tx, **kwargs
             )
-        if isinstance(example_value, torch.Tensor) and (
+        if isinstance(example_value, torch.TensorBase) and (
             maybe_get_fake_mode(example_value) is not tx.fake_mode
         ):
             raise InternalTorchDynamoError(
@@ -1445,7 +1447,7 @@ def wrap_fx_proxy_cls(
                 f"wrapped by this instance of Dynamo. Found: {example_value}"
             )
 
-    if isinstance(example_value, torch.Tensor):
+    if isinstance(example_value, torch.TensorBase):
         is_parameter = isinstance(example_value, torch.nn.Parameter)
 
         # NB: In most (all?) cases, this does not actually do a clone.
@@ -1459,7 +1461,7 @@ def wrap_fx_proxy_cls(
             isinstance(example_value, torch._subclasses.fake_tensor.FakeTensor)
             and example_value.fake_mode is tx.fake_mode
         ):
-            tensor_type = subclass_type if subclass_type else torch.Tensor
+            tensor_type = subclass_type if subclass_type else torch.TensorBase
             specialized_props["class_type"] = (
                 torch.nn.Parameter if is_parameter else tensor_type
             )
@@ -1844,8 +1846,8 @@ def wrap_to_fake_tensor_and_record(
     e, tx, *, source: Optional[Source], is_tensor: bool, parent_context=None
 ):
     if (
-        type(e) in (torch.Tensor, torch.nn.Parameter, FakeTensor)
-        or isinstance(e, torch.Tensor)
+        type(e) in (torch.TensorBase, torch.nn.Parameter, FakeTensor)
+        or isinstance(e, torch.TensorBase)
         or is_traceable_wrapper_subclass(e)
     ):
         assert source is not None
@@ -1892,7 +1894,7 @@ def wrap_to_fake_tensor_and_record(
                     inner,
                     tx,
                     source=inner_source,
-                    is_tensor=isinstance(fake_inner, torch.Tensor),
+                    is_tensor=isinstance(fake_inner, torch.TensorBase),
                     parent_context=symbolic_context,
                 )
 

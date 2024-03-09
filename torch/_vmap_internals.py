@@ -3,7 +3,7 @@ import warnings
 from typing import Any, Callable, List, Optional, Tuple, Union
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 from torch.utils._pytree import _broadcast_to_and_flatten, tree_flatten, tree_unflatten
 
 in_dims_t = Union[int, Tuple]
@@ -27,7 +27,7 @@ def _validate_and_get_batch_size(
     return batch_sizes[0]
 
 
-def _num_outputs(batched_outputs: Union[Tensor, Tuple[Tensor, ...]]) -> int:
+def _num_outputs(batched_outputs: Union[TensorBase, Tuple[TensorBase, ...]]) -> int:
     if isinstance(batched_outputs, tuple):
         return len(batched_outputs)
     return 1
@@ -80,7 +80,7 @@ def _create_batched_inputs(
                 f"Got in_dim={in_dim} for an input but in_dim must be either "
                 f"an integer dimension or None."
             )
-        if isinstance(in_dim, int) and not isinstance(arg, Tensor):
+        if isinstance(in_dim, int) and not isinstance(arg, TensorBase):
             raise ValueError(
                 f"vmap({_get_name(func)}, in_dims={in_dims}, ...)(<inputs>): "
                 f"Got in_dim={in_dim} for an input but the input is of type "
@@ -106,7 +106,7 @@ def _create_batched_inputs(
 
 # Undos the batching (and any batch dimensions) associated with the `vmap_level`.
 def _unwrap_batched(
-    batched_outputs: Union[Tensor, Tuple[Tensor, ...]],
+    batched_outputs: Union[TensorBase, Tuple[TensorBase, ...]],
     out_dims: out_dims_t,
     vmap_level: int,
     batch_size: int,
@@ -124,7 +124,7 @@ def _unwrap_batched(
     # NOTE [Ignored _remove_batch_dim, _add_batch_dim]
     # There is something wrong with our type bindings for functions that begin
     # with '_', see #40397.
-    if isinstance(batched_outputs, Tensor):
+    if isinstance(batched_outputs, TensorBase):
         out_dim = out_dims_as_tuple[0]
         return torch._remove_batch_dim(batched_outputs, vmap_level, batch_size, out_dim)  # type: ignore[return-value]
     if allow_none_pass_through:
@@ -148,7 +148,7 @@ def _unwrap_batched(
 # so we are effectively checking that `outputs` is a single Tensor or a tuple of
 # Tensors.
 def _validate_outputs(outputs: Any, func: Callable) -> None:
-    if isinstance(outputs, Tensor):
+    if isinstance(outputs, TensorBase):
         return
     if not isinstance(outputs, tuple):
         raise ValueError(
@@ -156,7 +156,7 @@ def _validate_outputs(outputs: Any, func: Callable) -> None:
             f"Tensors, got type {type(outputs)} as the return."
         )
     for idx, output in enumerate(outputs):
-        if isinstance(output, Tensor):
+        if isinstance(output, TensorBase):
             continue
         raise ValueError(
             f"vmap({_get_name(func)}, ...): `{_get_name(func)}` must only return "

@@ -641,7 +641,7 @@ class TestOptimRenewed(TestCase):
                 self.assertLess(loss.item(), initial_value)
 
     @optims(optim_db, dtypes=[torch.float32])
-    def test_param_groups_lr(self, device, dtype, optim_info):
+    def test_param_groups_lr(self, device, dtype, optim_info):Tensor
         optim_cls = optim_info.optim_cls
         # Skip differentiable testing for now, see https://github.com/pytorch/pytorch/issues/116490
         all_optim_inputs = _get_optim_inputs_including_global_cliquey_kwargs(

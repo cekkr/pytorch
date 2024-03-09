@@ -1,6 +1,7 @@
 # Owner(s): ["module: fx"]
 
 from typing import Set, Type
+
 import torch
 import torch.fx
 
@@ -152,7 +153,7 @@ class TestDCE(TestCase):
                 super().__init__()
                 self.relu = ReLUImpure()
 
-            def forward(self, a: torch.Tensor) -> torch.Tensor:
+            def forward(self, a: torch.TensorBase) -> torch.TensorBase:
                 r = self.relu(a)
                 return a * 2
 
@@ -166,7 +167,7 @@ class TestDCE(TestCase):
         """
 
         class TestModule(torch.nn.Module):
-            def forward(self, a: torch.Tensor) -> torch.Tensor:
+            def forward(self, a: torch.TensorBase) -> torch.TensorBase:
                 torch._assert(torch.equal(a, a), "a must equal a")
                 return a * 2
 

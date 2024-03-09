@@ -57,7 +57,7 @@ class TestFullyShardForwardInputs(FSDPTestMultiThread):
         device = torch.device("cuda", 0)
 
         class ParamlessModule(nn.Module):
-            def forward(self, x: torch.Tensor, ys: Tuple[torch.Tensor, ...]):
+            def forward(self, x: torch.TensorBase, ys: Tuple[torch.TensorBase, ...]):
                 # Check that FSDP moved the inputs to GPU, including recursing
                 # into the tuple data structure
                 assert x.device == device, f"Expects {device} but got {x.device}"
@@ -166,7 +166,7 @@ class TestFullyShardRegisteredParams(FSDPTestMultiThread):
         self.assertGreater(len(list(params)), 0)
         for param in params:
             self.assertNotIsInstance(param, DTensor)
-            self.assertIsInstance(param, torch.Tensor)
+            self.assertIsInstance(param, torch.TensorBase)
 
     def _assert_dtensor_params(self, params: Iterable[nn.Parameter]):
         self.assertGreater(len(list(params)), 0)
@@ -214,7 +214,7 @@ class TestFullyShardCastAfterInit(FSDPTestMultiThread):
         torch.manual_seed(42 + self.rank + 1)
         inp = torch.randn((2, mlp_dim), device="cuda", dtype=dtype)
         for iter_idx in range(10):
-            losses: List[torch.Tensor] = []
+            losses: List[torch.TensorBase] = []
             for _model in (ref_model, model):
                 losses.append(_model(inp).sum())
                 losses[-1].backward()
@@ -254,7 +254,7 @@ class TestFullyShard1DTrainingCore(FSDPTest):
         torch.manual_seed(42 + self.rank + 1)
         inp = (torch.randn((4, lin_shapes[0][0]), device="cuda"),)
         for iter_idx in range(10):
-            losses: List[torch.Tensor] = []
+            losses: List[torch.TensorBase] = []
             for _model, _optim in ((ref_model, ref_optim), (model, optim)):
                 _optim.zero_grad(set_to_none=(iter_idx % 2 == 0))
                 losses.append(_model(*inp).sum())
@@ -357,7 +357,7 @@ class TestFullyShard1DTrainingCore(FSDPTest):
         with patch_all_gather_ctx, patch_reduce_scatter_ctx:
             for iter_idx in range(10):
                 inp = torch.randn((8, lin_dim), device=torch.device(device_type))
-                losses: List[torch.Tensor] = []
+                losses: List[torch.TensorBase] = []
                 for _model, _optim in ((ref_model, ref_optim), (model, optim)):
                     _optim.zero_grad(set_to_none=(iter_idx % 2 == 0))
                     losses.append(_model(inp).sum())
@@ -452,7 +452,7 @@ class TestFullyShard1DTrainingCore(FSDPTest):
         torch.manual_seed(42 + self.rank)
         inp = torch.randn((32, 4), device="cuda")
         for iter_idx in range(10):
-            losses: List[torch.Tensor] = []
+            losses: List[torch.TensorBase] = []
             for _model, _optim in ((ref_model, ref_optim), (model, optim)):
                 _optim.zero_grad(set_to_none=(iter_idx % 2 == 0))
                 losses.append(_model(inp).sum())
@@ -532,7 +532,7 @@ class TestFullyShard1DTrainingCompose(FSDPTest):
             self, ref_model, model, prefixes_to_ignore=prefixes_to_ignore
         )
         for iter_idx in range(10):
-            losses: List[torch.Tensor] = []
+            losses: List[torch.TensorBase] = []
             for _model in (ref_model, model):
                 torch.manual_seed(iter_idx + 1)  # for dropout determinism
                 losses.append(_model(inp).sum())
@@ -597,7 +597,7 @@ class TestFullyShardSharedParams(FSDPTest):
         torch.manual_seed(42 + self.rank + 1)
         for iter_idx in range(10):
             inp = torch.randint(0, model_args.vocab_size, (2, 16), device="cuda")
-            losses: List[torch.Tensor] = []
+            losses: List[torch.TensorBase] = []
             for _model, _optim in ((ref_model, ref_optim), (model, optim)):
                 _optim.zero_grad(set_to_none=(iter_idx % 2 == 0))
                 losses.append(_model(inp).sum())
@@ -676,7 +676,7 @@ class TestFullyShardGradientAccumulation(FSDPTest):
                         * local_batch_size : (self.rank + 1)
                         * local_batch_size
                     ].detach()
-                    losses: List[torch.Tensor] = []
+                    losses: List[torch.TensorBase] = []
                     for _model, _optim, inp in (
                         (ref_model, ref_optim, global_inp),
                         (model, optim, local_inp),
@@ -774,7 +774,7 @@ class TestFullyShard2DTraining(FSDPTest):
         device = torch.device("cuda")
         for iter_idx in range(10):
             inp = torch.randn((8, mlp_dim), device=device)
-            losses: List[torch.Tensor] = []
+            losses: List[torch.TensorBase] = []
             for _model, _optim in ((ref_model, ref_optim), (model, optim)):
                 _optim.zero_grad(set_to_none=(iter_idx % 2 == 0))
                 losses.append(_model(inp).sum())

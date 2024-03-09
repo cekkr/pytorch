@@ -60,7 +60,7 @@ def check_codegen(
 
         def copy_fn(x):
             # preserve strides of the input on the device
-            if not isinstance(x, torch.Tensor):
+            if not isinstance(x, torch.TensorBase):
                 return x
             return torch.empty_strided(
                 x.size(), x.stride(), device=GPU_TYPE, dtype=x.dtype

@@ -24,24 +24,24 @@ class ConstantAttrMap(collections.abc.MutableMapping):
 
     def __init__(self):
         # Underlying dict that we use to implement this mapping.
-        self._constant_attrs: Dict[Union[int, torch.Tensor], Any] = {}
+        self._constant_attrs: Dict[Union[int, torch.TensorBase], Any] = {}
         # Map from the hash(ScriptObject) to the ScriptObject itself. Used for
         # APIs like `__iter__` that should look like they're returning the
         # original ScriptObjects.
         self._script_object_map: Dict[int, torch.ScriptObject] = {}
 
-    def __getitem__(self, key: Union[torch.Tensor, torch.ScriptObject]) -> Any:
+    def __getitem__(self, key: Union[torch.TensorBase, torch.ScriptObject]) -> Any:
         real_key = hash(key) if isinstance(key, torch.ScriptObject) else key
-        assert isinstance(real_key, (int, torch.Tensor))
+        assert isinstance(real_key, (int, torch.TensorBase))
         return self._constant_attrs[real_key]
 
     def __setitem__(
-        self, key: Union[torch.Tensor, torch.ScriptObject], value: Any
+        self, key: Union[torch.TensorBase, torch.ScriptObject], value: Any
     ) -> None:
         if isinstance(key, torch.ScriptObject):
             self._constant_attrs[hash(key)] = value
             self._script_object_map[hash(key)] = key
-        elif isinstance(key, torch.Tensor):
+        elif isinstance(key, torch.TensorBase):
             self._constant_attrs[key] = value
         else:
             raise TypeError(
@@ -83,7 +83,7 @@ def lift_constants_pass(
     gm: torch.fx.GraphModule,
     graph_signature: ExportGraphSignature,
     constant_attrs: ConstantAttrMap,
-) -> Dict[str, Union[torch.Tensor, torch._C.ScriptObject]]:
+) -> Dict[str, Union[torch.TensorBase, torch._C.ScriptObject]]:
     """
     Takes a graph module, graph signature, and modifies them implace to lift any
     constants (tensors or custom classes) as inputs to the graph. Returns a
@@ -101,7 +101,7 @@ def lift_constants_pass(
     Returns:
         A dictionary of fqn => constant value.
     """
-    all_constants: Dict[str, Union[torch.Tensor, torch._C.ScriptObject]] = {}
+    all_constants: Dict[str, Union[torch.TensorBase, torch._C.ScriptObject]] = {}
 
     inputs = graph_signature.input_specs
     num_custom_obj = sum(
@@ -153,7 +153,7 @@ def lift_constants_pass(
                     constant_name = f"_lifted_custom_obj{num_custom_obj}"
                     constant_fqn = get_constant_fqn(node, constant_name)
                     num_custom_obj += 1
-            elif isinstance(constant_val, torch.Tensor):
+            elif isinstance(constant_val, torch.TensorBase):
                 constant_kind = InputKind.CONSTANT_TENSOR
                 constant_fqn = constant_attrs.get(constant_val)
                 if constant_fqn is not None:
@@ -179,7 +179,7 @@ def lift_constants_pass(
                     const_placeholder_node.meta[k] = v
 
                 input_spec_arg: ArgumentSpec
-                if isinstance(constant_val, torch.Tensor):
+                if isinstance(constant_val, torch.TensorBase):
                     if fake_mode is not None:
                         const_placeholder_node.meta["val"] = fake_mode.from_tensor(
                             constant_val, static_shapes=True
@@ -222,14 +222,14 @@ def lift_constants_pass(
 
 def rewrite_script_object_meta(
     gm: torch.fx.GraphModule,
-) -> Dict[str, Union[torch.Tensor, torch.ScriptObject]]:
+) -> Dict[str, Union[torch.TensorBase, torch.ScriptObject]]:
     """When tracing, we produce a graph with an actual ScriptObject in the
     meta["val"]. Eventually we want to change this behavior, when FakeMode infra
     for ScriptObjects lands.
 
     For now, we rewrie meta["val"] to be a placeholder CustomObjArgument
     """
-    constants: Dict[str, Union[torch.Tensor, torch._C.ScriptObject]] = {}
+    constants: Dict[str, Union[torch.TensorBase, torch._C.ScriptObject]] = {}
     for node in gm.graph.nodes:
         if "val" not in node.meta or not isinstance(
             node.meta["val"], torch.ScriptObject

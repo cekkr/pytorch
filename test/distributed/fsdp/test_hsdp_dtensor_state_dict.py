@@ -314,8 +314,8 @@ class TestHSDPWithDeviceMeshAndDTensor(DTensorTestBase):
                     state["exp_avg_sq"].placements, (Replicate(), Shard(0))
                 )
             else:
-                self.assertIsInstance(state["exp_avg"], torch.Tensor)
-                self.assertIsInstance(state["exp_avg_sq"], torch.Tensor)
+                self.assertIsInstance(state["exp_avg"], torch.TensorBase)
+                self.assertIsInstance(state["exp_avg_sq"], torch.TensorBase)
 
 
 instantiate_parametrized_tests(TestHSDPWithDeviceMeshAndDTensor)

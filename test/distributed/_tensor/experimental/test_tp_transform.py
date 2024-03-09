@@ -41,7 +41,7 @@ class MLPListModule(torch.nn.Module):
                 )
             )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.TensorBase) -> torch.TensorBase:
         x = torch.chunk(x, 2, dim=1)[0]
         for mlp in self.mlps:
             x = mlp(x)

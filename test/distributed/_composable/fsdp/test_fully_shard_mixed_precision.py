@@ -70,7 +70,7 @@ class TestFullyShardMixedPrecisionTraining(FSDPTest):
         ref_model_bf16 = copy.deepcopy(ref_model).to(param_dtype)
         orig_reduce_scatter = dist.reduce_scatter_tensor
 
-        def assert_fn(output: torch.Tensor):
+        def assert_fn(output: torch.TensorBase):
             self.assertEqual(output.dtype, param_dtype)
 
         reduce_scatter = functools.partial(
@@ -126,7 +126,7 @@ class TestFullyShardMixedPrecisionTraining(FSDPTest):
         ref_model_bf16 = copy.deepcopy(ref_model).to(param_dtype)
         orig_reduce_scatter = dist.reduce_scatter_tensor
 
-        def assert_fn(output: torch.Tensor):
+        def assert_fn(output: torch.TensorBase):
             self.assertEqual(output.dtype, reduce_dtype)
 
         reduce_scatter = functools.partial(
@@ -169,7 +169,7 @@ class TestFullyShardMixedPrecisionTraining(FSDPTest):
         )
         orig_reduce_scatter = dist.reduce_scatter_tensor
 
-        def assert_fn(output: torch.Tensor):
+        def assert_fn(output: torch.TensorBase):
             self.assertEqual(output.dtype, reduce_dtype)
 
         reduce_scatter = functools.partial(
@@ -223,7 +223,7 @@ class TestFullyShardMixedPrecisionCasts(FSDPTestMultiThread):
 
         # Subtest 2: use fp16 on the second child module, where the user module
         # owns the cast
-        forward_inputs: Dict[nn.Module, torch.Tensor] = {}
+        forward_inputs: Dict[nn.Module, torch.TensorBase] = {}
         model = SaveForwardInputsModel(
             forward_inputs=forward_inputs, cast_forward_inputs=True
         ).cuda()
@@ -241,7 +241,7 @@ class TestFullyShardMixedPrecisionCasts(FSDPTestMultiThread):
 
         # Subtest 3: use fp16 on the first child module and specify its output
         # dtype so that the second child module does not need to cast
-        forward_inputs: Dict[nn.Module, torch.Tensor] = {}
+        forward_inputs: Dict[nn.Module, torch.TensorBase] = {}
         model = SaveForwardInputsModel(
             forward_inputs=forward_inputs, cast_forward_inputs=False
         ).cuda()
@@ -266,31 +266,33 @@ class TestFullyShardMixedPrecisionCasts(FSDPTestMultiThread):
 
     def _test_submodules_with_external_inputs(self, enable_submodule_cast: bool):
         class ToyModule(nn.Module):
-            def __init__(self, forward_inputs: Dict[str, torch.Tensor]) -> None:
+            def __init__(self, forward_inputs: Dict[str, torch.TensorBase]) -> None:
                 super().__init__()
                 self.l = nn.Linear(100, 100)
                 self.forward_inputs = forward_inputs
 
-            def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+            def forward(
+                self, x: torch.TensorBase, y: torch.TensorBase
+            ) -> torch.TensorBase:
                 self.forward_inputs["l2_input_x"] = x
                 self.forward_inputs["l2_input_y"] = y
                 return self.l(x)
 
         class ToyModel(nn.Module):
-            def __init__(self, forward_inputs: Dict[str, torch.Tensor]) -> None:
+            def __init__(self, forward_inputs: Dict[str, torch.TensorBase]) -> None:
                 super().__init__()
                 self.l1 = nn.Linear(100, 100)
                 self.l2 = ToyModule(forward_inputs)
                 self.forward_inputs = forward_inputs
 
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
+            def forward(self, x: torch.TensorBase) -> torch.TensorBase:
                 self.forward_inputs["model_input_x"] = x
                 y = torch.ones(
                     2, 100, device="cuda", dtype=torch.float32
                 )  # external input
                 return self.l2(self.l1(x), y)
 
-        forward_inputs: Dict[str, torch.Tensor] = {}
+        forward_inputs: Dict[str, torch.TensorBase] = {}
         model = ToyModel(forward_inputs).cuda()
         x = torch.zeros(2, 100, device="cuda", dtype=torch.float32)
         fully_shard(
@@ -323,7 +325,7 @@ class TestFullyShardMixedPrecisionCasts(FSDPTestMultiThread):
         self._test_norm_modules(mp_policy)
 
     def _test_norm_modules(self, mp_policy: MixedPrecisionPolicy):
-        def inner(model: nn.Module, x: torch.Tensor):
+        def inner(model: nn.Module, x: torch.TensorBase):
             # Run forward and backward to check for no type mismatch errors
             z = model(x)
             self.assertEqual(z.dtype, mp_policy.param_dtype)

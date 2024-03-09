@@ -16,22 +16,24 @@ class TestBatchMM(JitTestCase):
     @staticmethod
     def _get_test_tensors(n: int):
         return [
-            torch.tensor([[1 + x, 2 + x, 3 + x], [4 + x, 5 + x, 6 + x]])
-            if x % 2 == 0
-            else torch.tensor([[1 + x, 2 + x], [3 + x, 4 + x], [5 + x, 6 + x]])
+            (
+                torch.tensor([[1 + x, 2 + x, 3 + x], [4 + x, 5 + x, 6 + x]])
+                if x % 2 == 0
+                else torch.tensor([[1 + x, 2 + x], [3 + x, 4 + x], [5 + x, 6 + x]])
+            )
             for x in range(n)
         ]
 
     def test_batch_mm_no_mutation(self):
         def test_batch_mm(
-            T1: torch.Tensor,
-            T2: torch.Tensor,
-            T3: torch.Tensor,
-            T4: torch.Tensor,
-            T5: torch.Tensor,
-            T6: torch.Tensor,
-            T7: torch.Tensor,
-            T8: torch.Tensor,
+            T1: torch.TensorBase,
+            T2: torch.TensorBase,
+            T3: torch.TensorBase,
+            T4: torch.TensorBase,
+            T5: torch.TensorBase,
+            T6: torch.TensorBase,
+            T7: torch.TensorBase,
+            T8: torch.TensorBase,
         ):
             return (
                 torch.mm(T1, T2)
@@ -56,17 +58,16 @@ class TestBatchMM(JitTestCase):
         actual = test_batch_mm_scripted(*tensors)
         self.assertEqual(expected, actual, atol=1e-9, rtol=1e-9)
 
-
     def test_batch_mm_permitted_mutation(self):
         def test_batch_mm(
-            T1: torch.Tensor,
-            T2: torch.Tensor,
-            T3: torch.Tensor,
-            T4: torch.Tensor,
-            T5: torch.Tensor,
-            T6: torch.Tensor,
-            T7: torch.Tensor,
-            T8: torch.Tensor,
+            T1: torch.TensorBase,
+            T2: torch.TensorBase,
+            T3: torch.TensorBase,
+            T4: torch.TensorBase,
+            T5: torch.TensorBase,
+            T6: torch.TensorBase,
+            T7: torch.TensorBase,
+            T8: torch.TensorBase,
         ):
             result = {}
             result["product"] = (

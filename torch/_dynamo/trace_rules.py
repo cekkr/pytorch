@@ -2823,8 +2823,8 @@ Get all torch.Tensor methods which are allowed to be in graph functions.
 @functools.lru_cache(None)
 def get_tensor_method():
     s = set()
-    for name in dir(torch.Tensor):
-        method = getattr(torch.Tensor, name)
+    for name in dir(torch.TensorBase):
+        method = getattr(torch.TensorBase, name)
         if isinstance(
             method, (types.MethodDescriptorType, types.WrapperDescriptorType)
         ):

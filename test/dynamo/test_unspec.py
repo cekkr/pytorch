@@ -363,7 +363,7 @@ class UnspecTests(torch._dynamo.test_case.TestCase):
         self.assertEqual(z._dynamo_weak_dynamic_indices, {0})
 
     def test_rshift_dynamic(self):
-        def shift_right(tensor: torch.Tensor) -> torch.Tensor:
+        def shift_right(tensor: torch.TensorBase) -> torch.TensorBase:
             return (tensor >> 2).to(torch.long)
 
         opt_fn = torch.compile(shift_right, fullgraph=True, dynamic=True)

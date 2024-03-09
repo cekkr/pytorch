@@ -394,7 +394,11 @@ _autograd_backward_strict_mode_banned_ops = [
 ]
 
 _autograd_backward_strict_mode_banned_ops.extend(
-    [name for name, _ in inspect.getmembers(torch.Tensor) if re.match(r"^is_.*", name)]
+    [
+        name
+        for name, _ in inspect.getmembers(torch.TensorBase)
+        if re.match(r"^is_.*", name)
+    ]
 )
 
 # Enables caching of dispatches to fake tensors.
@@ -414,8 +418,7 @@ _experimental_support_context_fn_in_torch_utils_checkpoint = False
 if TYPE_CHECKING:
     from torch.utils._config_typing import *  # noqa: F401, F403
 
-    def _make_closure_patcher(**changes):
-        ...
+    def _make_closure_patcher(**changes): ...
 
 
 from torch.utils._config_module import install_config_module

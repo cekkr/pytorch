@@ -134,7 +134,7 @@ class TestRuntime(FSDPTest):
         torch.manual_seed(self.rank + 1)
         for _ in range(5):
             inp = torch.randn(2, 100, device="cuda")
-            losses: List[torch.Tensor] = []
+            losses: List[torch.TensorBase] = []
             for model, optim in (
                 (fsdp_wrapped_model, fsdp_wrapped_optim),
                 (composable_module, composable_optim),
@@ -225,7 +225,7 @@ class TestRuntime(FSDPTest):
         wrapped_order: List[UnshardReshardEvent] = []
 
         inp = torch.randn(2, 100, device="cuda")
-        losses: List[torch.Tensor] = []
+        losses: List[torch.TensorBase] = []
 
         for order, model, optim in (
             (composable_order, composable_module, composable_optim),

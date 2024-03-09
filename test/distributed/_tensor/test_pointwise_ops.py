@@ -7,7 +7,7 @@ from unittest import skip
 import torch
 
 import torch.utils._pytree as pytree
-from torch import Tensor
+from torch import TensorBase
 
 from torch.distributed._tensor import DeviceMesh, distribute_tensor, DTensor
 from torch.distributed._tensor.placement_types import (
@@ -42,7 +42,7 @@ def deepcopy_convert_to_dtensor(
     """
 
     def f(x):
-        if isinstance(x, Tensor) and not isinstance(x, DTensor):
+        if isinstance(x, TensorBase) and not isinstance(x, DTensor):
             return distribute_tensor(
                 x,
                 device_mesh=device_mesh,

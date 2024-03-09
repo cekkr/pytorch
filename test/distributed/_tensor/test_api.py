@@ -201,7 +201,7 @@ class DTensorAPITest(DTensorTestBase):
 
         input_tensor = torch.randn(5, 20, device=self.device_type)
         local_out = replica_module(input_tensor)
-        self.assertIsInstance(local_out, torch.Tensor)
+        self.assertIsInstance(local_out, torch.TensorBase)
         self.assertNotIsInstance(local_out, DTensor)
 
         # full replicate (even on inputs)
@@ -247,7 +247,7 @@ class DTensorAPITest(DTensorTestBase):
 
         input_tensor = torch.randn(5, 20, device=self.device_type)
         local_out = replica_module(input_tensor)
-        self.assertIsInstance(local_out, torch.Tensor)
+        self.assertIsInstance(local_out, torch.TensorBase)
         self.assertNotIsInstance(local_out, DTensor)
 
     @with_comms

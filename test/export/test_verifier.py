@@ -3,19 +3,22 @@ import unittest
 
 import torch
 from functorch.experimental import control_flow
-from torch import Tensor
+from torch import TensorBase
 from torch._dynamo.eval_frame import is_dynamo_supported
-from torch.export import export
 
 from torch._export.verifier import SpecViolationError, Verifier
+from torch.export import export
 from torch.export.exported_program import InputKind, InputSpec, TensorArgument
-from torch.testing._internal.common_utils import run_tests, TestCase, IS_WINDOWS
+from torch.testing._internal.common_utils import IS_WINDOWS, run_tests, TestCase
+
 
 @unittest.skipIf(not is_dynamo_supported(), "dynamo isn't supported")
 class TestVerifier(TestCase):
     def test_verifier_basic(self) -> None:
         class Foo(torch.nn.Module):
-            def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+            def forward(
+                self, x: torch.TensorBase, y: torch.TensorBase
+            ) -> torch.TensorBase:
                 return x + y
 
         f = Foo()
@@ -31,7 +34,7 @@ class TestVerifier(TestCase):
                 super().__init__()
                 self.linear = torch.nn.Linear(10, 10)
 
-            def forward(self, x: Tensor) -> Tensor:
+            def forward(self, x: TensorBase) -> TensorBase:
                 return self.linear(x)
 
         gm = torch.fx.symbolic_trace(M())
@@ -42,7 +45,9 @@ class TestVerifier(TestCase):
 
     def test_verifier_no_functional(self) -> None:
         class Foo(torch.nn.Module):
-            def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+            def forward(
+                self, x: torch.TensorBase, y: torch.TensorBase
+            ) -> torch.TensorBase:
                 return x + y
 
         f = Foo()
@@ -59,16 +64,20 @@ class TestVerifier(TestCase):
     @unittest.skipIf(IS_WINDOWS, "Windows not supported for this test")
     def test_verifier_higher_order(self) -> None:
         class Foo(torch.nn.Module):
-            def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-                def true_fn(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+            def forward(
+                self, x: torch.TensorBase, y: torch.TensorBase
+            ) -> torch.TensorBase:
+                def true_fn(
+                    x: torch.TensorBase, y: torch.TensorBase
+                ) -> torch.TensorBase:
                     return x + y
 
-                def false_fn(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+                def false_fn(
+                    x: torch.TensorBase, y: torch.TensorBase
+                ) -> torch.TensorBase:
                     return x - y
 
-                return control_flow.cond(
-                    x.shape[0] > 2, true_fn, false_fn, [x, y]
-                )
+                return control_flow.cond(x.shape[0] > 2, true_fn, false_fn, [x, y])
 
         f = Foo()
 
@@ -80,16 +89,20 @@ class TestVerifier(TestCase):
     @unittest.skipIf(IS_WINDOWS, "Windows not supported for this test")
     def test_verifier_nested_invalid_module(self) -> None:
         class Foo(torch.nn.Module):
-            def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-                def true_fn(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+            def forward(
+                self, x: torch.TensorBase, y: torch.TensorBase
+            ) -> torch.TensorBase:
+                def true_fn(
+                    x: torch.TensorBase, y: torch.TensorBase
+                ) -> torch.TensorBase:
                     return x + y
 
-                def false_fn(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+                def false_fn(
+                    x: torch.TensorBase, y: torch.TensorBase
+                ) -> torch.TensorBase:
                     return x - y
 
-                return control_flow.cond(
-                    x.shape[0] > 2, true_fn, false_fn, [x, y]
-                )
+                return control_flow.cond(x.shape[0] > 2, true_fn, false_fn, [x, y])
 
         f = Foo()
 
@@ -108,7 +121,7 @@ class TestVerifier(TestCase):
                 super().__init__()
                 self.linear = torch.nn.Linear(10, 10)
 
-            def forward(self, x: Tensor) -> Tensor:
+            def forward(self, x: TensorBase) -> TensorBase:
                 return self.linear(x)
 
         ep = export(M(), (torch.randn(10, 10),))
@@ -118,9 +131,13 @@ class TestVerifier(TestCase):
         class M(torch.nn.Module):
             def __init__(self) -> None:
                 super().__init__()
-                self.register_parameter(name="a", param=torch.nn.Parameter(torch.randn(100)))
+                self.register_parameter(
+                    name="a", param=torch.nn.Parameter(torch.randn(100))
+                )
 
-            def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+            def forward(
+                self, x: torch.TensorBase, y: torch.TensorBase
+            ) -> torch.TensorBase:
                 return x + y + self.a
 
         ep = export(M(), (torch.randn(100), torch.randn(100)))
@@ -129,7 +146,7 @@ class TestVerifier(TestCase):
         ep.graph_signature.input_specs[0] = InputSpec(
             kind=InputKind.PARAMETER,
             arg=TensorArgument(name="arg0_1"),
-            target="bad_param"
+            target="bad_param",
         )
         with self.assertRaisesRegex(SpecViolationError, "not in the state dict"):
             ep._validate()
@@ -147,7 +164,9 @@ class TestVerifier(TestCase):
                 super().__init__()
                 self.a = torch.tensor(3.0)
 
-            def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+            def forward(
+                self, x: torch.TensorBase, y: torch.TensorBase
+            ) -> torch.TensorBase:
                 return x + y + self.a
 
         ep = export(M(), (torch.randn(100), torch.randn(100)))
@@ -220,5 +239,5 @@ class TestVerifier(TestCase):
             ep._validate()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     run_tests()

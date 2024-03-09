@@ -24,7 +24,7 @@ class Model(torch.nn.Module):
         )
         self.relu = torch.nn.ReLU()
 
-    def forward(self, x: torch.Tensor, run_all_layers: bool) -> torch.Tensor:
+    def forward(self, x: torch.TensorBase, run_all_layers: bool) -> torch.TensorBase:
         z = self.relu(self.layer0(x))
         z = self.relu(self.layer2(z))
         z = z @ self.weight1

@@ -123,10 +123,10 @@ def _call_function_and_unflatten_output(tx, fn, args, kwargs, ret_vt, ret_treesp
 
 def _assert_tensors_nonaliasing(inputs, outputs):
     input_tensor_ids = {
-        id(t) for t in pytree.tree_leaves(inputs) if isinstance(t, torch.Tensor)
+        id(t) for t in pytree.tree_leaves(inputs) if isinstance(t, torch.TensorBase)
     }
     output_tensor_ids = {
-        id(t) for t in pytree.tree_leaves(outputs) if isinstance(t, torch.Tensor)
+        id(t) for t in pytree.tree_leaves(outputs) if isinstance(t, torch.TensorBase)
     }
     assert input_tensor_ids.isdisjoint(
         output_tensor_ids

@@ -394,7 +394,7 @@ class SideEffects:
             isinstance(handle, variables.RemovableHandleVariable)
             and handle.mutable_local
         )
-        assert hasattr(torch.Tensor, name)
+        assert hasattr(torch.TensorBase, name)
         idx = len(self.tensor_hooks.keys())
         # duplicate index possible because of self.remove_hook()
         while idx in self.tensor_hooks:

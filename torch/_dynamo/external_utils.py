@@ -58,7 +58,7 @@ def wrap_numpy(f):
     @functools.wraps(f)
     def wrap(*args, **kwargs):
         args, kwargs = pytree.tree_map_only(
-            torch.Tensor, lambda x: x.numpy(), (args, kwargs)
+            torch.TensorBase, lambda x: x.numpy(), (args, kwargs)
         )
         out = f(*args, **kwargs)
         return pytree.tree_map_only(np.ndarray, lambda x: torch.as_tensor(x), out)
@@ -83,7 +83,7 @@ def call_backward(backward_fn, saved_tensors, *args):
     return grads
 
 
-def untyped_storage_size(x: torch.Tensor):
+def untyped_storage_size(x: torch.TensorBase):
     return x.untyped_storage().size()
 
 

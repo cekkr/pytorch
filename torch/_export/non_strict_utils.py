@@ -64,7 +64,7 @@ def fakify(
     source = key_path_to_source(kp)
     if _is_constant_argument(t) or isinstance(t, torch.ScriptObject):
         return t
-    if not isinstance(t, torch.Tensor):
+    if not isinstance(t, torch.TensorBase):
         raise ValueError(f"Unsupported input type {type(t)}")
     n_dims = len(t.shape)
     symbolic_context = StatelessSymbolicContext(
@@ -86,8 +86,8 @@ def fakify(
 
 def make_fake_params_buffers(
     fake_mode: FakeTensorMode,
-    params_buffers: Dict[str, torch.Tensor],
-) -> Dict[str, Union[torch.Tensor, torch.nn.Parameter]]:
+    params_buffers: Dict[str, torch.TensorBase],
+) -> Dict[str, Union[torch.TensorBase, torch.nn.Parameter]]:
     faked_params_buffers = {}
     for key, value in params_buffers.items():
         faked_params_buffers[key] = fake_mode.from_tensor(value, static_shapes=True)

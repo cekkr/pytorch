@@ -421,11 +421,11 @@ class TestNumPyInterop(TestCase):
                 wrapped_x = np.array([1, -2, 3, -4], dtype=dtype)
                 for i in range(len(x)):
                     self.assertEqual(asarray[i], wrapped_x[i])
-            else:
+            else:Tensor
                 for i in range(len(x)):
                     self.assertEqual(asarray[i], x[i])
 
-        # Test some math functions with float types
+        # Test some math functions with float tyTensor
         float_types = [torch.DoubleTensor, torch.FloatTensor]
         float_dtypes = [np.float64, np.float32]
         for tp, dtype in zip(float_types, float_dtypes):

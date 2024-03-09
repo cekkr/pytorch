@@ -766,13 +766,13 @@ class TestFSDPUseOrigParamsParamAccess(FSDPTest):
                 # and 7 of bias on rank 1
                 self.lin2 = nn.Linear(5, 7)
 
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
+            def forward(self, x: torch.TensorBase) -> torch.TensorBase:
                 z = self.lin1(x)
                 z = nn.functional.relu(z)
                 z = self.lin2(z)
                 return z
 
-            def get_input(self, device: torch.device) -> Tuple[torch.Tensor, ...]:
+            def get_input(self, device: torch.device) -> Tuple[torch.TensorBase, ...]:
                 return (torch.randn((2, 5)).to(device),)
 
             def get_loss(self, inp, out):
@@ -860,13 +860,13 @@ class TestFSDPUseOrigParamsWriteback(FSDPTest):
             self.lin1 = nn.Linear(5, 5, bias=True, device=device)
             self.lin2 = nn.Linear(5, 7, bias=True, device=device)
 
-        def forward(self, x: torch.Tensor) -> torch.Tensor:
+        def forward(self, x: torch.TensorBase) -> torch.TensorBase:
             z = self.lin1(x)
             z = nn.functional.relu(z)
             z = self.lin2(z)
             return z
 
-        def get_input(self, device: torch.device) -> Tuple[torch.Tensor, ...]:
+        def get_input(self, device: torch.device) -> Tuple[torch.TensorBase, ...]:
             return (torch.randn((2, 5)).to(device),)
 
         def get_loss(self, inp, out):
@@ -1153,7 +1153,7 @@ class TestFSDPUseOrigParamsFQNs(FSDPTest):
                 super().__init__()
                 self.lin = nn.Linear(5, 5)
 
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
+            def forward(self, x: torch.TensorBase) -> torch.TensorBase:
                 nonlocal param_shapes
                 # Allow for FSDP prefixes
                 param_names = [

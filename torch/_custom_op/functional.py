@@ -1,10 +1,5 @@
 import weakref
 
-import torch
-import torch.utils._pytree as pytree
-from torch._C import _ExcludeDispatchKeyGuard, DispatchKey, DispatchKeySet
-from torch._ops import OpOverload
-from torch.library import Library
 from torchgen.model import (
     BaseTy,
     BaseType,
@@ -13,6 +8,12 @@ from torchgen.model import (
     OptionalType,
     SchemaKind,
 )
+
+import torch
+import torch.utils._pytree as pytree
+from torch._C import _ExcludeDispatchKeyGuard, DispatchKey, DispatchKeySet
+from torch._ops import OpOverload
+from torch.library import Library
 
 from .autograd import autograd_not_implemented
 
@@ -49,7 +50,7 @@ def register_functional_op(
     lib.define(schema)
 
     functional_impl = construct_functional_impl(mutable_op)
-    lib.impl(new_op_name, functional_impl, 'CompositeExplicitAutograd')
+    lib.impl(new_op_name, functional_impl, "CompositeExplicitAutograd")
 
     functional_op = getattr(getattr(torch.ops, lib.ns), new_op_name).default
 
@@ -58,11 +59,13 @@ def register_functional_op(
     # is unable to register an autograd formula themselves. This shouldn't
     # be a problem if the user doesn't use the functional op direclty
     # in their program, but we may need to revist this in the future.
-    lib.impl(new_op_name, autograd_not_implemented(functional_op), 'Autograd')
+    lib.impl(new_op_name, autograd_not_implemented(functional_op), "Autograd")
 
-    f_kernel = construct_functionalization_kernel(weakref.proxy(mutable_op), functional_op)
+    f_kernel = construct_functionalization_kernel(
+        weakref.proxy(mutable_op), functional_op
+    )
 
-    lib.impl(mutable_op, f_kernel, 'Functionalize')
+    lib.impl(mutable_op, f_kernel, "Functionalize")
 
 
 def construct_functional_impl(mutable_op):
@@ -86,6 +89,7 @@ def construct_functional_impl(mutable_op):
         if isinstance(result, tuple):
             return (*result, *extra_rets)
         return (result, *extra_rets)
+
     return functional_impl
 
 
@@ -93,7 +97,9 @@ def construct_functionalization_kernel(mutable_op, functional_op):
     def kernel(*args):
         # There's nothing to be functionalized!
         # We can still end up here because DispatchKey::Functionalize is a mode key
-        if pytree.tree_all_only(torch.Tensor, lambda x: not torch._is_functional_tensor(x), args):
+        if pytree.tree_all_only(
+            torch.TensorBase, lambda x: not torch._is_functional_tensor(x), args
+        ):
             with _ExcludeDispatchKeyGuard(DispatchKeySet(DispatchKey.Functionalize)):
                 return mutable_op(*args)
 
@@ -102,12 +108,16 @@ def construct_functionalization_kernel(mutable_op, functional_op):
         # This only really matters for XLA (mixed CPU-XLA tensors) and
         # running functionalization without the PT2 stack (which guarantees to us that
         # all tensors are FunctionalTensorWrapper).
-        if not pytree.tree_all_only(torch.Tensor, torch._is_functional_tensor, args):
-            raise RuntimeError("{mutable_op}: expected all args to be FunctionalTensorWrapper")
+        if not pytree.tree_all_only(
+            torch.TensorBase, torch._is_functional_tensor, args
+        ):
+            raise RuntimeError(
+                "{mutable_op}: expected all args to be FunctionalTensorWrapper"
+            )
 
         unwrapped_args = []
         for arg in args:
-            if isinstance(arg, torch.Tensor) and torch._is_functional_tensor(arg):
+            if isinstance(arg, torch.TensorBase) and torch._is_functional_tensor(arg):
                 torch._sync(arg)
                 unwrapped = torch._from_functional_tensor(arg)
                 unwrapped_args.append(unwrapped)
@@ -119,14 +129,18 @@ def construct_functionalization_kernel(mutable_op, functional_op):
 
         num_actual_output = len(mutable_op._schema.returns)
         actual_output = pytree.tree_map(
-            torch._to_functional_tensor, output[:num_actual_output])
+            torch._to_functional_tensor, output[:num_actual_output]
+        )
 
         new_values_to_propagate = output[num_actual_output:]
-        inputs_to_replace = [arg for is_write, arg in zip(mutable_args(mutable_op), args)
-                             if is_write]
+        inputs_to_replace = [
+            arg for is_write, arg in zip(mutable_args(mutable_op), args) if is_write
+        ]
         assert len(new_values_to_propagate) == len(inputs_to_replace)
         for new_value, arg in zip(new_values_to_propagate, inputs_to_replace):
-            if (arg is None and new_value is None) or (arg is not None and new_value is not None):
+            if (arg is None and new_value is None) or (
+                arg is not None and new_value is not None
+            ):
                 continue
             torch._C._propagate_xla_data(arg, new_value)
             torch._C._replace_(arg, new_value)
@@ -146,7 +160,8 @@ def validate(mutable_op: OpOverload):
     if not isinstance(mutable_op, OpOverload):
         raise TypeError(
             f"register_functional_op(mutable_op): expected mutable_op to be instance of "
-            f"OpOverload but got {type(mutable_op)}")
+            f"OpOverload but got {type(mutable_op)}"
+        )
 
     # There are generally three types of "in-place" or "mutable" ops.
     # Each of them have their own conventions:
@@ -157,14 +172,17 @@ def validate(mutable_op: OpOverload):
     # option right now for simplicity.
     schema = FunctionSchema.parse(str(mutable_op._schema))
     if not schema.kind() == SchemaKind.mutable:
-        raise RuntimeError("Expected op to be mutable (as opposed to functional, inplace or out)")
+        raise RuntimeError(
+            "Expected op to be mutable (as opposed to functional, inplace or out)"
+        )
     for ret in schema.returns:
         # construct_functionalization_kernel assumes this for simplicity
         if ret.annotation is not None:
             raise NotImplementedError(
                 "NYI: register_functional_op(op) where op returns a mutated or aliased value. "
                 "Please file an issue (and as a workaround, modify your operator to "
-                "not return the mutated value or aliases)")
+                "not return the mutated value or aliases)"
+            )
     for arg in schema.arguments.flat_all:
         # construct_functionalization_kernel assumes this for simplicity
         if arg.type.is_tensor_like() and (
@@ -173,7 +191,8 @@ def validate(mutable_op: OpOverload):
         ):
             raise NotImplementedError(
                 "NYI: register_functional_op(op) where op has a List[Tensor] input."
-                "Please file an issue.")
+                "Please file an issue."
+            )
 
 
 def functional_schema(new_op_name, op: OpOverload):
@@ -183,5 +202,7 @@ def functional_schema(new_op_name, op: OpOverload):
 
 
 def mutable_args(op: OpOverload):
-    return tuple(False if arg.alias_info is None else arg.alias_info.is_write
-                 for arg in op._schema.arguments)
+    return tuple(
+        False if arg.alias_info is None else arg.alias_info.is_write
+        for arg in op._schema.arguments
+    )

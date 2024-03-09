@@ -24,7 +24,7 @@ class MyModule(torch.nn.Module):
         super().__init__()
         self.linear = torch.nn.Linear(n_input, n_output, bias=has_bias)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.TensorBase) -> torch.TensorBase:
         return self.linear(x)
 
 

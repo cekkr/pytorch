@@ -303,7 +303,9 @@ class TestLayoutOptim(TestCase):
                 self.conv = torch.nn.Conv2d(1, num_classes, 3, 1, padding="same")
                 self.out = torch.nn.Linear(input_dim * num_classes, num_classes)
 
-            def forward(self, x: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+            def forward(
+                self, x: torch.TensorBase, targets: torch.TensorBase
+            ) -> torch.TensorBase:
                 x = self.conv(x)
                 b, c, t, f = x.size()
                 x = self.out(x.reshape(b, t, c * f))
