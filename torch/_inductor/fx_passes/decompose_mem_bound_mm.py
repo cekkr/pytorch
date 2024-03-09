@@ -2,7 +2,7 @@ import logging
 from typing import List, Optional
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 from torch._dynamo.utils import counters
 from torch._inductor import utils
 
@@ -24,12 +24,12 @@ MIN_FIRST_DIMENSION_DECOMPOSITION = 10240
 MAX_OTHER_DIMENSION_DECOMPOSITION = 32
 
 
-def check_device(a: Tensor, b: Tensor) -> bool:
+def check_device(a: TensorBase, b: TensorBase) -> bool:
     return a.is_cuda and b.is_cuda
 
 
 def should_decompose_common(
-    mat1: Tensor, mat2: Tensor, input: Optional[Tensor] = None
+    mat1: TensorBase, mat2: TensorBase, input: Optional[TensorBase] = None
 ) -> bool:
     return (
         torch._inductor.config.decompose_mem_bound_mm

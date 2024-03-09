@@ -245,7 +245,7 @@ def _extract_graph_module_inputs(graph_module: torch.fx.GraphModule) -> Tuple[An
     for node in graph_module.graph.nodes:
         if node.op == "placeholder":
             if hasattr(node, "meta") and "val" in node.meta:
-                assert isinstance(node.meta["val"], torch.Tensor)
+                assert isinstance(node.meta["val"], torch.TensorBase)
             placeholders.append(node)
     return tuple(placeholders)
 
@@ -297,7 +297,13 @@ def _sort_eps(eps: Tuple[str, ...]) -> Tuple[str, ...]:
 def _get_onnx_devices(
     values: Tuple[
         Union[
-            torch.Tensor, torch.SymInt, int, torch.SymFloat, float, torch.SymBool, bool
+            torch.TensorBase,
+            torch.SymInt,
+            int,
+            torch.SymFloat,
+            float,
+            torch.SymBool,
+            bool,
         ],
         ...,
     ]
@@ -307,10 +313,16 @@ def _get_onnx_devices(
 
     def _map_tensor_or_sym_to_device(
         value: Union[
-            torch.Tensor, torch.SymInt, int, torch.SymFloat, float, torch.SymBool, bool
+            torch.TensorBase,
+            torch.SymInt,
+            int,
+            torch.SymFloat,
+            float,
+            torch.SymBool,
+            bool,
         ],
     ) -> int:
-        if isinstance(value, torch.Tensor):
+        if isinstance(value, torch.TensorBase):
             return ORTC.OrtDevice(
                 _get_ort_device_type(value.device.type),
                 ORTC.OrtDevice.default_memory(),
@@ -333,8 +345,8 @@ def _get_onnx_devices(
 
 
 def _get_ortvalues_from_torch_tensors(
-    tensors: Tuple[torch.Tensor, ...], devices: Tuple["ORTC.OrtDevice", ...]
-) -> Tuple[torch.Tensor, ...]:
+    tensors: Tuple[torch.TensorBase, ...], devices: Tuple["ORTC.OrtDevice", ...]
+) -> Tuple[torch.TensorBase, ...]:
     ortvalues = ORTC.OrtValueVector()
     ortvalues.reserve(len(tensors))
     dtypes = []
@@ -349,7 +361,7 @@ def _get_ortvalues_from_torch_tensors(
     return ortvalues
 
 
-def _to_real_tensor(tensor: FakeTensor) -> torch.Tensor:
+def _to_real_tensor(tensor: FakeTensor) -> torch.TensorBase:
     if tensor.is_sparse:
         raise ValueError("sparse tensor is not yet supported.")
     out = torch.empty(tensor.size(), dtype=tensor.dtype, device=tensor.device)
@@ -358,16 +370,16 @@ def _to_real_tensor(tensor: FakeTensor) -> torch.Tensor:
 
 def _adjust_scalar_from_fx_to_onnx(
     dynamo_value: Union[
-        torch.Tensor,
+        torch.TensorBase,
         int,
         float,
         bool,
     ],
     value_info: "onnx.ValueInfoProto",  # type: ignore[name-defined]
-) -> torch.Tensor:
+) -> torch.TensorBase:
     """Helper function to wrap PyTorch variables as torch.Tensor"""
     if (
-        isinstance(dynamo_value, torch.Tensor)
+        isinstance(dynamo_value, torch.TensorBase)
         and len(value_info.type.tensor_type.shape.dim) == 0
         and dynamo_value.shape == (1,)
     ):
@@ -384,14 +396,14 @@ def _adjust_scalar_from_fx_to_onnx(
     elif isinstance(dynamo_value, bool):
         return torch.tensor(dynamo_value, dtype=torch.bool)
     else:
-        assert isinstance(dynamo_value, torch.Tensor)
+        assert isinstance(dynamo_value, torch.TensorBase)
         return dynamo_value.contiguous()
 
 
 def _adjust_scalar_from_onnx_to_fx(
-    tensor: torch.Tensor,
+    tensor: torch.TensorBase,
     prim_value: Union[
-        torch.Tensor,
+        torch.TensorBase,
         torch.SymInt,
         int,
         torch.SymFloat,
@@ -399,9 +411,14 @@ def _adjust_scalar_from_onnx_to_fx(
         torch.SymBool,
         bool,
     ],
-) -> Union[torch.Tensor, int, float, bool,]:
+) -> Union[
+    torch.TensorBase,
+    int,
+    float,
+    bool,
+]:
     """Helper function to wrap ORT-produced torch.Tensor as PyTorch variables"""
-    assert isinstance(tensor, torch.Tensor), "ORT's output must be tensor."
+    assert isinstance(tensor, torch.TensorBase), "ORT's output must be tensor."
     if isinstance(
         prim_value,
         (torch.SymInt, int, torch.SymFloat, float, torch.SymBool, bool),
@@ -414,20 +431,26 @@ def _adjust_scalar_from_onnx_to_fx(
 def _run_onnx_session_with_ortvaluevector(
     sess: "onnxruntime.InferenceSession",
     input_names: Tuple[str, ...],
-    inputs: Tuple[torch.Tensor, ...],
+    inputs: Tuple[torch.TensorBase, ...],
     input_devices: Tuple["ORTC.OrtDevice", ...],
     output_names: Tuple[str, ...],
-    outputs: Tuple[torch.Tensor, ...],
+    outputs: Tuple[torch.TensorBase, ...],
     output_devices: Tuple["ORTC.OrtDevice", ...],
     preallocate_output: bool,
     input_value_infos: Tuple["onnx.ValueInfoProto", ...],  # type: ignore[name-defined]
     normalized_prim_outputs: Tuple[
         Union[
-            torch.Tensor, torch.SymInt, int, torch.SymFloat, float, torch.SymBool, bool
+            torch.TensorBase,
+            torch.SymInt,
+            int,
+            torch.SymFloat,
+            float,
+            torch.SymBool,
+            bool,
         ],
         ...,
     ],
-) -> Tuple[Union[torch.Tensor, int, float, bool], ...]:
+) -> Tuple[Union[torch.TensorBase, int, float, bool], ...]:
     _nvtx_range_push("contiguous")
     inputs = tuple(
         _adjust_scalar_from_fx_to_onnx(arg, value_info)
@@ -492,20 +515,26 @@ def _run_onnx_session_with_ortvaluevector(
 def _run_onnx_session_with_fetch(
     sess: "onnxruntime.InferenceSession",
     input_names: Tuple[str, ...],
-    inputs: Tuple[torch.Tensor, ...],
+    inputs: Tuple[torch.TensorBase, ...],
     input_devices: Tuple["ORTC.OrtDevice", ...],
     output_names: Tuple[str, ...],
-    outputs: Tuple[torch.Tensor, ...],
+    outputs: Tuple[torch.TensorBase, ...],
     output_devices: Tuple["ORTC.OrtDevice", ...],
     preallocate_output: bool,
     input_value_infos: Tuple["onnx.ValueInfoProto", ...],  # type: ignore[name-defined]
     normalized_prim_outputs: Tuple[
         Union[
-            torch.Tensor, torch.SymInt, int, torch.SymFloat, float, torch.SymBool, bool
+            torch.TensorBase,
+            torch.SymInt,
+            int,
+            torch.SymFloat,
+            float,
+            torch.SymBool,
+            bool,
         ],
         ...,
     ],
-) -> Tuple[Union[torch.Tensor, int, float, bool], ...]:
+) -> Tuple[Union[torch.TensorBase, int, float, bool], ...]:
     inputs = tuple(
         _adjust_scalar_from_fx_to_onnx(arg, value_info)
         for arg, value_info in zip(inputs, input_value_infos)
@@ -537,7 +566,7 @@ class OrtExecutionInfoPerSession:
         output_value_infos: Tuple["onnx.ValueInfoProto", ...],  # type: ignore[name-defined]
         input_devices: Tuple["ORTC.OrtDevice", ...],
         output_devices: Tuple["ORTC.OrtDevice", ...],
-        example_outputs: Union[Tuple[torch.Tensor, ...], torch.Tensor],
+        example_outputs: Union[Tuple[torch.TensorBase, ...], torch.TensorBase],
     ):
         # Carrier of ONNX model and its executor.
         self.session: onnxruntime.InferenceSession = session
@@ -557,9 +586,9 @@ class OrtExecutionInfoPerSession:
         self.output_devices: Tuple["ORTC.OrtDevice", ...] = output_devices
         # This is the outputs of executing the original torch.fx.GraphModule with example inputs
         # (i.e., args passed into OrtBackend._ort_acclerated_call).
-        self.example_outputs: Union[
-            Tuple[torch.Tensor, ...], torch.Tensor
-        ] = example_outputs
+        self.example_outputs: Union[Tuple[torch.TensorBase, ...], torch.TensorBase] = (
+            example_outputs
+        )
 
     def is_supported(self, *args):
         # Compare the args and the input schema in ONNX model and
@@ -567,7 +596,7 @@ class OrtExecutionInfoPerSession:
         if len(args) != len(self.input_value_infos):
             return False
         for arg, value_info in zip(args, self.input_value_infos):
-            if not isinstance(arg, (torch.Tensor, float, int)):
+            if not isinstance(arg, (torch.TensorBase, float, int)):
                 return False
 
             # Check Python scalars such as int, float, and bool.
@@ -992,13 +1021,13 @@ class OrtBackend:
         # ORT always returns a tuple of outputs. If the original output is a tensor,
         # ORT output's first element must be extracted and returned. Otherwise, type
         # mismatch may happen in downstream computation.
-        is_single_tensor_output = isinstance(prim_outputs, torch.Tensor)
+        is_single_tensor_output = isinstance(prim_outputs, torch.TensorBase)
         normalized_prim_outputs = (
             (prim_outputs,) if is_single_tensor_output else prim_outputs
         )
         assert isinstance(normalized_prim_outputs, tuple)
         assert all(
-            isinstance(elem, (torch.Tensor, torch.SymInt, int))
+            isinstance(elem, (torch.TensorBase, torch.SymInt, int))
             for elem in normalized_prim_outputs
         )
 

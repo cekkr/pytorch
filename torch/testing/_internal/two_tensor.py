@@ -6,7 +6,7 @@ from torch.utils._python_dispatch import return_and_correct_aliasing
 
 
 # A simple tensor subclass that holds two tensors internally, and runs every op on both tensors.
-class TwoTensor(torch.Tensor):
+class TwoTensor(torch.TensorBase):
     @staticmethod
     def __new__(cls, a, b):
         assert (
@@ -24,7 +24,7 @@ class TwoTensor(torch.Tensor):
         kwargs["layout"] = a.layout
         kwargs["requires_grad"] = a.requires_grad
         kwargs["dtype"] = a.dtype
-        out = torch.Tensor._make_wrapper_subclass(cls, shape, **kwargs)
+        out = torch.TensorBase._make_wrapper_subclass(cls, shape, **kwargs)
 
         assert a.shape == b.shape
         assert a.stride() == b.stride()
@@ -67,7 +67,7 @@ class TwoTensor(torch.Tensor):
         # for aten ops that return non-tensors, just assume that
         # our two inner tensors return the same value
         out_flat = [
-            TwoTensor(o_a, o_b) if isinstance(o_a, torch.Tensor) else o_a
+            TwoTensor(o_a, o_b) if isinstance(o_a, torch.TensorBase) else o_a
             for o_a, o_b in zip(out_a_flat, out_b_flat)
         ]
         out = pytree.tree_unflatten(out_flat, spec)

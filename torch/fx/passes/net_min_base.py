@@ -111,10 +111,7 @@ class _MinimizerBase:
         ],
         settings: _MinimizerSettingBase,
         module_exporter: Optional[
-            Callable[
-                [List[torch.Tensor], torch.fx.GraphModule, str],
-                None
-            ]
+            Callable[[List[torch.TensorBase], torch.fx.GraphModule, str], None]
         ] = None,
     ):
         assert isinstance(module, torch.fx.GraphModule)
@@ -382,10 +379,14 @@ class _MinimizerBase:
             report.append(f"Result mismatch for {result_key}")
             if self.module_exporter:
                 self.module_exporter(
-                    List[torch.Tensor](a_input), submodule, str(result_key[0]) + "_cpu",
+                    List[torch.TensorBase](a_input),
+                    submodule,
+                    str(result_key[0]) + "_cpu",
                 )
                 self.module_exporter(
-                    List[torch.Tensor](b_input), submodule, str(result_key[0]) + "_acc",
+                    List[torch.TensorBase](b_input),
+                    submodule,
+                    str(result_key[0]) + "_acc",
                 )
             raise FxNetMinimizerResultMismatchError(f"Result mismatch for {result_key}")
 
@@ -481,13 +482,13 @@ class _MinimizerBase:
                 split_module, submod_name = self._build_submodule(cur_nodes)
                 self._run_and_compare(split_module, submod_name, [node.name])
                 self.print_report(report)
-            except (FxNetMinimizerResultMismatchError):
+            except FxNetMinimizerResultMismatchError:
                 culprits.add(node)
                 report.append(f"Found culprit from numeric error: {node}")
                 self.print_report(report)
                 if not self.settings.find_all:
                     return culprits
-            except (FxNetMinimizerRunFuncError):
+            except FxNetMinimizerRunFuncError:
                 culprits.update(cur_nodes)
                 report.append(f"Found culprit from run error: {node}")
                 self.print_report(report)
@@ -556,7 +557,9 @@ class _MinimizerBase:
 
         return culprits
 
-    def _skip_traverse_impl(self, all_nodes: NodeList, start_idx: int, end_idx: int) -> NodeSet:
+    def _skip_traverse_impl(
+        self, all_nodes: NodeList, start_idx: int, end_idx: int
+    ) -> NodeSet:
         """
         Skip certain nodes in graph based on settings
         """
@@ -581,12 +584,12 @@ class _MinimizerBase:
         try:
             split_module, submod_name = self._build_submodule(cur_nodes)
             self._run_and_compare(split_module, submod_name, [])
-        except (FxNetMinimizerResultMismatchError):
+        except FxNetMinimizerResultMismatchError:
             culprits.update(cur_nodes)
             report.append(f"Found culprit from numeric error: {cur_nodes}")
             self.print_report(report)
             return culprits
-        except (FxNetMinimizerRunFuncError):
+        except FxNetMinimizerRunFuncError:
             culprits.update(cur_nodes)
             report.append(f"Found culprit from run error: {node}")
             self.print_report(report)
@@ -595,7 +598,6 @@ class _MinimizerBase:
             report.append("No discrepancy found.")
             self.print_report(report)
             return set()
-
 
     def _skip_traverse(self, all_nodes: NodeList, skip_nodes: List) -> NodeSet:
         """
@@ -607,7 +609,7 @@ class _MinimizerBase:
         culprits = set()
         while idx < num_nodes:
             node = all_nodes[idx]
-            if (node.name in skip_nodes):  # skip the node
+            if node.name in skip_nodes:  # skip the node
                 if idx > start_idx:
                     culprits = self._skip_traverse_impl(all_nodes, start_idx, idx)
                 start_idx = idx + 1
@@ -616,8 +618,6 @@ class _MinimizerBase:
             idx += 1
 
         return culprits
-
-
 
     def _collect_nodes(self, start: Optional[str], end: Optional[str]) -> NodeList:
         """
@@ -688,7 +688,10 @@ class _MinimizerBase:
             self.print_report(report)
 
     def minimize(
-        self, start: Optional[str] = None, end: Optional[str] = None, skip_nodes: Optional[List] = None,
+        self,
+        start: Optional[str] = None,
+        end: Optional[str] = None,
+        skip_nodes: Optional[List] = None,
     ) -> NodeSet:
         """
         Minimizing the model from node with name `start` to node with name `end` base
@@ -721,8 +724,10 @@ class _MinimizerBase:
             return self._accumulate_traverse(nodes)
 
         if self.settings.traverse_method == "skip":
-            if (skip_nodes is None):
-                raise RuntimeError("'skip_nodes' can't be None when 'traverse_method' is 'skip'.")
+            if skip_nodes is None:
+                raise RuntimeError(
+                    "'skip_nodes' can't be None when 'traverse_method' is 'skip'."
+                )
             return self._skip_traverse(nodes, skip_nodes)
 
         if self.settings.traverse_method == "defined":

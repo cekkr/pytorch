@@ -7,7 +7,7 @@ This file contains utilities related to functionalization in AOTAutograd:
 """
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 from torch._subclasses.fake_tensor import FakeTensor
 from torch._subclasses.functional_tensor import FunctionalTensor
 from torch.fx.experimental.symbolic_shapes import definitely_true, sym_eq
@@ -19,7 +19,7 @@ from torch.utils._python_dispatch import (
 
 
 def to_fun(t):
-    if isinstance(t, Tensor):
+    if isinstance(t, TensorBase):
         if is_traceable_wrapper_subclass(t):
             # See Note [Functionalization always runs last]
             # This means that if we want to "functionalize" a subclass, we need to ensure that the functional wrapper
@@ -46,7 +46,7 @@ def sync_functional_tensor(t):
 # When subclasses are involved, t here will usually look something like:
 # SubclassA(SubclassB(FunctionalTensor(_to_fun_tensor(FakeTensor))))
 def from_fun(t):
-    if isinstance(t, Tensor) and is_traceable_wrapper_subclass(t):
+    if isinstance(t, TensorBase) and is_traceable_wrapper_subclass(t):
         # See Note [Functionalization always runs last]
         # This means that if we want to "functionalize" a subclass, we need to ensure that the functional wrapper
         # goes at the bottom.
@@ -57,7 +57,7 @@ def from_fun(t):
 
     if not isinstance(t, FunctionalTensor):
         # quick sanity assert
-        if isinstance(t, torch.Tensor):
+        if isinstance(t, torch.TensorBase):
             assert not torch._is_functional_tensor(t)  # type: ignore[attr-defined]
         return t
     sync_functional_tensor(t)
@@ -65,7 +65,7 @@ def from_fun(t):
 
 
 def is_fun(t):
-    if isinstance(t, Tensor) and is_traceable_wrapper_subclass(t):
+    if isinstance(t, TensorBase) and is_traceable_wrapper_subclass(t):
         # See Note [Functionalization always runs last]
         # This means that if we want to "functionalize" a subclass, we need to ensure that the functional wrapper
         # goes at the bottom.
@@ -90,7 +90,7 @@ def has_data_mutation(t):
         # A tensor subclass was updated if any of its inner elements were updated
         return any(has_data_mutation(getattr(t, attr)) for attr in attrs)
     else:
-        if isinstance(t, torch.Tensor):
+        if isinstance(t, torch.TensorBase):
             assert isinstance(t, FunctionalTensor)
             return torch._functionalize_has_data_mutation(t.elem)  # type: ignore[attr-defined]
         return False
@@ -103,7 +103,7 @@ def are_all_mutations_hidden_from_autograd(t):
         return all(
             are_all_mutations_hidden_from_autograd(getattr(t, attr)) for attr in attrs
         )
-    elif isinstance(t, torch.Tensor):
+    elif isinstance(t, torch.TensorBase):
         assert isinstance(t, FunctionalTensor)
         return torch._functionalize_are_all_mutations_hidden_from_autograd(t.elem)
     else:
@@ -147,8 +147,8 @@ def has_metadata_mutation(f_arg, arg, *, check_only_storage_mutation: bool):
             for f_inner_t, inner_t in zip(f_inner_ts, inner_ts)
         )
     else:
-        if not isinstance(f_arg, torch.Tensor):
-            assert not isinstance(arg, torch.Tensor)
+        if not isinstance(f_arg, torch.TensorBase):
+            assert not isinstance(arg, torch.TensorBase)
             return False
         assert isinstance(f_arg, FunctionalTensor)
         assert isinstance(arg, FakeTensor)

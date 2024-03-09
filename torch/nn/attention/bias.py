@@ -1,4 +1,5 @@
 """Defines bias subclasses that work with scaled_dot_product_attention"""
+
 from enum import auto, IntEnum
 from typing import Optional
 from warnings import warn
@@ -79,7 +80,7 @@ class CausalVariant(IntEnum):
     LOWER_RIGHT = auto()
 
 
-class CausalBias(torch.Tensor):
+class CausalBias(torch.TensorBase):
     """
     A bias representing causal attention patterns. For an overview of the bias structure, see the :class:`CausalVariant` enum.
 
@@ -126,13 +127,13 @@ class CausalBias(torch.Tensor):
                 "Lower right causal bias will produce NaNs in the output when seq_len_q > seq_len_kv!"
             )
 
-    def _upper_left(self, device: torch.device) -> torch.Tensor:
+    def _upper_left(self, device: torch.device) -> torch.TensorBase:
         """Upper left causal bias"""
         return torch.tril(
             torch.ones(self.seq_len_q, self.seq_len_kv, device=device, dtype=torch.bool)
         )
 
-    def _lower_right(self, device: torch.device) -> torch.Tensor:
+    def _lower_right(self, device: torch.device) -> torch.TensorBase:
         """Lower right causal bias"""
         diagonal_offset = self.seq_len_kv - self.seq_len_q
         return torch.tril(
@@ -142,7 +143,7 @@ class CausalBias(torch.Tensor):
             diagonal=diagonal_offset,
         )
 
-    def _materialize(self, device: Optional[torch.device] = None) -> torch.Tensor:
+    def _materialize(self, device: Optional[torch.device] = None) -> torch.TensorBase:
         """
         Materializes the causal bias into a tensor form.
 
@@ -164,14 +165,14 @@ class CausalBias(torch.Tensor):
 
     @staticmethod
     def _dispatch(
-        query: torch.Tensor,
-        key: torch.Tensor,
-        value: torch.Tensor,
+        query: torch.TensorBase,
+        key: torch.TensorBase,
+        value: torch.TensorBase,
         attn_mask: "CausalBias",
         dropout_p: float = 0.0,
         is_causal: bool = False,
         scale: Optional[float] = None,
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         r"""
         Handles the logic for computing attention with the specified causal bias.
 

@@ -148,7 +148,7 @@ def _is_onnx_constant(value: _C.Value):
 
 @_beartype.beartype
 def _maybe_get_const(
-    value: Optional[Union[_C.Value, torch.Tensor, Number, Sequence]],
+    value: Optional[Union[_C.Value, torch.TensorBase, Number, Sequence]],
     descriptor: _ValueDescriptor,
 ):
     # NOTE: prim::Constant at this stage usually means something not compatible in ONNX,
@@ -162,7 +162,7 @@ def _maybe_get_const(
 @_beartype.beartype
 def _maybe_get_scalar(value):
     value_t = _maybe_get_const(value, "t")
-    if isinstance(value_t, torch.Tensor) and value_t.shape == ():
+    if isinstance(value_t, torch.TensorBase) and value_t.shape == ():
         return value_t
     return value
 
@@ -450,7 +450,7 @@ def quantized_args(
 @_beartype.beartype
 def _scalar(x: Any) -> Optional[Number]:
     """Convert a scalar tensor into a Python value."""
-    if isinstance(x, torch.Tensor) and x.shape == ():
+    if isinstance(x, torch.TensorBase) and x.shape == ():
         return x.item()
     return None
 
@@ -765,7 +765,7 @@ def _generate_wrapped_number(g: jit_utils.GraphContext, scalar):
     is a floating point type, it is converted to a 0-dim double
     tensor, else it is converted to a 0-dim tensor of its original type
     """
-    assert not isinstance(scalar, torch.Tensor)
+    assert not isinstance(scalar, torch.TensorBase)
     if isinstance(scalar, float):
         return g.op("Constant", value_t=torch.tensor(scalar, dtype=torch.double))
     return g.op("Constant", value_t=torch.tensor(scalar))
@@ -931,10 +931,12 @@ def _interpolate_size_to_scales(g: jit_utils.GraphContext, input, output_size, d
         scales = g.op("Concat", offsets, scale_dims, axis_i=0)
     else:
         scales_constant = [
-            1.0
-            if i < 2
-            else float(output_size[-(dim - i)])
-            / float(input.type().sizes()[-(dim - i)])
+            (
+                1.0
+                if i < 2
+                else float(output_size[-(dim - i)])
+                / float(input.type().sizes()[-(dim - i)])
+            )
             for i in range(0, dim)
         ]
         scales = g.op(
@@ -1074,9 +1076,7 @@ def _interpolate_helper(name, dim, interpolate_mode):
         coordinate_transformation_mode = (
             "asymmetric"
             if interpolate_mode == "nearest"
-            else "align_corners"
-            if align_corners
-            else "half_pixel"
+            else "align_corners" if align_corners else "half_pixel"
         )
 
         if scales is None:
@@ -1153,9 +1153,7 @@ def __interpolate_helper(
     coordinate_transformation_mode = (
         "asymmetric"
         if mode == "nearest"
-        else "align_corners"
-        if align_corners
-        else "half_pixel"
+        else "align_corners" if align_corners else "half_pixel"
     )
 
     if not _is_none(size):

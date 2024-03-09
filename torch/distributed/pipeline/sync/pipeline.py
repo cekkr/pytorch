@@ -7,10 +7,20 @@
 """The pipeline parallelism of Pipe."""
 from queue import Queue
 from types import TracebackType
-from typing import TYPE_CHECKING, Iterable, List, Optional, Tuple, Type, Union, cast, Sequence
+from typing import (
+    cast,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    TYPE_CHECKING,
+    Union,
+)
 
 import torch
-from torch import Tensor, nn
+from torch import nn, TensorBase
 from torch.autograd.profiler import record_function
 
 from .checkpoint import Checkpointing
@@ -20,13 +30,13 @@ from .microbatch import Batch
 from .skip.layout import SkipLayout
 from .skip.tracker import SkipTrackerThroughPotals, use_skip_tracker
 from .stream import AbstractStream, current_stream, use_device
-from .worker import Task, create_workers
+from .worker import create_workers, Task
 
 __all__: List[str] = ["Pipeline"]
 
 
-Tensors = Sequence[Tensor]
-TensorOrTensors = Union[Tensor, Tensors]
+Tensors = Sequence[TensorBase]
+TensorOrTensors = Union[TensorBase, Tensors]
 
 ExcInfo = Tuple[Type[BaseException], BaseException, TracebackType]
 
@@ -48,16 +58,30 @@ def _depend(fork_from: Batch, join_to: Batch) -> None:
     join_to[join_to_idx] = join(join_to[join_to_idx], phony)
 
 
-def _copy(batch: Batch, prev_stream: AbstractStream, next_stream: AbstractStream) -> None:
+def _copy(
+    batch: Batch, prev_stream: AbstractStream, next_stream: AbstractStream
+) -> None:
     batch[:] = Copy.apply(prev_stream, next_stream, *batch)
     # Gradients are only supported for float Tensors.
-    batch[:] = tuple([x.detach() if torch.is_tensor(x) and not x.is_floating_point() else x for x in batch])
+    batch[:] = tuple(
+        [
+            x.detach() if torch.is_tensor(x) and not x.is_floating_point() else x
+            for x in batch
+        ]
+    )
 
 
-def _wait(batch: Batch, prev_stream: AbstractStream, next_stream: AbstractStream) -> None:
+def _wait(
+    batch: Batch, prev_stream: AbstractStream, next_stream: AbstractStream
+) -> None:
     batch[:] = Wait.apply(prev_stream, next_stream, *batch)
     # Gradients are only supported for float Tensors.
-    batch[:] = tuple([x.detach() if torch.is_tensor(x) and not x.is_floating_point() else x for x in batch])
+    batch[:] = tuple(
+        [
+            x.detach() if torch.is_tensor(x) and not x.is_floating_point() else x
+            for x in batch
+        ]
+    )
 
 
 def _clock_cycles(m: int, n: int) -> Iterable[List[Tuple[int, int]]]:
@@ -117,7 +141,10 @@ class Pipeline:
             self.compute(batches, schedule, skip_trackers)
 
     def fence(
-        self, batches: List[Batch], schedule: List[Tuple[int, int]], skip_trackers: List[SkipTrackerThroughPotals],
+        self,
+        batches: List[Batch],
+        schedule: List[Tuple[int, int]],
+        skip_trackers: List[SkipTrackerThroughPotals],
     ) -> None:
         """Copy micro-batches after computation for the previous micro-batches."""
         copy_streams = self.copy_streams
@@ -140,7 +167,10 @@ class Pipeline:
                 _copy(batches[i], prev_stream, next_stream)
 
     def compute(
-        self, batches: List[Batch], schedule: List[Tuple[int, int]], skip_trackers: List[SkipTrackerThroughPotals],
+        self,
+        batches: List[Batch],
+        schedule: List[Tuple[int, int]],
+        skip_trackers: List[SkipTrackerThroughPotals],
     ) -> None:
         """Run tasks with synchronization to copy streams."""
         partitions = self.partitions
@@ -200,7 +230,9 @@ class Pipeline:
                     chunk_id: int = i,
                     part_id: int = j,
                 ) -> TensorOrTensors:
-                    with use_skip_tracker(skip_tracker), record_function("chunk%d-part%d" % (chunk_id, part_id)):
+                    with use_skip_tracker(skip_tracker), record_function(
+                        "chunk%d-part%d" % (chunk_id, part_id)
+                    ):
                         return partition(*inputs)
 
                 chk = Checkpointing(function, batch)  # type: ignore[arg-type]
@@ -216,7 +248,9 @@ class Pipeline:
                     chunk_id: int = i,
                     part_id: int = j,
                 ) -> Batch:
-                    with use_skip_tracker(skip_tracker), record_function("chunk%d-part%d" % (chunk_id, part_id)):
+                    with use_skip_tracker(skip_tracker), record_function(
+                        "chunk%d-part%d" % (chunk_id, part_id)
+                    ):
                         return batch.call(partition)
 
                 task = Task(streams[j], compute=compute, finalize=None)

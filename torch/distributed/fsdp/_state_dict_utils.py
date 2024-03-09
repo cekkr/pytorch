@@ -732,7 +732,7 @@ def _post_state_dict_hook(
     if fsdp_state._is_root:
         logger.info("FSDP finished processing state_dict(), prefix=%s", prefix)
         for key, tensor in sorted(processed_state_dict.items()):
-            if key.startswith(prefix) and isinstance(tensor, torch.Tensor):
+            if key.startswith(prefix) and isinstance(tensor, torch.TensorBase):
                 local_shape = tensor.shape
                 if isinstance(tensor, ShardedTensor):
                     local_shape = None

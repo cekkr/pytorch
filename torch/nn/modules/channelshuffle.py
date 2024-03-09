@@ -1,9 +1,9 @@
-from .module import Module
+from torch import TensorBase
 from .. import functional as F
+from .module import Module
 
-from torch import Tensor
+__all__ = ["ChannelShuffle"]
 
-__all__ = ['ChannelShuffle']
 
 class ChannelShuffle(Module):
     r"""Divides and rearranges the channels in a tensor.
@@ -43,15 +43,15 @@ class ChannelShuffle(Module):
          ]]
     """
 
-    __constants__ = ['groups']
+    __constants__ = ["groups"]
     groups: int
 
     def __init__(self, groups: int) -> None:
         super().__init__()
         self.groups = groups
 
-    def forward(self, input: Tensor) -> Tensor:
+    def forward(self, input: TensorBase) -> TensorBase:
         return F.channel_shuffle(input, self.groups)
 
     def extra_repr(self) -> str:
-        return f'groups={self.groups}'
+        return f"groups={self.groups}"

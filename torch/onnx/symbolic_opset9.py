@@ -3,6 +3,7 @@
 Opset 9 is supported by ONNX release 1.4.1
 release on 01/23/19
 """
+
 from __future__ import annotations
 
 import builtins
@@ -995,7 +996,7 @@ def broadcast_to(g: jit_utils.GraphContext, self, size):
 @_beartype.beartype
 def expand_as(g: jit_utils.GraphContext, self, other):
     self_t = symbolic_helper._maybe_get_const(self, "t")
-    if isinstance(self_t, torch.Tensor):
+    if isinstance(self_t, torch.TensorBase):
         orig_type = self_t.dtype
         self_t = self_t.to(torch.double)
         dims = []
@@ -1572,29 +1573,39 @@ def get_pool_ceil_padding(input, kernel_size, stride, padding):
     ]
     # ensure last pooling starts inside
     ceiled_output_dim = [
-        ceiled_output_dim[i] - 1
-        if (((ceiled_output_dim[i] - 1) * stride[i]) >= (dim[i] + padding[i]))
-        else ceiled_output_dim[i]
+        (
+            ceiled_output_dim[i] - 1
+            if (((ceiled_output_dim[i] - 1) * stride[i]) >= (dim[i] + padding[i]))
+            else ceiled_output_dim[i]
+        )
         for i in range(0, len(ceiled_output_dim))
     ]
     padding_ceil = [
-        0
-        if (stride[i] == 1)
-        else (
-            kernel_size[i]
-            - (dim[i] + 2 * padding[i] - ((ceiled_output_dim[i] - 1) * stride[i] + 1))
+        (
+            0
+            if (stride[i] == 1)
+            else (
+                kernel_size[i]
+                - (
+                    dim[i]
+                    + 2 * padding[i]
+                    - ((ceiled_output_dim[i] - 1) * stride[i] + 1)
+                )
+            )
         )
         for i in range(0, len(padding))
     ]
     # ensure padding is not > kernel_size
     padding_ceil = [
         (
-            int(padding_ceil[i])
-            if padding_ceil[i] < kernel_size[i] - 1
-            else int(kernel_size[i] - 1)
+            (
+                int(padding_ceil[i])
+                if padding_ceil[i] < kernel_size[i] - 1
+                else int(kernel_size[i] - 1)
+            )
+            if ((padding_ceil[i] + 2 * padding[i]) >= (kernel_size[i]))
+            else int(padding_ceil[i])
         )
-        if ((padding_ceil[i] + 2 * padding[i]) >= (kernel_size[i]))
-        else int(padding_ceil[i])
         for i in range(0, len(padding_ceil))
     ]
     return padding_ceil
@@ -4348,14 +4359,14 @@ def to(g: jit_utils.GraphContext, self, *args):
             and args[0].node().kind() == "onnx::Constant"
         ):
             tval = symbolic_helper._node_get(args[0].node(), "value")
-            if isinstance(tval, torch.Tensor):
+            if isinstance(tval, torch.TensorBase):
                 if len(tval.shape) == 0:
                     tval = tval.item()
                     dtype = int(tval)
                 else:
                     dtype = tval
 
-        if symbolic_helper._is_value(dtype) or isinstance(dtype, torch.Tensor):
+        if symbolic_helper._is_value(dtype) or isinstance(dtype, torch.TensorBase):
             # aten::to(Tensor, Tensor, bool, bool, memory_format)
             dtype = _type_utils.JitScalarType.from_value(args[0])
             return g.op(
@@ -6447,7 +6458,7 @@ def as_strided(g: jit_utils.GraphContext, self, sizes, strides, offset=None):
     self_1d = symbolic_helper._reshape_helper(
         g, self, g.op("Constant", value_t=torch.tensor([-1], dtype=torch.int64))
     )
-    ind: Optional[torch.Tensor]
+    ind: Optional[torch.TensorBase]
     if not symbolic_helper._is_value(sizes):
         ind = torch.tensor([0], dtype=torch.long)
         for i, (size, stride) in enumerate(zip(sizes, strides)):

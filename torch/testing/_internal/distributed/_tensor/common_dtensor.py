@@ -3,44 +3,30 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates
 
 import itertools
-from dataclasses import dataclass
 import sys
+from dataclasses import dataclass
 from functools import wraps
-from typing import (
-    Any,
-    Callable,
-    Iterator,
-    Tuple,
-    Dict,
-    List,
-    Sequence,
-    TypeVar,
-    cast,
-)
+from typing import Any, Callable, cast, Dict, Iterator, List, Sequence, Tuple, TypeVar
 
 import torch
 import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
 
-from torch.utils._pytree import tree_flatten, tree_unflatten, TreeSpec
+from torch.distributed._tensor import DeviceMesh, distribute_tensor, Replicate, Shard
+from torch.distributed._tensor.placement_types import Placement
 from torch.testing._internal.common_distributed import (
     MultiProcessTestCase,
     MultiThreadedTestCase,
-    TEST_SKIPS,
     skip_if_lt_x_gpu,
+    TEST_SKIPS,
 )
 
+from torch.utils._pytree import tree_flatten, tree_unflatten, TreeSpec
 
-from torch.distributed._tensor import (
-    DeviceMesh,
-    Shard,
-    Replicate,
-    distribute_tensor,
+DEVICE_TYPE = (
+    "cuda" if torch.cuda.is_available() and torch.cuda.device_count() > 1 else "cpu"
 )
-from torch.distributed._tensor.placement_types import Placement
-
-DEVICE_TYPE = "cuda" if torch.cuda.is_available() and torch.cuda.device_count() > 1 else "cpu"
 PG_BACKEND = "nccl" if DEVICE_TYPE == "cuda" else "gloo"
 
 NUM_DEVICES = 4
@@ -66,6 +52,7 @@ class RMSNormPython(torch.nn.Module):
     def forward(self, x):
         output = self._norm(x)
         return output * self.weight
+
 
 class MLPModule(nn.Module):
     def __init__(self, device):
@@ -95,6 +82,7 @@ class ModelArgs:
     weight_tying: bool = True
     checkpoint_activations: bool = False
 
+
 class Attention(nn.Module):
     def __init__(self, args: ModelArgs):
         super().__init__()
@@ -122,12 +110,16 @@ class Attention(nn.Module):
         values = values.transpose(1, 2)  # (bsz, n_heads, seq_len, head_dim)
 
         output = F.scaled_dot_product_attention(
-            queries, keys, values, None,
+            queries,
+            keys,
+            values,
+            None,
             self.dropout_p if self.training else 0,
             self.use_attn_mask,
         )
         output = output.transpose(1, 2).contiguous().view(bsz, seq_len, -1)
         return self.resid_dropout(self.wo(output))
+
 
 class FeedForward(nn.Module):
     def __init__(self, dim, hidden_dim, dropout_p):
@@ -140,18 +132,22 @@ class FeedForward(nn.Module):
     def forward(self, x):
         return self.resid_dropout(self.w2(self.gelu(self.w1(x))))
 
+
 class TransformerBlock(nn.Module):
     def __init__(self, args: ModelArgs):
         super().__init__()
         self.attention_norm = nn.LayerNorm(args.dim)
         self.attention = Attention(args)
         self.ffn_norm = nn.LayerNorm(args.dim)
-        self.feed_forward = FeedForward(args.dim, hidden_dim=4 * args.dim, dropout_p=args.dropout_p)
+        self.feed_forward = FeedForward(
+            args.dim, hidden_dim=4 * args.dim, dropout_p=args.dropout_p
+        )
 
     def forward(self, x):
         h = x + self.attention(self.attention_norm(x))
         out = h + self.feed_forward(self.ffn_norm(h))
         return out
+
 
 # A toy transformer model, partly inspired by the nanoGPT model:
 # https://github.com/karpathy/nanoGPT.
@@ -263,6 +259,7 @@ class DTensorTestBase(MultiProcessTestCase):
 
 TestFunc = Callable[[object], object]
 
+
 # wrapper to initialize comms (processgroup)
 def with_comms(func: TestFunc) -> TestFunc:
     assert func is not None
@@ -356,11 +353,11 @@ class DTensorConverter:
 
         choices_for_args = []
         for arg in self.flatten_args:
-            if isinstance(arg, torch.Tensor):
+            if isinstance(arg, torch.TensorBase):
                 choices_for_args.append(self.gen_sharding_choices_for_arg(arg))
 
         for arg in self.flatten_kwargs:
-            if isinstance(arg, torch.Tensor):
+            if isinstance(arg, torch.TensorBase):
                 choices_for_args.append(self.gen_sharding_choices_for_arg(arg))
 
         self.sharding_combs: Iterator[Sequence[Placement]] = iter(
@@ -370,7 +367,7 @@ class DTensorConverter:
     def successful(self) -> bool:
         return self.hit > 0 and self.miss == 0
 
-    def is_supported_tensor(self, t: torch.Tensor) -> bool:
+    def is_supported_tensor(self, t: torch.TensorBase) -> bool:
         # TODO: dist tensor need to support quantized and sparse
         # tensors, quantized tensor might be relatively easy, but
         # sparse tensor have special layouts that we need to possibly
@@ -394,7 +391,7 @@ class DTensorConverter:
         )
 
     def gen_sharding_choices_for_arg(
-        self, arg: torch.Tensor
+        self, arg: torch.TensorBase
     ) -> Sequence[Placement]:
         mesh_size = self.mesh.size()
         sharding_choices: List[Placement] = [Replicate()]
@@ -424,7 +421,7 @@ class DTensorConverter:
 
             new_args: List[object] = []
             for arg in self.flatten_args:
-                if isinstance(arg, torch.Tensor):
+                if isinstance(arg, torch.TensorBase):
                     new_args.append(
                         self.to_dist_tensor(
                             arg, self.mesh, [next_sharding_choices[idx]]
@@ -436,7 +433,7 @@ class DTensorConverter:
 
             new_kwargs: List[object] = []
             for arg in self.flatten_kwargs:
-                if isinstance(arg, torch.Tensor):
+                if isinstance(arg, torch.TensorBase):
                     new_kwargs.append(
                         self.to_dist_tensor(
                             arg, self.mesh, [next_sharding_choices[idx]]
@@ -454,9 +451,9 @@ class DTensorConverter:
             raise StopIteration from e
 
     def to_dist_tensor(
-        self, t: torch.Tensor, mesh: DeviceMesh, placements: List[Placement]
-    ) -> torch.Tensor:
-        if type(t) is torch.Tensor or type(t) is nn.Parameter:
+        self, t: torch.TensorBase, mesh: DeviceMesh, placements: List[Placement]
+    ) -> torch.TensorBase:
+        if type(t) is torch.TensorBase or type(t) is nn.Parameter:
             if self.is_supported_tensor(t):
                 self.hit += 1
                 if t.ndim == 0:
@@ -481,6 +478,4 @@ class DTensorConverter:
             self.miss += 1
             return t
         else:
-            raise RuntimeError(
-                f"Trying to convert to DTensor, but got {type(t)}"
-            )
+            raise RuntimeError(f"Trying to convert to DTensor, but got {type(t)}")

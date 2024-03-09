@@ -59,8 +59,7 @@ class Node(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def next_functions(self) -> Tuple[Tuple[Optional["Node"], int], ...]:
-        ...
+    def next_functions(self) -> Tuple[Tuple[Optional["Node"], int], ...]: ...
 
     @abc.abstractmethod
     def metadata(self) -> dict:
@@ -68,8 +67,7 @@ class Node(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def _register_hook_dict(self, tensor: torch.Tensor) -> None:
-        ...
+    def _register_hook_dict(self, tensor: torch.TensorBase) -> None: ...
 
     @abc.abstractmethod
     def register_hook(self, fn: Callable[..., Any]) -> RemovableHandle:
@@ -267,8 +265,8 @@ class saved_tensors_hooks:
 
     def __init__(
         self,
-        pack_hook: Callable[[torch.Tensor], Any],
-        unpack_hook: Callable[[Any], torch.Tensor],
+        pack_hook: Callable[[torch.TensorBase], Any],
+        unpack_hook: Callable[[Any], torch.TensorBase],
     ):
         self.pack_hook = pack_hook
         self.unpack_hook = unpack_hook
@@ -383,10 +381,10 @@ def disable_saved_tensors_hooks(error_message):
 
 
 def register_multi_grad_hook(
-    tensors: Sequence[torch.Tensor],
+    tensors: Sequence[torch.TensorBase],
     fn: Union[
-        Callable[[Sequence[Optional[torch.Tensor]]], None],
-        Callable[[torch.Tensor], None],
+        Callable[[Sequence[Optional[torch.TensorBase]]], None],
+        Callable[[torch.TensorBase], None],
     ],
     *,
     mode: str = "all",
@@ -461,13 +459,13 @@ def register_multi_grad_hook(
     if mode == "all":
         count: Dict[int, int] = dict()
         nb_calls = None
-        buffer: Dict[int, List[Optional[torch.Tensor]]] = dict()
+        buffer: Dict[int, List[Optional[torch.TensorBase]]] = dict()
 
         grad_fns = list(map(_get_grad_fn_or_grad_acc, tensors))
         len_tensors = len(tensors)
 
         def get_inner_hook(idx):
-            def inner_hook(grad: torch.Tensor):
+            def inner_hook(grad: torch.TensorBase):
                 nonlocal count, nb_calls, buffer, fn
                 id = torch._C._current_graph_task_id()
                 assert (
@@ -484,7 +482,9 @@ def register_multi_grad_hook(
                 count[id] += 1
 
                 if count[id] == nb_calls:
-                    fn = cast(Callable[[Sequence[Optional[torch.Tensor]]], None], fn)
+                    fn = cast(
+                        Callable[[Sequence[Optional[torch.TensorBase]]], None], fn
+                    )
                     fn(buffer[id])
                     del count[id]
                     del buffer[id]
@@ -495,12 +495,12 @@ def register_multi_grad_hook(
             t.register_hook(get_inner_hook(i)) for i, t in enumerate(tensors)
         )
     elif mode == "any":
-        fn = cast(Callable[[torch.Tensor], None], fn)
+        fn = cast(Callable[[torch.TensorBase], None], fn)
         lock = threading.Lock()
         ran_hook: Dict[int, bool] = defaultdict(bool)
 
         @functools.wraps(fn)
-        def wrapped_fn(grad: torch.Tensor):
+        def wrapped_fn(grad: torch.TensorBase):
             nonlocal ran_hook
             id = torch._C._current_graph_task_id()
             assert id != -1, "expected this hook to be called inside a backward call"
@@ -688,7 +688,7 @@ def allow_mutation_on_saved_tensors():
             _allow_mutation_on_saved_tensors_enabled = False
 
 
-def _register_logging_hooks_on_whole_graph(t_outputs: List[torch.Tensor]):
+def _register_logging_hooks_on_whole_graph(t_outputs: List[torch.TensorBase]):
     grad_fns = list(map(_get_grad_fn_or_grad_acc, t_outputs))
 
     def iter_graph(roots):

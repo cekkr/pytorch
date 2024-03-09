@@ -94,8 +94,8 @@ def register_philox_rand():
 
     def _philox_rand_meta(
         shape: torch.Size,
-        seed: torch.Tensor,
-        offset: torch.Tensor,
+        seed: torch.TensorBase,
+        offset: torch.TensorBase,
         stride: Optional[Tuple[int, ...]],
         device: _device,
         dtype: _dtype,
@@ -111,8 +111,8 @@ def register_philox_rand():
 
     def _philox_rand(
         shape: torch.Size,
-        seed: torch.Tensor,
-        offset: torch.Tensor,
+        seed: torch.TensorBase,
+        offset: torch.TensorBase,
         stride: Optional[Tuple[int, ...]],
         device: _device,
         dtype: _dtype,
@@ -150,7 +150,7 @@ def get_device(args, kwargs):
             device = torch.device(device)
         return device.type
 
-    devices = {arg.device.type for arg in args if isinstance(arg, torch.Tensor)}
+    devices = {arg.device.type for arg in args if isinstance(arg, torch.TensorBase)}
     if any(dev == "cuda" for dev in devices):
         return "cuda"
     elif any(dev == "cpu" for dev in devices):

@@ -4,7 +4,7 @@ from typing import Callable, cast, Dict, Iterable, Optional, Sequence, Set, Tupl
 
 import torch
 
-from torch import Tensor
+from torch import TensorBase
 from torch._subclasses.fake_tensor import unset_fake_temporarily
 from torch.distributed._tensor._utils import compute_local_shape
 from torch.distributed._tensor.api import Shard
@@ -430,14 +430,14 @@ class Op:
     shape_argnum: Optional[int] = None
 
 
-ops: Dict[Callable[..., torch.Tensor], Op] = {
+ops: Dict[Callable[..., torch.TensorBase], Op] = {
     torch.atleast_1d: Op(dim_map=lambda x: dim_pad_left(x.ndim, 1)),
     torch.atleast_2d: Op(dim_map=lambda x: dim_pad_left(x.ndim, 2)),
     torch.atleast_3d: Op(dim_map=lambda x: dim_atleast_3d(x.ndim)),
     torch.broadcast_to: Op(
         dim_map=lambda input, shape: expand(input.shape, shape), shape_argnum=1
     ),
-    Tensor.expand: Op(
+    TensorBase.expand: Op(
         dim_map=lambda self, *sizes: expand(self.shape, normalize_sizes(sizes)),
         shape_argnum=1,
     ),
@@ -453,7 +453,7 @@ ops: Dict[Callable[..., torch.Tensor], Op] = {
         )
     ),
     torch.ravel: Op(dim_map=lambda tensor: dim_flatten(tensor.ndim)),
-    Tensor.repeat: Op(dim_map=lambda self, *sizes: dim_repeat(self.ndim, sizes)),
+    TensorBase.repeat: Op(dim_map=lambda self, *sizes: dim_repeat(self.ndim, sizes)),
     torch.reshape: Op(
         dim_map=lambda input, shape: view_groups(input.shape, shape),
         shape_argnum=1,
@@ -464,7 +464,7 @@ ops: Dict[Callable[..., torch.Tensor], Op] = {
         dim_map=lambda input, dim0, dim1: dim_transpose(input.ndim, dim0, dim1)
     ),
     torch.unsqueeze: Op(dim_map=lambda input, dim: dim_unsqueeze(input.ndim, dim)),
-    Tensor.view: Op(
+    TensorBase.view: Op(
         dim_map=lambda input, *shape: view_groups(input.shape, shape),
         shape_argnum=1,
     ),
@@ -476,7 +476,7 @@ def propagate_shape_and_sharding(
     local_in_shape: Shape,
     rule: DimMap,
     mesh_sizes: Shape,
-) -> Tuple[Shape, Optional[Sequence[Placement]], torch.Tensor]:
+) -> Tuple[Shape, Optional[Sequence[Placement]], torch.TensorBase]:
     """
     Determine output sharding and tensor shape based on given global tensor shape and input sharding.
 
@@ -493,7 +493,7 @@ def propagate_shape_and_sharding(
     assert len(in_shard) == len(mesh_sizes)
     sharded_in_dims: Set[int] = {s.dim for s in in_shard if isinstance(s, Shard)}
     # for each input dim, for each mesh dim, provides a list of possible shardable dimensions
-    shardable_dims: torch.Tensor = torch.ones(
+    shardable_dims: torch.TensorBase = torch.ones(
         (len(local_in_shape), len(mesh_sizes)), dtype=torch.bool
     )
 
@@ -527,9 +527,11 @@ def propagate_shape_and_sharding(
             dim0 = cmd.input_dims[0]
             return (
                 prod(get_dim_size(a)[0] for a in cmd.input_dims),
-                dim0
-                if isinstance(dim0, InputDim) and dim0.input_dim in sharded_in_dims
-                else None,
+                (
+                    dim0
+                    if isinstance(dim0, InputDim) and dim0.input_dim in sharded_in_dims
+                    else None
+                ),
             )
         elif isinstance(cmd, Split):
             _, in_dim = get_dim_size(cmd.input_dim)
@@ -599,7 +601,7 @@ def propagate_shape_and_sharding(
 
 def register_prop_rule_map(
     aten_op_overload: torch._ops.OpOverload,
-    local_op_name: Callable[..., torch.Tensor],
+    local_op_name: Callable[..., torch.TensorBase],
     schema_info: Optional[RuntimeSchemaInfo] = None,
 ) -> None:
     spec: Op = ops[local_op_name]
@@ -665,9 +667,11 @@ def register_prop_rule_map(
             # FIXME: this can be wrong for situations where we have
             #        [Shard(0), Shard(0)]
             suggested_placements = [
-                p
-                if not isinstance(p, Shard) or shardable_dims[p.dim][mesh_dim]
-                else Replicate()
+                (
+                    p
+                    if not isinstance(p, Shard) or shardable_dims[p.dim][mesh_dim]
+                    else Replicate()
+                )
                 for mesh_dim, p in enumerate(input_dtensor_spec.placements)
             ]
             return OutputSharding(
@@ -693,24 +697,26 @@ register_prop_rule_map(aten.squeeze.default, torch.squeeze)
 register_prop_rule_map(
     aten.squeeze.dim, torch.squeeze, schema_info=RuntimeSchemaInfo(1)
 )
-register_prop_rule_map(aten.view.default, Tensor.view, schema_info=RuntimeSchemaInfo(1))
+register_prop_rule_map(
+    aten.view.default, TensorBase.view, schema_info=RuntimeSchemaInfo(1)
+)
 register_prop_rule_map(
     aten.reshape.default, torch.reshape, schema_info=RuntimeSchemaInfo(1)
 )
 register_prop_rule_map(
-    aten._unsafe_view.default, Tensor.view, schema_info=RuntimeSchemaInfo(1)
+    aten._unsafe_view.default, TensorBase.view, schema_info=RuntimeSchemaInfo(1)
 )
 register_prop_rule_map(
     aten.unsqueeze.default, torch.unsqueeze, schema_info=RuntimeSchemaInfo(1)
 )
 register_prop_rule_map(
-    aten.expand.default, Tensor.expand, schema_info=RuntimeSchemaInfo(1)
+    aten.expand.default, TensorBase.expand, schema_info=RuntimeSchemaInfo(1)
 )
 register_prop_rule_map(
     aten.permute.default, torch.permute, schema_info=RuntimeSchemaInfo(1)
 )
 register_prop_rule_map(
-    aten.repeat.default, Tensor.repeat, schema_info=RuntimeSchemaInfo(1)
+    aten.repeat.default, TensorBase.repeat, schema_info=RuntimeSchemaInfo(1)
 )
 register_prop_rule_map(
     aten.transpose.int, torch.transpose, schema_info=RuntimeSchemaInfo(1)

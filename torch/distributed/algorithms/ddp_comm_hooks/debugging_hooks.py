@@ -6,7 +6,7 @@ from torch.distributed import GradBucket
 __all__ = ["noop_hook"]
 
 
-def noop_hook(_: Any, bucket: GradBucket) -> torch.futures.Future[torch.Tensor]:
+def noop_hook(_: Any, bucket: GradBucket) -> torch.futures.Future[torch.TensorBase]:
     """
     Return a future that wraps the input, so it is a no-op that does not incur any communication overheads.
 
@@ -22,7 +22,7 @@ def noop_hook(_: Any, bucket: GradBucket) -> torch.futures.Future[torch.Tensor]:
         >>> # xdoctest: +SKIP
         >>> ddp_model.register_comm_hook(None, noop_hook)
     """
-    fut: torch.futures.Future[torch.Tensor] = torch.futures.Future()
+    fut: torch.futures.Future[torch.TensorBase] = torch.futures.Future()
     fut.set_result(bucket.buffer())
 
     return fut

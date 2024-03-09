@@ -61,13 +61,12 @@ class PostLocalSGDState:
             self.iter += 1
 
         if self.iter == self.start_localSGD_iter:
-            logger.info(
-                "Start to apply local SGD after %s iterations.", self.iter
-            )
+            logger.info("Start to apply local SGD after %s iterations.", self.iter)
+
 
 def post_localSGD_hook(
     state: PostLocalSGDState, bucket: dist.GradBucket
-) -> torch.futures.Future[torch.Tensor]:
+) -> torch.futures.Future[torch.TensorBase]:
     """
     Run post-localSGD algorithm.
 
@@ -109,7 +108,7 @@ def post_localSGD_hook(
     # If `post_local_gradient_allreduce` is not set,
     # then no gradient synchronization after the first `start_localSGD_iter` iterations.
     if not state.post_local_gradient_allreduce:
-        fut: torch.futures.Future[torch.Tensor] = torch.futures.Future()
+        fut: torch.futures.Future[torch.TensorBase] = torch.futures.Future()
         fut.set_result(input_tensor)
         return fut
 

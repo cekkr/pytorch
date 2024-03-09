@@ -128,7 +128,7 @@ def shuffle(x):
     # no @normalizer because we do not cast e.g. lists to tensors
     from ._ndarray import ndarray
 
-    if isinstance(x, torch.Tensor):
+    if isinstance(x, torch.TensorBase):
         tensor = x
     elif isinstance(x, ndarray):
         tensor = x.tensor

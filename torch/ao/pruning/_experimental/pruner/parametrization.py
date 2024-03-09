@@ -27,7 +27,7 @@ class FakeStructuredSparsity(nn.Module):
         self.register_buffer("mask", mask)
 
     def forward(self, x):
-        assert isinstance(self.mask, torch.Tensor)
+        assert isinstance(self.mask, torch.TensorBase)
         assert self.mask.shape[0] == x.shape[0]
         shape = [1] * len(x.shape)
         shape[0] = -1

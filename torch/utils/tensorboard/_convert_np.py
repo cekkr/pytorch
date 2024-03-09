@@ -1,5 +1,7 @@
 """This module converts objects into numpy array."""
+
 import numpy as np
+
 import torch
 
 
@@ -19,7 +21,7 @@ def make_np(x):
         return _prepare_caffe2(x)
     if np.isscalar(x):
         return np.array([x])
-    if isinstance(x, torch.Tensor):
+    if isinstance(x, torch.TensorBase):
         return _prepare_pytorch(x)
     raise NotImplementedError(
         f"Got {type(x)}, but numpy array, torch tensor, or caffe2 blob name are expected."

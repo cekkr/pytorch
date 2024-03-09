@@ -2,7 +2,7 @@ import functools
 from typing import List, Optional, Set, Union
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 from torch._inductor import utils
 from torch._subclasses.fake_tensor import FakeTensor
 from torch.utils._mode_utils import no_dispatch
@@ -26,7 +26,7 @@ aten = torch.ops.aten
 _skip_do_bench_times = False
 
 
-def fetch_fake_tensors(match, kwarg_names) -> List[Tensor]:
+def fetch_fake_tensors(match, kwarg_names) -> List[TensorBase]:
     kwargs = match.kwargs
     return [kwargs[name].meta["val"] for name in kwarg_names]
 
@@ -42,7 +42,7 @@ def unwrap_fake_args(*arg_names):
     return decorator
 
 
-def get_alignment_size(x: Tensor) -> int:
+def get_alignment_size(x: TensorBase) -> int:
     if x.dtype == torch.float16 or x.dtype == torch.half or x.dtype == torch.bfloat16:
         return 8
     elif x.dtype == torch.float32 or x.dtype == torch.float:
@@ -51,11 +51,11 @@ def get_alignment_size(x: Tensor) -> int:
         return 0
 
 
-def check_device(a: Tensor, b: Tensor) -> bool:
+def check_device(a: TensorBase, b: TensorBase) -> bool:
     return a.is_cuda and b.is_cuda
 
 
-def check_dtype(a: Tensor, b: Tensor) -> bool:
+def check_dtype(a: TensorBase, b: TensorBase) -> bool:
     return a.is_floating_point() and b.is_floating_point()
 
 
@@ -100,11 +100,11 @@ def _result_layout_affects_graph_output(match: Match) -> bool:
 
 
 def should_pad_common(
-    mat1: Tensor, mat2: Tensor, input: Optional[Tensor] = None
+    mat1: TensorBase, mat2: TensorBase, input: Optional[TensorBase] = None
 ) -> bool:
     # It's fine we have symbolic shapes or strides as long as they
     # have hints. Later, we will make sure we only pad non-symbolic dimensions.
-    def valid_shape_and_stride(t: Optional[Tensor]) -> bool:
+    def valid_shape_and_stride(t: Optional[TensorBase]) -> bool:
         if t is None:
             return True
 
@@ -141,7 +141,7 @@ def get_padded_length(x: Union[int, torch.SymInt], alignment_size) -> int:
     return int((x // alignment_size + 1) * alignment_size) - x
 
 
-def pad_dim(x: Tensor, padded_length: int, dim: int) -> Tensor:
+def pad_dim(x: TensorBase, padded_length: int, dim: int) -> TensorBase:
     if padded_length == 0:
         return x
     pad = x.new_zeros(*x.shape[:dim], padded_length, *x.shape[dim + 1 :])
@@ -149,8 +149,8 @@ def pad_dim(x: Tensor, padded_length: int, dim: int) -> Tensor:
 
 
 def addmm_pattern(
-    input: Tensor, mat1: Tensor, mat2: Tensor, beta: float, alpha: float
-) -> Tensor:
+    input: TensorBase, mat1: TensorBase, mat2: TensorBase, beta: float, alpha: float
+) -> TensorBase:
     return aten.addmm(input, mat1, mat2, beta=beta, alpha=alpha)
 
 
@@ -167,8 +167,8 @@ def should_pad_addmm(match: Match) -> bool:
 
 
 def addmm_replace(
-    input: Optional[Tensor], mat1: Tensor, mat2: Tensor, beta=1.0, alpha=1.0
-) -> Tensor:
+    input: Optional[TensorBase], mat1: TensorBase, mat2: TensorBase, beta=1.0, alpha=1.0
+) -> TensorBase:
     m_padded_length = get_padded_length(mat1.shape[0], get_alignment_size(mat1))
     k_padded_length = get_padded_length(mat1.shape[1], get_alignment_size(mat1))
     n_padded_length = get_padded_length(mat2.shape[1], get_alignment_size(mat2))
@@ -189,9 +189,9 @@ def addmm_replace(
 
 
 def pad_addmm(
-    input: Optional[Tensor],
-    mat1: Tensor,
-    mat2: Tensor,
+    input: Optional[TensorBase],
+    mat1: TensorBase,
+    mat2: TensorBase,
     m_padded_length: int,
     k_padded_length: int,
     n_padded_length: int,
@@ -267,7 +267,7 @@ def set_cached_should_pad(key, value):
 
 
 def should_pad_bench_key(
-    mat1: Tensor, mat2: Tensor, op, input: Optional[Tensor] = None
+    mat1: TensorBase, mat2: TensorBase, op, input: Optional[TensorBase] = None
 ) -> str:
     def tensor_key(t):
         return (t.shape, t.stride(), t.dtype)
@@ -287,7 +287,7 @@ def should_pad_bench_key(
 
 
 def should_pad_bench(
-    mat1: Tensor, mat2: Tensor, op, input: Optional[Tensor] = None
+    mat1: TensorBase, mat2: TensorBase, op, input: Optional[TensorBase] = None
 ) -> bool:
     if not has_triton():
         return False
@@ -406,7 +406,7 @@ def should_pad_bench(
         return should_pad
 
 
-def mm_pattern(mat1: Tensor, mat2: Tensor) -> Tensor:
+def mm_pattern(mat1: TensorBase, mat2: TensorBase) -> TensorBase:
     return aten.mm(mat1, mat2)
 
 
@@ -422,7 +422,7 @@ def should_pad_mm(match: Match) -> bool:
     )
 
 
-def mm_replace(mat1: Tensor, mat2: Tensor) -> Tensor:
+def mm_replace(mat1: TensorBase, mat2: TensorBase) -> TensorBase:
     m_padded_length = get_padded_length(mat1.shape[0], get_alignment_size(mat1))
     k_padded_length = get_padded_length(mat1.shape[1], get_alignment_size(mat1))
     n_padded_length = get_padded_length(mat2.shape[1], get_alignment_size(mat2))
@@ -431,12 +431,12 @@ def mm_replace(mat1: Tensor, mat2: Tensor) -> Tensor:
 
 
 def pad_mm(
-    mat1: Tensor,
-    mat2: Tensor,
+    mat1: TensorBase,
+    mat2: TensorBase,
     m_padded_length: int,
     k_padded_length: int,
     n_padded_length: int,
-) -> Tensor:
+) -> TensorBase:
     # mm_replace will go through pad_mm multiple times if multiple dimensions are needed to be padded
     if k_padded_length != 0:
         mat1 = pad_dim(mat1, k_padded_length, 1)
@@ -450,7 +450,7 @@ def pad_mm(
         return torch.ops.aten.mm(mat1, mat2)[:-m_padded_length, :]
 
 
-def bmm_pattern(mat1: Tensor, mat2: Tensor) -> Tensor:
+def bmm_pattern(mat1: TensorBase, mat2: TensorBase) -> TensorBase:
     return aten.bmm(mat1, mat2)
 
 
@@ -466,7 +466,7 @@ def should_pad_bmm(match: Match) -> bool:
     )
 
 
-def bmm_replace(mat1: Tensor, mat2: Tensor) -> Tensor:
+def bmm_replace(mat1: TensorBase, mat2: TensorBase) -> TensorBase:
     m_padded_length = get_padded_length(mat1.shape[1], get_alignment_size(mat1))
     k_padded_length = get_padded_length(mat1.shape[2], get_alignment_size(mat1))
     n_padded_length = get_padded_length(mat2.shape[2], get_alignment_size(mat2))
@@ -478,12 +478,12 @@ def bmm_replace(mat1: Tensor, mat2: Tensor) -> Tensor:
 
 
 def pad_bmm(
-    mat1: Tensor,
-    mat2: Tensor,
+    mat1: TensorBase,
+    mat2: TensorBase,
     m_padded_length: int,
     k_padded_length: int,
     n_padded_length: int,
-) -> Tensor:
+) -> TensorBase:
     # bmm_replace will go through pad_bmm multiple times if multiple dimensions are needed to be padded
     if k_padded_length != 0:
         mat1 = pad_dim(mat1, k_padded_length, 2)

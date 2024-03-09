@@ -127,11 +127,11 @@ def is_fake(x):
         any_fake = any(is_fake(x) for x in flattened_tensors)
         assert all_fake == any_fake, "got mixed fake and real tensors!"
         return all_fake
-    elif isinstance(x, torch.Tensor) and torch._is_functional_tensor(x):
+    elif isinstance(x, torch.TensorBase) and torch._is_functional_tensor(x):
         reapply_views = torch._C._functionalization_reapply_views_tls()
         unwrapped = torch._C._functorch._unwrap_functional_tensor(x, reapply_views)
         return is_fake(unwrapped)
-    elif isinstance(x, torch.Tensor) and is_functorch_wrapped_tensor(x):
+    elif isinstance(x, torch.TensorBase) and is_functorch_wrapped_tensor(x):
         unwrapped = torch._C._functorch.get_unwrapped(x)
         return is_fake(unwrapped)
     return False
@@ -148,11 +148,11 @@ def maybe_get_fake_mode(t):
         m = modes[0]
         assert all(m is x for x in modes)
         return m
-    elif isinstance(t, torch.Tensor) and torch._is_functional_tensor(t):
+    elif isinstance(t, torch.TensorBase) and torch._is_functional_tensor(t):
         reapply_views = torch._C._functionalization_reapply_views_tls()
         unwrapped = torch._C._functorch._unwrap_functional_tensor(t, reapply_views)
         return maybe_get_fake_mode(unwrapped)
-    elif isinstance(t, torch.Tensor) and is_functorch_wrapped_tensor(t):
+    elif isinstance(t, torch.TensorBase) and is_functorch_wrapped_tensor(t):
         unwrapped = torch._C._functorch.get_unwrapped(t)
         return maybe_get_fake_mode(unwrapped)
     return None
@@ -361,8 +361,10 @@ class FakeTensorConverter:
 def init_cuda_context():
     # Backward will error with cuda Fake Tensors if no cuda tensors have been initialized first
     if torch.cuda.is_available():
-        torch.empty(1, device="cuda") if torch.version.hip is None else torch.zeros(
-            1, device="cuda"
+        (
+            torch.empty(1, device="cuda")
+            if torch.version.hip is None
+            else torch.zeros(1, device="cuda")
         )
 
 
@@ -395,7 +397,7 @@ class FakeTensorConfig:
     debug = os.environ.get("TORCH_FAKE_TENSOR_DEBUG", "0") == "1"
 
 
-class FakeTensor(torch.Tensor):
+class FakeTensor(torch.TensorBase):
     """
     Meta tensors give you the ability to run PyTorch code without having to
     actually do computation through tensors allocated on a `meta` device.
@@ -406,7 +408,7 @@ class FakeTensor(torch.Tensor):
 
     fake_device: torch.device
     fake_mode: "FakeTensorMode"
-    constant: Optional[torch.Tensor]
+    constant: Optional[torch.TensorBase]
 
     # This memorizes the unbacked SymInt representing the number of nonzero
     # elements in this tensor.  This is helpful if you do something like
@@ -463,7 +465,7 @@ class FakeTensor(torch.Tensor):
 
     @staticmethod
     def __new__(cls, fake_mode, elem, device, constant=None):
-        self = torch.Tensor._make_subclass(
+        self = torch.TensorBase._make_subclass(
             cls,
             elem,
             elem.requires_grad,
@@ -549,7 +551,9 @@ class FakeTensor(torch.Tensor):
         # subclasses of tensors to dispatch, and any FakeTensor arguments
         # will be considered eligible.
         unrecognized_types = [
-            t for t in types if not issubclass(t, FakeTensor) and t is not torch.Tensor
+            t
+            for t in types
+            if not issubclass(t, FakeTensor) and t is not torch.TensorBase
         ]
         if unrecognized_types:
             not_implemented_log.debug(
@@ -695,7 +699,7 @@ class TensorMetadata:
     sparse_dim: Optional[int]
 
 
-def extract_tensor_metadata(t: torch.Tensor) -> "TensorMetadata":
+def extract_tensor_metadata(t: torch.TensorBase) -> "TensorMetadata":
     """
     Extract the TensorMetadata of a tensor.
     """
@@ -1059,7 +1063,7 @@ class FakeTensorMode(TorchDispatchMode):
                 if is_sparse_compressed(arg):
                     raise _BypassDispatchCache("sparse compressed tensor")
                 result.append(extract_tensor_metadata(arg))
-            elif isinstance(arg, torch.Tensor):
+            elif isinstance(arg, torch.TensorBase):
                 raise _BypassDispatchCache("non-fake tensor")
             elif isinstance(arg, (torch.SymBool, torch.SymInt, torch.SymFloat)):
                 raise _BypassDispatchCache("symbolic shape")
@@ -1119,7 +1123,7 @@ class FakeTensorMode(TorchDispatchMode):
         # Otherwise, create an entry that records the output tensor's metadata.
         view_idx = None
         if func.is_view:
-            idxs = [i for i, t in enumerate(args) if isinstance(t, torch.Tensor)]
+            idxs = [i for i, t in enumerate(args) if isinstance(t, torch.TensorBase)]
             assert len(idxs) == 1
             view_idx = idxs[0]
 
@@ -1279,7 +1283,7 @@ class FakeTensorMode(TorchDispatchMode):
             const_flat_args = [maybe_to_constant(a) for a in flat_args]
             const_args, const_kwargs = pytree.tree_unflatten(const_flat_args, args_spec)
             out = func(*const_args, **const_kwargs)
-            if type(out) is torch.Tensor and self.may_turn_const(out):
+            if type(out) is torch.TensorBase and self.may_turn_const(out):
                 # NB: not in_kernel_invocation_manager because we're doing real
                 # compute here
                 # NB: no_dispatch() here is VERY DANGEROUS (like, segfault
@@ -1310,7 +1314,7 @@ class FakeTensorMode(TorchDispatchMode):
         if func in self.lift_fns:
             assert len(kwargs) == 0 and len(args) == 1, f"{args} {kwargs}"
 
-            if type(args[0]) is torch.Tensor:
+            if type(args[0]) is torch.TensorBase:
                 return converter(self, args[0])
 
         # Recompute flat_arg_fake_tensors here again in case some of the inputs
@@ -1347,12 +1351,12 @@ class FakeTensorMode(TorchDispatchMode):
                 out = func(*const_args, **const_kwargs)
 
             flat_out = pytree.tree_leaves(out)
-            flat_out_tensors = [t for t in flat_out if isinstance(t, torch.Tensor)]
+            flat_out_tensors = [t for t in flat_out if isinstance(t, torch.TensorBase)]
             all_constant = all(self.may_turn_const(t) for t in flat_out_tensors)
 
             if all_constant:
                 return pytree.tree_map_only(
-                    torch.Tensor,
+                    torch.TensorBase,
                     lambda t: converter(self, t, make_constant=True),
                     out,
                 )
@@ -1503,9 +1507,9 @@ class FakeTensorMode(TorchDispatchMode):
     def check_for_subclass(self, flat_args):
         def check(x):
             return (
-                isinstance(x, torch.Tensor)
+                isinstance(x, torch.TensorBase)
                 and not isinstance(x, FakeTensor)
-                and type(x) is not torch.Tensor
+                and type(x) is not torch.TensorBase
                 and type(x) is not torch.nn.Parameter
             )
 
@@ -1522,7 +1526,7 @@ class FakeTensorMode(TorchDispatchMode):
         flat_arg_fake_tensors = []
 
         def validate(x):
-            if not isinstance(x, torch.Tensor):
+            if not isinstance(x, torch.TensorBase):
                 return x
 
             nonlocal flat_arg_fake_tensors
@@ -1560,7 +1564,7 @@ class FakeTensorMode(TorchDispatchMode):
             nonlocal common_device
             nonlocal has_scalar_only_inputs
 
-            if isinstance(e, torch.Tensor) and common_device is None:
+            if isinstance(e, torch.TensorBase) and common_device is None:
                 (
                     common_device,
                     has_scalar_only_inputs,
@@ -1573,7 +1577,7 @@ class FakeTensorMode(TorchDispatchMode):
                 )
 
             if (
-                isinstance(e, torch.Tensor)
+                isinstance(e, torch.TensorBase)
                 and not self.is_our_fake(e)
                 and converter is not None
             ):
@@ -1707,7 +1711,7 @@ def run_fallback_kernel(
     storages = set()
 
     for e in flat_args:
-        if isinstance(e, torch.Tensor):
+        if isinstance(e, torch.TensorBase):
             if not e.is_sparse:
                 storages.add(e._typed_storage()._cdata)
 
@@ -1718,13 +1722,13 @@ def run_fallback_kernel(
 
     def map_out(e):
         if id(e) not in inp_impls and (
-            isinstance(e, torch.Tensor)
+            isinstance(e, torch.TensorBase)
             and not e.is_sparse
             and e._typed_storage()._cdata in storages
         ):
             raise orig_not_implemented_exception
 
-        if isinstance(e, torch.Tensor):
+        if isinstance(e, torch.TensorBase):
             if id(e) in inp_impls:
                 return inp_impls[id(e)]
             else:
@@ -1761,11 +1765,11 @@ class FakeCopyMode(TorchFunctionMode):
         kwargs = kwargs if kwargs else {}
 
         # clone will get called in Parameter deepcopy
-        if func == torch._C.Tensor.clone:
+        if func == torch._C.TensorBase.clone:
             return func(
                 self.fake_mode.from_tensor(args[0], static_shapes=True), **kwargs
             )
-        elif func == torch.Tensor.__deepcopy__:
+        elif func == torch.TensorBase.__deepcopy__:
             assert len(args) == 2 and len(kwargs) == 0
             tensor, memo = args
 

@@ -36,7 +36,7 @@ from .resharding import (
 __all__: List[str] = ["create_read_items_for_chunk_list"]
 
 
-def _create_chunk_from_tensor(tensor: torch.Tensor) -> ChunkStorageMetadata:
+def _create_chunk_from_tensor(tensor: torch.TensorBase) -> ChunkStorageMetadata:
     return ChunkStorageMetadata(
         offsets=torch.Size([0] * len(tensor.size())), sizes=tensor.size()
     )
@@ -100,7 +100,7 @@ def _create_write_item_for_shard(
     )
 
 
-def _create_write_item_for_tensor(fqn: str, tensor: torch.Tensor) -> WriteItem:
+def _create_write_item_for_tensor(fqn: str, tensor: torch.TensorBase) -> WriteItem:
     offsets = torch.Size([0] * len(tensor.size()))
     return WriteItem(
         index=MetadataIndex(fqn, offsets),
@@ -209,7 +209,7 @@ def _create_default_metadata_only_plan(state_dict: STATE_DICT_TYPE) -> SavePlan:
         elif isinstance(obj, ShardedTensor):
             for shard_md in obj.metadata().shards_metadata:
                 requests.append(_create_write_item_for_shard(fqn, obj, shard_md))
-        elif isinstance(obj, torch.Tensor):
+        elif isinstance(obj, torch.TensorBase):
             requests.append(_create_write_item_for_tensor(fqn, obj))
         else:
             requests.append(_create_write_item_for_bytesio(fqn, obj))
@@ -224,7 +224,7 @@ def _create_write_items(fqn: str, object: Any) -> List[WriteItem]:
             _create_write_item_for_shard(fqn, object, shard.metadata)
             for shard in object.local_shards()
         ]
-    elif isinstance(object, torch.Tensor):
+    elif isinstance(object, torch.TensorBase):
         return [_create_write_item_for_tensor(fqn, object)]
     else:
         return [_create_write_item_for_bytesio(fqn, object)]
@@ -241,14 +241,14 @@ def _create_chunk_from_dtensor(tensor: DTensor) -> ChunkStorageMetadata:
     )
 
 
-def _create_chunk_list(tensor: torch.Tensor) -> List[ChunkStorageMetadata]:
+def _create_chunk_list(tensor: torch.TensorBase) -> List[ChunkStorageMetadata]:
     if isinstance(tensor, DTensor):
         local_chunks = [_create_chunk_from_dtensor(tensor)]
     elif isinstance(tensor, ShardedTensor):
         local_chunks = [
             _chunk_for_shard(shard.metadata) for shard in tensor.local_shards()
         ]
-    elif isinstance(tensor, torch.Tensor):
+    elif isinstance(tensor, torch.TensorBase):
         local_chunks = [_create_chunk_from_tensor(tensor)]
     else:
         raise ValueError(
@@ -284,7 +284,7 @@ def _create_read_items(fqn: str, md: STORAGE_TYPES, obj: Any) -> List[ReadItem]:
 
 def _init_state_dict(state_dict: STATE_DICT_TYPE) -> None:
     state_dict_assigned_storage = tree_map_only(
-        torch.Tensor, lambda v: _init_meta_tensor(v), state_dict
+        torch.TensorBase, lambda v: _init_meta_tensor(v), state_dict
     )
     # The inplace version of tree_map_only, tree_map_only_ doesn't seem to work.
     # So we need to temporariy update the each element in the state dict with meta tensor.
@@ -314,7 +314,7 @@ def _init_meta_tensor(value: Any) -> Any:
                 stride=value.stride(),
             )
             return dtensor
-        elif isinstance(value, torch.Tensor):
+        elif isinstance(value, torch.TensorBase):
             tensor = torch.empty_like(value, device=device)
             return tensor
         else:

@@ -1,15 +1,16 @@
 # mypy: ignore-errors
 
-import torch
 from copy import deepcopy
-from torch.utils._pytree import tree_map
+
+import torch
 
 # TODO: Move LoggingTensor here.
 from torch.testing._internal.logging_tensor import LoggingTensor
+from torch.utils._pytree import tree_map
 
 
 # Base class for wrapper-style tensors.
-class WrapperTensor(torch.Tensor):
+class WrapperTensor(torch.TensorBase):
     @staticmethod
     def __new__(cls, *args, **kwargs):
         t, kwargs = cls.get_wrapper_properties(*args, **kwargs)
@@ -29,7 +30,7 @@ class WrapperTensor(torch.Tensor):
         # Ignore memory_format and pin memory for now as I don't know how to
         # safely access them on a Tensor (if possible??)
 
-        wrapper = torch.Tensor._make_wrapper_subclass(cls, size, **kwargs)
+        wrapper = torch.TensorBase._make_wrapper_subclass(cls, size, **kwargs)
         wrapper._validate_methods()
         return wrapper
 
@@ -45,12 +46,21 @@ class WrapperTensor(torch.Tensor):
         # Changing these on the python side is wrong as it would not be properly reflected
         # on the c++ side
         # This doesn't catch attributes set in the __init__
-        forbidden_overrides = ["size", "stride", "dtype", "layout", "device", "requires_grad"]
+        forbidden_overrides = [
+            "size",
+            "stride",
+            "dtype",
+            "layout",
+            "device",
+            "requires_grad",
+        ]
         for el in forbidden_overrides:
-            if getattr(self.__class__, el) is not getattr(torch.Tensor, el):
-                raise RuntimeError(f"Subclass {self.__class__.__name__} is overwriting the "
-                                   f"property {el} but this is not allowed as such change would "
-                                   "not be reflected to c++ callers.")
+            if getattr(self.__class__, el) is not getattr(torch.TensorBase, el):
+                raise RuntimeError(
+                    f"Subclass {self.__class__.__name__} is overwriting the "
+                    f"property {el} but this is not allowed as such change would "
+                    "not be reflected to c++ callers."
+                )
 
 
 class DiagTensorBelow(WrapperTensor):
@@ -82,13 +92,19 @@ class DiagTensorBelow(WrapperTensor):
                 return e.diag.diag() if isinstance(e, DiagTensorBelow) else e
 
             def wrap(e):
-                if isinstance(e, torch.Tensor) and e.ndim == 1:
+                if isinstance(e, torch.TensorBase) and e.ndim == 1:
                     return DiagTensorBelow(e)
-                if isinstance(e, torch.Tensor) and e.ndim == 2 and e.count_nonzero() == e.diag().count_nonzero():
+                if (
+                    isinstance(e, torch.TensorBase)
+                    and e.ndim == 2
+                    and e.count_nonzero() == e.diag().count_nonzero()
+                ):
                     return DiagTensorBelow(e.diag())
                 return e
 
-            rs = tree_map(wrap, func(*tree_map(unwrap, args), **tree_map(unwrap, kwargs or {})))
+            rs = tree_map(
+                wrap, func(*tree_map(unwrap, args), **tree_map(unwrap, kwargs or {}))
+            )
             return rs
 
     def __repr__(self):
@@ -106,7 +122,9 @@ class SparseTensor(WrapperTensor):
         self.indices = indices
 
     def __repr__(self):
-        return super().__repr__(tensor_contents=f"values={self.values}, indices={self.indices}")
+        return super().__repr__(
+            tensor_contents=f"values={self.values}, indices={self.indices}"
+        )
 
     def sparse_to_dense(self):
         res = torch.zeros(self.size(), dtype=self.values.dtype)
@@ -135,9 +153,11 @@ class SparseTensor(WrapperTensor):
         # Wrap back all Tensors into our custom class
         def wrap(e):
             # Check for zeros and use that to get indices
-            return SparseTensor.from_dense(e) if isinstance(e, torch.Tensor) else e
+            return SparseTensor.from_dense(e) if isinstance(e, torch.TensorBase) else e
 
-        rs = tree_map(wrap, func(*tree_map(unwrap, args), **tree_map(unwrap, kwargs or {})))
+        rs = tree_map(
+            wrap, func(*tree_map(unwrap, args), **tree_map(unwrap, kwargs or {}))
+        )
         return rs
 
     # To show how things happen later
@@ -154,12 +174,10 @@ class SparseTensor(WrapperTensor):
 
 
 # Example non-wrapper subclass that stores extra state.
-class NonWrapperTensor(torch.Tensor):
+class NonWrapperTensor(torch.TensorBase):
     def __new__(cls, data):
-        t = torch.Tensor._make_subclass(cls, data)
-        t.extra_state = {
-            'last_func_called': None
-        }
+        t = torch.TensorBase._make_subclass(cls, data)
+        t.extra_state = {"last_func_called": None}
         return t
 
     @classmethod
@@ -169,11 +187,11 @@ class NonWrapperTensor(torch.Tensor):
         if isinstance(result, cls):
             # Do something with the extra state. For the example here, just store the name of the
             # last function called (skip for deepcopy so the copy has the same extra state).
-            if func is torch.Tensor.__deepcopy__:
+            if func is torch.TensorBase.__deepcopy__:
                 result.extra_state = deepcopy(args[0].extra_state)
             else:
                 result.extra_state = {
-                    'last_func_called': func.__name__,
+                    "last_func_called": func.__name__,
                 }
 
         return result
@@ -186,7 +204,7 @@ class NonWrapperTensor(torch.Tensor):
 # Class used to store info about subclass tensors used in testing.
 class SubclassInfo:
 
-    __slots__ = ['name', 'create_fn', 'closed_under_ops']
+    __slots__ = ["name", "create_fn", "closed_under_ops"]
 
     def __init__(self, name, create_fn, closed_under_ops=True):
         self.name = name
@@ -195,24 +213,21 @@ class SubclassInfo:
 
 
 subclass_db = {
-    torch.Tensor: SubclassInfo(
-        'base_tensor', create_fn=torch.randn
-    ),
+    torch.TensorBase: SubclassInfo("base_tensor", create_fn=torch.randn),
     NonWrapperTensor: SubclassInfo(
-        'non_wrapper_tensor',
-        create_fn=lambda shape: NonWrapperTensor(torch.randn(shape))
+        "non_wrapper_tensor",
+        create_fn=lambda shape: NonWrapperTensor(torch.randn(shape)),
     ),
     LoggingTensor: SubclassInfo(
-        'logging_tensor',
-        create_fn=lambda shape: LoggingTensor(torch.randn(shape))
+        "logging_tensor", create_fn=lambda shape: LoggingTensor(torch.randn(shape))
     ),
     SparseTensor: SubclassInfo(
-        'sparse_tensor',
-        create_fn=lambda shape: SparseTensor.from_dense(torch.randn(shape).relu())
+        "sparse_tensor",
+        create_fn=lambda shape: SparseTensor.from_dense(torch.randn(shape).relu()),
     ),
     DiagTensorBelow: SubclassInfo(
-        'diag_tensor_below',
+        "diag_tensor_below",
         create_fn=lambda shape: DiagTensorBelow(torch.randn(shape)),
-        closed_under_ops=False  # sparse semantics
+        closed_under_ops=False,  # sparse semantics
     ),
 }

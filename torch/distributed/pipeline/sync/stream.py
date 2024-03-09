@@ -8,13 +8,23 @@
 CPU device.
 """
 from contextlib import contextmanager
-from typing import Generator, List, Union, cast
+from typing import cast, Generator, List, Union
 
 import torch
 
-__all__: List[str] = ["CPUStreamType", "new_stream", "current_stream", "default_stream",
-                      "use_device", "use_stream", "get_device", "wait_stream", "record_stream",
-                      "is_cuda", "as_cuda"]
+__all__: List[str] = [
+    "CPUStreamType",
+    "new_stream",
+    "current_stream",
+    "default_stream",
+    "use_device",
+    "use_stream",
+    "get_device",
+    "wait_stream",
+    "record_stream",
+    "is_cuda",
+    "as_cuda",
+]
 
 
 class CPUStreamType:
@@ -93,7 +103,7 @@ def wait_stream(source: AbstractStream, target: AbstractStream) -> None:
     # If the target is CPU, synchronization is not required.
 
 
-def record_stream(tensor: torch.Tensor, stream: AbstractStream) -> None:
+def record_stream(tensor: torch.TensorBase, stream: AbstractStream) -> None:
     """:meth:`torch.Tensor.record_stream` for either CPU or CUDA stream."""
     if is_cuda(stream):
         # NOTE(sublee): record_stream() on a shifted view tensor throws

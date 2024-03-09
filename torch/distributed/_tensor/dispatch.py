@@ -55,8 +55,8 @@ def is_same_size_handler(
     args: Tuple[object, ...],
     kwargs: Dict[str, object],
 ) -> bool:
-    lhs = cast(torch.Tensor, args[0])
-    rhs = cast(torch.Tensor, args[1])
+    lhs = cast(torch.TensorBase, args[0])
+    rhs = cast(torch.TensorBase, args[1])
     return lhs.shape == rhs.shape
 
 
@@ -134,7 +134,7 @@ class OpDispatcher:
                 local_results: object = None
             else:
 
-                def default_tensor(spec: DTensorSpec) -> torch.Tensor:
+                def default_tensor(spec: DTensorSpec) -> torch.TensorBase:
                     if spec.tensor_meta is not None:
                         shape = spec.tensor_meta.shape
                         dtype = spec.tensor_meta.dtype
@@ -248,7 +248,7 @@ class OpDispatcher:
         for i, arg_spec in enumerate(op_info.flat_args_schema):
             reshard_arg_spec = flatten_args_schema_to_reshard[i]
             if isinstance(arg_spec, DTensorSpec):
-                local_tensor = cast(torch.Tensor, op_info.local_args[i])
+                local_tensor = cast(torch.TensorBase, op_info.local_args[i])
                 if arg_spec != reshard_arg_spec:
                     resharded_local_tensor = redistribute_local_tensor(
                         local_tensor, arg_spec, reshard_arg_spec
@@ -296,7 +296,7 @@ class OpDispatcher:
                         )
                 else:
                     mesh = arg.device_mesh
-            elif isinstance(arg, torch.Tensor):
+            elif isinstance(arg, torch.TensorBase):
                 if arg.ndim == 0 or self._allow_implicit_replication:
                     mesh = mesh or try_find_mesh_from_args(op_call, args_list)
                     # scalar tensor can be safely treated as replicated
@@ -330,7 +330,7 @@ class OpDispatcher:
                         )
                 else:
                     mesh = v.device_mesh
-            elif isinstance(v, torch.Tensor):
+            elif isinstance(v, torch.TensorBase):
                 raise RuntimeError(
                     f"{op_call}: got mixed torch.Tensor and DTensor, need to convert all"
                     " torch.Tensor to DTensor before calling distributed operators!"
@@ -344,9 +344,11 @@ class OpDispatcher:
             mesh,
             OpSchema(
                 op_call,
-                pytree.tree_unflatten(args_schema, args_spec)
-                if args_spec
-                else tuple(args_schema),
+                (
+                    pytree.tree_unflatten(args_schema, args_spec)
+                    if args_spec
+                    else tuple(args_schema)
+                ),
                 kwargs_schema,
                 schema_info=runtime_schema_info,
             ),
@@ -359,7 +361,7 @@ class OpDispatcher:
 
     @staticmethod
     def wrap(res: object, spec: OutputSpecType) -> object:
-        if isinstance(res, torch.Tensor):
+        if isinstance(res, torch.TensorBase):
             if spec is not None:
                 assert isinstance(
                     spec, DTensorSpec

@@ -19,7 +19,7 @@ from unittest.mock import patch
 import torch
 import torch.fx.traceback as fx_traceback
 import torch.utils._pytree as pytree
-from torch import Tensor
+from torch import TensorBase
 from torch._decomp.decompositions_for_rng import PhiloxStateTracker
 from torch._guards import detect_fake_mode
 from torch._prims_common import CUDARngStateHelper
@@ -141,7 +141,7 @@ def fn_prepped_for_autograd(
             ]
             # Also, only tensor outputs should participate in the backward
             # (in particular, Symint outputs in the forward graph shouldn't get tangents)
-            and issubclass(meta.output_info[i].raw_type, Tensor)
+            and issubclass(meta.output_info[i].raw_type, TensorBase)
             and meta.output_info[i].requires_grad
             for (i, x) in enumerate(outs)
         ]
@@ -159,7 +159,7 @@ def fn_prepped_for_autograd(
         # (syncing mutated inputs before calling autograd.grad())
         # In theory, we could make the autograd engine do this automatically, although that probably isn't any cleaner.
         for arg in args_maybe_cloned:
-            if not isinstance(arg, Tensor):
+            if not isinstance(arg, TensorBase):
                 continue
             sync_functional_tensor(arg)
 
@@ -193,7 +193,7 @@ def create_joint(fn: Callable, *, aot_config: AOTConfig) -> Any:
         # Note that we're not using primals here,
         # being carefully not to pass any mutated inputs into autograd.grad()
         for p in primals:
-            is_grad_tensor = isinstance(p, Tensor) and p.requires_grad
+            is_grad_tensor = isinstance(p, TensorBase) and p.requires_grad
             inputs_needs_grads.append(is_grad_tensor)
             if is_grad_tensor:
                 grad_primals.append(p)
@@ -202,7 +202,7 @@ def create_joint(fn: Callable, *, aot_config: AOTConfig) -> Any:
         needed_outs = []
         needed_tangents = []
         for out, tangent in zip(outs_to_grad, tangents):
-            if isinstance(out, Tensor) and out.requires_grad:
+            if isinstance(out, TensorBase) and out.requires_grad:
                 # A bit sketchy, but fixes e.g. test_aot_autograd_exhaustive_matmul_cpu_float32
                 # The issue is that we are sensitive to decomps that don't accurately maintain
                 # their output's _base.shape compared to eager mode, and this helps mitigate a bit.
@@ -220,7 +220,7 @@ def create_joint(fn: Callable, *, aot_config: AOTConfig) -> Any:
 
         if config.functionalize_rng_ops:
             PhiloxStateTracker.mark_beginning_of_backward()
-        backward_out: Tuple[Tensor, ...] = tuple()
+        backward_out: Tuple[TensorBase, ...] = tuple()
         # Call the backwards pass
         if grad_primals:
             with fx_traceback.preserve_node_meta():
@@ -464,7 +464,7 @@ def create_functionalized_fn(
             for i, (inpt_old, inpt_f) in enumerate(
                 zip(args, f_args) if not trace_joint else zip(args[0], f_args[0])
             ):
-                if not isinstance(inpt_f, torch.Tensor):
+                if not isinstance(inpt_f, torch.TensorBase):
                     continue
                 assert is_fun(inpt_f)
                 inpt_new = from_fun(inpt_f)

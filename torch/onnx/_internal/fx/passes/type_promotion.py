@@ -80,16 +80,13 @@ class TypePromotionRule(abc.ABC):
     # A class that overrides __eq__() and does not define __hash__() will have its __hash__() implicitly set to None.
     # Ref: https://docs.python.org/3/reference/datamodel.html#object.__hash__
     @abc.abstractmethod
-    def __hash__(self) -> int:
-        ...
+    def __hash__(self) -> int: ...
 
     @abc.abstractmethod
-    def __repr__(self):
-        ...
+    def __repr__(self): ...
 
     @abc.abstractmethod
-    def __eq__(self, other: object) -> bool:
-        ...
+    def __eq__(self, other: object) -> bool: ...
 
     def is_valid(self) -> bool:
         """Check if the rule is valid."""
@@ -293,7 +290,7 @@ class ReductionTypePromotionRule(TypePromotionRule):
         self, args: tuple, kwargs: dict
     ) -> TypePromotionSnapshot:
         assert len(args) >= 1 and isinstance(
-            arg := args[0], torch.Tensor
+            arg := args[0], torch.TensorBase
         ), f"Reduction op torch.ops.{self.namespace}.{self.op_name} expects at least one argument"
         dtype: Optional[torch.dtype] = kwargs.get("dtype", None)
 
@@ -330,7 +327,7 @@ class AllOrAnyReductionTypePromotionRule(ReductionTypePromotionRule):
         self, args: tuple, kwargs: dict
     ) -> TypePromotionSnapshot:
         assert len(args) >= 1 and isinstance(
-            arg := args[0], torch.Tensor
+            arg := args[0], torch.TensorBase
         ), f"Reduction op torch.ops.{self.namespace}.{self.op_name} expects at least one argument"
         computation_dtype = torch.bool
         # Preserves uint8 -- probably a legacy mask thing
@@ -353,7 +350,7 @@ class SumLikeReductionTypePromotionRule(ReductionTypePromotionRule):
         self, args: tuple, kwargs: dict
     ) -> TypePromotionSnapshot:
         assert len(args) >= 1 and isinstance(
-            arg := args[0], torch.Tensor
+            arg := args[0], torch.TensorBase
         ), f"Reduction op torch.ops.{self.namespace}.{self.op_name} expects at least one argument"
         dtype: Optional[torch.dtype] = kwargs.get("dtype", None)
         # The below logic is copied from `torch/_refs/__init__.py` reduction ops impl.
@@ -1429,7 +1426,7 @@ class _TypePromotionInterpreter(torch.fx.Interpreter):
             f"Got {type(new_node_val)}, expect {type(node_val)}."
         )
 
-        if isinstance(node_val, torch.Tensor):
+        if isinstance(node_val, torch.TensorBase):
             prev_node_dtype = node_val.dtype
 
             assert prev_node_dtype == expected_out_dtype, (
@@ -1490,7 +1487,7 @@ class _TypePromotionInterpreter(torch.fx.Interpreter):
 
         if isinstance(fx_arg, torch.fx.Node):
             arg_val = self.env[fx_arg]
-            if isinstance(arg_val, torch.Tensor):
+            if isinstance(arg_val, torch.TensorBase):
                 if (old_dtype := arg_val.dtype) != dtype:
                     # Promote tensor to dtype.
                     graph = node.graph

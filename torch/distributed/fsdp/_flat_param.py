@@ -26,7 +26,7 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 import torch.nn.functional as F
-from torch import Tensor
+from torch import TensorBase
 from torch.distributed.fsdp._common_utils import (
     _FSDPDeviceHandle,
     _named_parameters_with_duplicates,
@@ -199,7 +199,7 @@ class _FlatParameterMeta(_ParameterMeta):
     # instances that have the _is_flat_param flag for BC
     def __instancecheck__(self, instance):
         # NB: do NOT test the super implementation
-        return isinstance(instance, torch.Tensor) and getattr(
+        return isinstance(instance, torch.TensorBase) and getattr(
             instance, "_is_flat_param", False
         )
 
@@ -342,19 +342,19 @@ class FlatParameter(nn.Parameter, metaclass=_FlatParameterMeta):
     _shared_param_infos: Tuple[SharedParamInfo, ...]
     _modules: Set[nn.Module]
     _shard_numel_padded: int
-    _local_shard: Tensor
-    _full_param_padded: Tensor
-    _full_prec_full_param_padded: Tensor
+    _local_shard: TensorBase
+    _full_param_padded: TensorBase
+    _full_prec_full_param_padded: TensorBase
     # Eager only
     _post_backward_hook_state: Tuple[Any, Any]
     # Compile only
     _post_backward_hook_handle: Any
-    _mp_shard: Tensor
-    _cpu_grad: Tensor
-    _saved_grad_shard: Tensor
+    _mp_shard: TensorBase
+    _cpu_grad: TensorBase
+    _saved_grad_shard: TensorBase
     _params: Optional[List[nn.Parameter]]
     _shared_params: Optional[List[nn.Parameter]]
-    _tensors: Optional[List[Optional[Tensor]]]
+    _tensors: Optional[List[Optional[TensorBase]]]
     _is_grad_none_mask: Optional[List[bool]]
 
     _is_padding_mask: List[bool]
@@ -481,7 +481,7 @@ class FlatParamHandle:
     ##################
     def __init__(
         self,
-        params: Sequence[Union[nn.Parameter, Tensor]],
+        params: Sequence[Union[nn.Parameter, TensorBase]],
         fully_sharded_module: nn.Module,
         device: torch.device,
         sharding_strategy: HandleShardingStrategy,
@@ -554,7 +554,7 @@ class FlatParamHandle:
         # `self.flat_param` to point to the sharded flat parameter since what
         # it points to parameterizes behavior. We use the following attribute
         # to track which tensor data the parameters are unsharded views into.
-        self._unsharded_flat_param_for_skipped_views: Optional[Tensor] = None
+        self._unsharded_flat_param_for_skipped_views: Optional[TensorBase] = None
         # The index in the state's `all_handles`, which must be the
         # same across ranks for the execution order validation to work
         self._handle_index: Optional[int] = None
@@ -586,7 +586,7 @@ class FlatParamHandle:
 
     def _init_setattr_fns(self):
         use_unsafe_setattr = os.environ.get(_FSDP_USE_UNSAFE_SETATTR, "") == "1"
-        self._setattr_tensor: Callable[[nn.Module, str, Tensor], None]
+        self._setattr_tensor: Callable[[nn.Module, str, TensorBase], None]
         self._setattr_param: Callable[[nn.Module, str, nn.Parameter], None]
         if use_unsafe_setattr:
             self._setattr_tensor = _unsafe_setattr_tensor
@@ -604,7 +604,7 @@ class FlatParamHandle:
 
     def _init_flat_param_and_metadata(
         self,
-        params: List[Union[Tensor, nn.Parameter]],
+        params: List[Union[TensorBase, nn.Parameter]],
         module: nn.Module,
         aligned_numel: int,
         use_orig_params: bool,
@@ -639,10 +639,10 @@ class FlatParamHandle:
         fqns: List[str] = []
         shared_param_infos: List[SharedParamInfo] = []
         shared_param_memo: Dict[
-            Union[Tensor, nn.Parameter], Tuple[nn.Module, str, str]
+            Union[TensorBase, nn.Parameter], Tuple[nn.Module, str, str]
         ] = {}
-        params_to_flatten: List[Union[Tensor, nn.Parameter]] = []
-        shared_params: List[Union[Tensor, nn.Parameter]] = []
+        params_to_flatten: List[Union[TensorBase, nn.Parameter]] = []
+        shared_params: List[Union[TensorBase, nn.Parameter]] = []
         param_extensions: List[Any] = []
         is_padding_mask: List[bool] = []
         total_numel = total_numel_without_padding = 0
@@ -753,7 +753,7 @@ class FlatParamHandle:
         )
 
     def _validate_tensors_to_flatten(
-        self, tensors: List[Union[Tensor, nn.Parameter]]
+        self, tensors: List[Union[TensorBase, nn.Parameter]]
     ) -> Tuple:
         """Validate the tensors to flatten and returns any necessary metadata."""
         dtype: Optional[torch.dtype] = None
@@ -793,9 +793,9 @@ class FlatParamHandle:
 
     def flatten_tensors(
         self,
-        tensors: List[Tensor],
+        tensors: List[TensorBase],
         aligned_numel: int,
-    ) -> Tensor:
+    ) -> TensorBase:
         """
         Flatten ``tensors`` into a single flat tensor.
 
@@ -815,7 +815,7 @@ class FlatParamHandle:
                 f"Expects non-negative `aligned_numel` but got {aligned_numel}"
             )
         dtype, _, device = self._validate_tensors_to_flatten(tensors)
-        flat_tensors: List[Tensor] = []
+        flat_tensors: List[TensorBase] = []
         if aligned_numel > 0:
             total_numel = 0
             for tensor in tensors:
@@ -843,7 +843,7 @@ class FlatParamHandle:
 
     def flatten_tensors_into_flat_param(
         self,
-        tensors: List[Tensor],
+        tensors: List[TensorBase],
         aligned_numel: int,
         requires_grad: bool,
     ) -> FlatParameter:
@@ -1030,10 +1030,10 @@ class FlatParamHandle:
 
     @staticmethod
     def _get_unpadded_shard(
-        tensor: Tensor,
+        tensor: TensorBase,
         rank: int,
         world_size: int,
-    ) -> Tuple[Tensor, int]:
+    ) -> Tuple[TensorBase, int]:
         """
         Return the unpadded shard of ``tensor`` for the given ``rank`` and ``world_size``.
 
@@ -1059,10 +1059,10 @@ class FlatParamHandle:
 
     @staticmethod
     def _get_shard(
-        tensor: Tensor,
+        tensor: TensorBase,
         rank: int,
         world_size: int,
-    ) -> Tuple[Tensor, int]:
+    ) -> Tuple[TensorBase, int]:
         """
         Return the shard of ``tensor`` with padding for the given ``rank`` and ``world_size`` and the numel padded for that shard.
 
@@ -1078,7 +1078,7 @@ class FlatParamHandle:
         return shard, numel_to_pad
 
     @staticmethod
-    def _get_sharded_size(tensor: Tensor, rank: int, world_size: int) -> torch.Size:
+    def _get_sharded_size(tensor: TensorBase, rank: int, world_size: int) -> torch.Size:
         """
         Return the shape of ``tensor`` after sharding including padding.
 
@@ -1334,7 +1334,7 @@ class FlatParamHandle:
         _alloc_storage(unsharded_flat_param, flat_param._padded_unsharded_size)  # type: ignore[attr-defined]
         return unsharded_flat_param
 
-    def _get_padded_unsharded_flat_param(self) -> torch.Tensor:
+    def _get_padded_unsharded_flat_param(self) -> torch.TensorBase:
         """
         Return a reference to the padded unsharded flat parameter depending on the calling context.
 
@@ -1365,8 +1365,8 @@ class FlatParamHandle:
 
     def _all_gather_flat_param(
         self,
-        padded_unsharded_flat_param: Tensor,
-    ) -> Tensor:
+        padded_unsharded_flat_param: TensorBase,
+    ) -> TensorBase:
         """
         All-gather the handle's flat parameter to the destination ``padded_unsharded_flat_param``.
 
@@ -1414,7 +1414,7 @@ class FlatParamHandle:
 
     def _use_unsharded_flat_param(
         self,
-        padded_unsharded_flat_param: torch.Tensor,
+        padded_unsharded_flat_param: torch.TensorBase,
     ) -> None:
         """
         Switch to use the *unpadded* unsharded flat parameter.
@@ -1800,8 +1800,8 @@ class FlatParamHandle:
     @no_type_check
     def _get_unflat_views_unaligned(
         self,
-        tensor: Optional[torch.Tensor] = None,
-    ) -> Iterator[Tensor]:
+        tensor: Optional[torch.TensorBase] = None,
+    ) -> Iterator[TensorBase]:
         """
         Return unflattened ``Tensor`` views into ``tensor``.
 
@@ -1831,8 +1831,8 @@ class FlatParamHandle:
     @no_type_check
     def _get_unflat_views_aligned(
         self,
-        tensor: Optional[Tensor] = None,
-    ) -> List[Tensor]:
+        tensor: Optional[TensorBase] = None,
+    ) -> List[TensorBase]:
         """
         Return unflattened ``Tensor`` views into ``tensor`` with handling for padding.
 
@@ -1843,11 +1843,11 @@ class FlatParamHandle:
         flat_param = self.flat_param
         if tensor is None:
             tensor = flat_param
-        splits: List[Tensor] = torch.split(
+        splits: List[TensorBase] = torch.split(
             tensor, flat_param._numels_with_padding, dim=0
         )
         idx = 0
-        views: List[Tensor] = []
+        views: List[TensorBase] = []
         for split, is_padding in zip(splits, flat_param._is_padding_mask):
             if is_padding:
                 continue
@@ -1909,7 +1909,7 @@ class FlatParamHandle:
                     nn.Parameter(view, requires_grad=flat_param.requires_grad),
                 )
             else:  # `as_params=False`
-                param_var: Tensor = view
+                param_var: TensorBase = view
                 if self._use_orig_params:
                     if self._training_state == HandleTrainingState.FORWARD:
                         # Save the `Tensor` for the pre-backward
@@ -1935,7 +1935,7 @@ class FlatParamHandle:
             prim_module,
             _,
         ) in enumerate(self.flat_param._shared_param_infos):
-            prim_param: Union[Tensor, nn.Parameter] = getattr(
+            prim_param: Union[TensorBase, nn.Parameter] = getattr(
                 prim_module, prim_param_name
             )
             _p_assert(
@@ -2308,8 +2308,8 @@ class FlatParamHandle:
 
     def _writeback_tensor(
         self,
-        src_tensor: Optional[Tensor],
-        dst_tensor: Tensor,
+        src_tensor: Optional[TensorBase],
+        dst_tensor: TensorBase,
         tensor_index: int,
         expected_shape: torch.Size,
         offset: int,
@@ -2412,7 +2412,7 @@ class FlatParamHandle:
             {spi.module for spi in self.flat_param._shared_param_infos}
         )
 
-    def is_sharded(self, tensor: Tensor) -> bool:
+    def is_sharded(self, tensor: TensorBase) -> bool:
         """
         Return whether ``tensor`` is *currently* sharded.
 
@@ -2469,14 +2469,14 @@ class FlatParamHandle:
         return fqns_in_shard
 
     @property
-    def sharded_grad(self) -> Optional[Tensor]:
+    def sharded_grad(self) -> Optional[TensorBase]:
         """Return the handle's sharded gradient."""
         flat_param = self.flat_param
         # Priority for non-`None`: `_cpu_grad` > `_saved_grad_shard` > `grad`
         # - CPU offloading: `_cpu_grad`
         # - No CPU offloading + sharded strategies: `_saved_grad_shard`
         # - No CPU offloading + `NO_SHARD`: `grad`
-        grad: Optional[Tensor]
+        grad: Optional[TensorBase]
         if hasattr(flat_param, "_cpu_grad"):
             grad = flat_param._cpu_grad  # type: ignore[attr-defined]
         elif hasattr(flat_param, "_saved_grad_shard"):
@@ -2529,20 +2529,20 @@ class FlatParamHandle:
     def _check_sharded_strategy(self):
         _p_assert(self.uses_sharded_strategy, "Expects sharded strategy")
 
-    def _check_on_compute_device(self, tensor: Tensor):
+    def _check_on_compute_device(self, tensor: TensorBase):
         _p_assert(
             tensor.device == self.device,
             f"Expects tensor to be on the compute device {self.device}, was on {tensor.device}",
         )
 
-    def _check_on_cpu(self, tensor: Tensor):
+    def _check_on_cpu(self, tensor: TensorBase):
         _p_assert(
             tensor.device == torch.device("cpu"),
             f"Expects tensor to be on CPU but got {tensor.device}",
         )
 
     @staticmethod
-    def _check_storage_freed(tensor: Tensor):
+    def _check_storage_freed(tensor: TensorBase):
         # Compile does not resize during trace
         if not torch.distributed._functional_collectives.is_torchdynamo_compiling():
             _p_assert(
@@ -2551,7 +2551,7 @@ class FlatParamHandle:
             )
 
     @staticmethod
-    def _check_storage_allocated(tensor: Tensor):
+    def _check_storage_allocated(tensor: TensorBase):
         _p_assert(_storage_size_allocated(tensor), "Expects storage to be allocated")
 
     def _check_low_precision_shard(self):
@@ -2569,7 +2569,7 @@ class FlatParamHandle:
             f"Expects the low precision shard to be on {self.device} but got {device}",
         )
 
-    def _check_unsharded(self, tensor: Tensor):
+    def _check_unsharded(self, tensor: TensorBase):
         msg_prefix = "Expects tensor to be unsharded "
         _p_assert(tensor is not None, msg_prefix + "but got `None`")
         unsharded_size = self.flat_param._unpadded_unsharded_size
@@ -2578,7 +2578,7 @@ class FlatParamHandle:
             msg_prefix + f"with size {unsharded_size} but got {tensor.size()}",
         )
 
-    def _check_sharded(self, tensor: Tensor):
+    def _check_sharded(self, tensor: TensorBase):
         msg_prefix = "Expects tensor to be sharded "
         _p_assert(tensor is not None, msg_prefix + "but got `None`")
         sharded_size = self.flat_param._sharded_size  # type: ignore[attr-defined]
@@ -2635,7 +2635,9 @@ def _unsafe_setattr_param(
     super(nn.Module, module).__setattr__(param_name, param)
 
 
-def _unsafe_setattr_tensor(module: nn.Module, param_name: str, tensor: Tensor) -> None:
+def _unsafe_setattr_tensor(
+    module: nn.Module, param_name: str, tensor: TensorBase
+) -> None:
     module._parameters.pop(param_name, None)
     # This bypasses any overrides in case `module` is an instance of an
     # `nn.Module` subclass
@@ -2643,7 +2645,7 @@ def _unsafe_setattr_tensor(module: nn.Module, param_name: str, tensor: Tensor) -
 
 
 def _safe_setattr_tensor_or_param(
-    module: nn.Module, param_name: str, tensor_or_param: Union[Tensor, nn.Parameter]
+    module: nn.Module, param_name: str, tensor_or_param: Union[TensorBase, nn.Parameter]
 ):
     # Call `delattr()` and `setattr()` to go through `nn.Module` checks
     if hasattr(module, param_name):
@@ -2652,12 +2654,12 @@ def _safe_setattr_tensor_or_param(
 
 
 def _convert_to_params(
-    tensors: List[Union[torch.Tensor, nn.Parameter]]
+    tensors: List[Union[torch.TensorBase, nn.Parameter]]
 ) -> List[nn.Parameter]:
     return [t if isinstance(t, nn.Parameter) else nn.Parameter(t) for t in tensors]
 
 
-def _detach_if_needed(param_or_tensor: Union[nn.Parameter, Tensor]) -> Tensor:
+def _detach_if_needed(param_or_tensor: Union[nn.Parameter, TensorBase]) -> TensorBase:
     return (
         param_or_tensor.detach()
         if isinstance(param_or_tensor, nn.Parameter)
@@ -2714,10 +2716,10 @@ def _same_storage(a, b):
     return a.untyped_storage().data_ptr() == b.untyped_storage().data_ptr()
 
 
-def _same_storage_size(a: torch.Tensor, b: int):
+def _same_storage_size(a: torch.TensorBase, b: int):
     return a.untyped_storage().size() // a.element_size() == b
 
 
-def _storage_size_allocated(tensor: Tensor):
+def _storage_size_allocated(tensor: TensorBase):
     storage_size: int = tensor.untyped_storage().size()
     return storage_size > 0

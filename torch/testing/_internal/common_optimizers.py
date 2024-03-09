@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Any, Dict, List, Tuple, Union
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 from torch.nn import Parameter
 from torch.optim import (
     Adadelta,
@@ -48,7 +48,7 @@ class OptimizerInput:
 
     def __init__(
         self,
-        params: Union[List[Parameter], List[Tensor], Dict[Any, Any]],
+        params: Union[List[Parameter], List[TensorBase], Dict[Any, Any]],
         kwargs: Dict[str, Any],
         desc: str = "",
     ):
@@ -837,9 +837,9 @@ def optim_error_inputs_func_sparseadam(device, dtype):
         # SparseAdam raises a warning and not an error for the first entry. We
         # update it here:
         error_inputs[0].error_type = FutureWarning
-        error_inputs[
-            0
-        ].error_regex = "Passing in a raw Tensor as ``params`` to SparseAdam"
+        error_inputs[0].error_regex = (
+            "Passing in a raw Tensor as ``params`` to SparseAdam"
+        )
 
         error_inputs += [
             ErrorOptimizerInput(

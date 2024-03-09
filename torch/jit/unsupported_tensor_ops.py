@@ -10,7 +10,7 @@ def execWrapper(code, glob, loc):
 
 
 def _gen_unsupported_methods_properties():
-    tensor_attrs = set(filter(lambda x: x[0] != "_", dir(torch.Tensor)))
+    tensor_attrs = set(filter(lambda x: x[0] != "_", dir(torch.TensorBase)))
     tensor = torch.tensor([2])
     funcs_template = dedent(
         """

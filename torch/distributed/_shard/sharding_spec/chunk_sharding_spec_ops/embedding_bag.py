@@ -1,4 +1,3 @@
-
 from typing import cast, List
 
 import torch
@@ -172,12 +171,12 @@ def _validate_embedding_bag_param(args, kwargs):
     include_last_offset = kwargs.get("include_last_offset")
 
     # Validate types
-    if not isinstance(input, torch.Tensor):
+    if not isinstance(input, torch.TensorBase):
         raise TypeError("input need to be torch.Tensor")
-    if offsets is not None and not isinstance(offsets, torch.Tensor):
+    if offsets is not None and not isinstance(offsets, torch.TensorBase):
         raise TypeError("offsets need to be torch.Tensor")
     if per_sample_weights is not None and not isinstance(
-        per_sample_weights, torch.Tensor
+        per_sample_weights, torch.TensorBase
     ):
         raise TypeError("per_sample_weights need to be torch.Tensor")
     if not isinstance(weight, ShardedTensor):

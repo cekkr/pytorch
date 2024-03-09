@@ -3,9 +3,10 @@ from typing import Dict, List, Optional
 import torch
 import torch.optim._functional as F
 
-from torch import Tensor
+from torch import TensorBase
 
 __all__: List[str] = []
+
 
 # Define a TorchScript compatible Functional Adadelta Optimizer
 # where we use these optimizer in a functional way.
@@ -20,7 +21,7 @@ __all__: List[str] = []
 class _FunctionalAdadelta:
     def __init__(
         self,
-        params: List[Tensor],
+        params: List[TensorBase],
         lr: float = 1.0,
         rho: float = 0.9,
         eps: float = 1e-6,
@@ -45,9 +46,11 @@ class _FunctionalAdadelta:
         # param group as it's not a common use case.
         self.param_group = {"params": params}
 
-        self.state = torch.jit.annotate(Dict[torch.Tensor, Dict[str, torch.Tensor]], {})
+        self.state = torch.jit.annotate(
+            Dict[torch.TensorBase, Dict[str, torch.TensorBase]], {}
+        )
 
-    def step(self, gradients: List[Optional[Tensor]]):
+    def step(self, gradients: List[Optional[TensorBase]]):
         params = self.param_group["params"]
         params_with_grad = []
         grads = []
@@ -98,5 +101,5 @@ class _FunctionalAdadelta:
                 weight_decay=weight_decay,
                 foreach=self.foreach,
                 maximize=self.maximize,
-                has_complex=has_complex
+                has_complex=has_complex,
             )

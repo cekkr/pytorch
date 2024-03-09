@@ -18,14 +18,14 @@ class NnapiModule(torch.nn.Module):
 
     # _nnapi.Compilation is defined
     comp: Optional[torch.classes._nnapi.Compilation]  # type: ignore[name-defined]
-    weights: List[torch.Tensor]
-    out_templates: List[torch.Tensor]
+    weights: List[torch.TensorBase]
+    out_templates: List[torch.TensorBase]
 
     def __init__(
         self,
         shape_compute_module: torch.nn.Module,
-        ser_model: torch.Tensor,
-        weights: List[torch.Tensor],
+        ser_model: torch.TensorBase,
+        weights: List[torch.TensorBase],
         inp_mem_fmts: List[int],
         out_mem_fmts: List[int],
         compilation_preference: int,
@@ -43,7 +43,7 @@ class NnapiModule(torch.nn.Module):
         self.relax_f32_to_f16 = relax_f32_to_f16
 
     @torch.jit.export
-    def init(self, args: List[torch.Tensor]):
+    def init(self, args: List[torch.TensorBase]):
         assert self.comp is None
         self.out_templates = self.shape_compute_module.prepare(self.ser_model, args)  # type: ignore[operator]
         self.weights = [w.contiguous() for w in self.weights]
@@ -57,7 +57,7 @@ class NnapiModule(torch.nn.Module):
 
         self.comp = comp
 
-    def forward(self, args: List[torch.Tensor]) -> List[torch.Tensor]:
+    def forward(self, args: List[torch.TensorBase]) -> List[torch.TensorBase]:
         if self.comp is None:
             self.init(args)
         comp = self.comp
@@ -155,7 +155,7 @@ def process_for_nnapi(
 ):
     model = torch.jit.freeze(model)
 
-    if isinstance(inputs, torch.Tensor):
+    if isinstance(inputs, torch.TensorBase):
         inputs = [inputs]
 
     serializer = serializer or _NnapiSerializer(

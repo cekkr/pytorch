@@ -3,9 +3,10 @@ from typing import Dict, List, Optional, Tuple
 import torch
 import torch.optim._functional as F
 
-from torch import Tensor
+from torch import TensorBase
 
 __all__: List[str] = []
+
 
 # Define a TorchScript compatible Functional Rprop Optimizer
 # where we use these optimizer in a functional way.
@@ -20,7 +21,7 @@ __all__: List[str] = []
 class _FunctionalRprop:
     def __init__(
         self,
-        params: List[Tensor],
+        params: List[TensorBase],
         lr: float = 1e-2,
         etas: Tuple[float, float] = (0.5, 1.2),
         step_sizes: Tuple[float, float] = (1e-6, 50),
@@ -43,9 +44,11 @@ class _FunctionalRprop:
         # param group as it's not a common use case.
         self.param_group = {"params": params}
 
-        self.state = torch.jit.annotate(Dict[torch.Tensor, Dict[str, torch.Tensor]], {})
+        self.state = torch.jit.annotate(
+            Dict[torch.TensorBase, Dict[str, torch.TensorBase]], {}
+        )
 
-    def step(self, gradients: List[Optional[Tensor]]):
+    def step(self, gradients: List[Optional[TensorBase]]):
         params = self.param_group["params"]
         params_with_grad = []
         grads = []

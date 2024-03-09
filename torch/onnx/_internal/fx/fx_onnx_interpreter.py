@@ -614,7 +614,7 @@ class FxOnnxInterpreter:
             output = onnxscript_graph.add_input(
                 input_name=None,
             )
-        elif isinstance(fake_tensor, torch.Tensor):
+        elif isinstance(fake_tensor, torch.TensorBase):
             # NOTE: ONNX doesn't support tensor of complex64/complex128, so we
             # convert them to float32/float64 with real representation.
             if fx_type_utils.is_torch_complex_dtype(fake_tensor.dtype):
@@ -855,7 +855,9 @@ class FxOnnxInterpreter:
     ):
         assert isinstance(node.target, str), f"node.target {node.target} is not a str."
         attr_tensor = getattr(fx_graph_module, node.target)
-        assert isinstance(attr_tensor, torch.Tensor), f"{attr_tensor} is not a tensor."
+        assert isinstance(
+            attr_tensor, torch.TensorBase
+        ), f"{attr_tensor} is not a tensor."
 
         # Parameter/buffer name cannot contain "."
         # Revert from "/" to restore namespace formatting.

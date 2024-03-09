@@ -491,10 +491,10 @@ def _is_valid_quantized_conv_binary_optimization_pattern(output_dtype):
         # the two inputs of binary node should have attribute "meta" and should be tensors
         if not (
             hasattr(binary_node_inputs[0], "meta")
-            and isinstance(binary_node_inputs[0].meta.get("val", None), torch.Tensor)  # type: ignore[union-attr]
+            and isinstance(binary_node_inputs[0].meta.get("val", None), torch.TensorBase)  # type: ignore[union-attr]
         ) or not (
             hasattr(binary_node_inputs[1], "meta")
-            and isinstance(binary_node_inputs[1].meta.get("val", None), torch.Tensor)  # type: ignore[union-attr]
+            and isinstance(binary_node_inputs[1].meta.get("val", None), torch.TensorBase)  # type: ignore[union-attr]
         ):
             return False
         # the two inputs of binary node should have the same shape
@@ -747,9 +747,11 @@ def _register_quantization_binary_fusion():
                     dequantize_accum_pattern,
                     int8_mixed_bf16_with_inplace_add,
                 ),
-                dtype=torch.bfloat16
-                if int8_mixed_bf16_with_inplace_add
-                else torch.float32,
+                dtype=(
+                    torch.bfloat16
+                    if int8_mixed_bf16_with_inplace_add
+                    else torch.float32
+                ),
             ),
             BinaryUnaryAttr(
                 "sum", 1.0, "relu", [], ""
@@ -763,9 +765,11 @@ def _register_quantization_binary_fusion():
                     ),
                     aten.relu.default,
                 ),
-                dtype=torch.bfloat16
-                if int8_mixed_bf16_with_inplace_add
-                else torch.float32,
+                dtype=(
+                    torch.bfloat16
+                    if int8_mixed_bf16_with_inplace_add
+                    else torch.float32
+                ),
             ),
         }
 
@@ -1413,9 +1417,11 @@ def _generate_qconv_weight_prepack_patterns(dtype=torch.float32):
     assert dtype in [torch.float32, torch.bfloat16]
     return (
         _generate_dequant_convolution_node_pattern(
-            dequantize_per_channel_weight_pattern
-            if dtype == torch.float32
-            else dequantize_per_channel_to_bf16_weight_pattern,
+            (
+                dequantize_per_channel_weight_pattern
+                if dtype == torch.float32
+                else dequantize_per_channel_to_bf16_weight_pattern
+            ),
             dtype,
         ),
         # There is another pattern due to the pass of convert_conv_weights_to_channels_last
@@ -1423,9 +1429,11 @@ def _generate_qconv_weight_prepack_patterns(dtype=torch.float32):
         # Depend on some heuristics, it may or may not insert to(channel_last) node
         # between convolution and dequant_per_channel node
         _generate_dequant_convolution_node_pattern(
-            dequantize_per_channel_clone_weight_pattern
-            if dtype == torch.float32
-            else dequantize_per_channel_to_bf16_clone_weight_pattern,
+            (
+                dequantize_per_channel_clone_weight_pattern
+                if dtype == torch.float32
+                else dequantize_per_channel_to_bf16_clone_weight_pattern
+            ),
             dtype,
         ),
     )
@@ -1533,7 +1541,7 @@ def _is_valid_dequant_linear_pattern(dtype, input_dim_exceeds_two, input_contigu
             act_node = match.kwargs["x"]
             if not (
                 hasattr(act_node, "meta")
-                and isinstance(act_node.meta.get("val", None), torch.Tensor)
+                and isinstance(act_node.meta.get("val", None), torch.TensorBase)
                 and (act_node.meta["val"].size() == torch.Size(act_expand_size))
             ):
                 return False
@@ -1554,7 +1562,7 @@ def _is_valid_dequant_linear_pattern(dtype, input_dim_exceeds_two, input_contigu
             wgt_expand_size = match.kwargs["wgt_expand_size"]
             if not (
                 hasattr(qweight_node, "meta")
-                and isinstance(qweight_node.meta.get("val", None), torch.Tensor)
+                and isinstance(qweight_node.meta.get("val", None), torch.TensorBase)
                 and len(qweight_node.meta["val"].size()) == 2
                 and len(wgt_expand_size) == 3
                 and wgt_expand_size[0] == act_node.meta["val"].size()[0]
@@ -1959,9 +1967,9 @@ def _register_qlinear_weight_prepack():
         )
         _register_qlinear_weight_prepack_pass(
             bmm_pattern,
-            pass_number=1
-            if with_bias
-            else 2,  # if with_bias, there is an output add, so we should try to match it firstly
+            pass_number=(
+                1 if with_bias else 2
+            ),  # if with_bias, there is an output add, so we should try to match it firstly
             dtype=dtype,
             input_dim_exceeds_two=True,
             input_contiguous=False,

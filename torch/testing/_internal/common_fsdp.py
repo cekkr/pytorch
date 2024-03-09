@@ -77,12 +77,12 @@ class FSDPTestModel(nn.Module, ABC):
     FSDP unit tests."""
 
     @abstractmethod
-    def get_input(self, device) -> Tuple[torch.Tensor, ...]:
+    def get_input(self, device) -> Tuple[torch.TensorBase, ...]:
         """Returns an input for the model as as tuple."""
         ...
 
     @abstractmethod
-    def get_loss(self, input, output) -> torch.Tensor:
+    def get_loss(self, input, output) -> torch.TensorBase:
         """Returns the loss given the input and output."""
         ...
 
@@ -850,7 +850,7 @@ class MLP(nn.Module):
         else:
             self.buffer = None
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.TensorBase) -> torch.TensorBase:
         z = self.in_proj(x)
         z = F.relu(z)
         z = self.out_proj(z)
@@ -878,8 +878,8 @@ class DoubleLinear(nn.Module):
         self.use_second_linear = use_second_linear
 
     def forward(
-        self, x: torch.Tensor
-    ) -> Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
+        self, x: torch.TensorBase
+    ) -> Union[Tuple[torch.TensorBase, torch.TensorBase], torch.TensorBase]:
         if self.use_second_linear:
             return self.relu(self.lin1(x)), self.relu(self.lin2(x))
         return self.relu(self.lin1(x))
@@ -1137,7 +1137,7 @@ class FSDPTest(MultiProcessTestCase):
                 # Inputs always cuda regardless of cpu offloading, or model.device
                 input = model.module.get_input(torch.device("cuda"))
                 if use_pure_fp16 or (mixed_precision and not isinstance(model, FSDP)):
-                    if isinstance(input, torch.Tensor):
+                    if isinstance(input, torch.TensorBase):
                         input = input.half()
                     else:
                         input = tuple(x.half() for x in input)

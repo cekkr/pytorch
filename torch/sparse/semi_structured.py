@@ -1,6 +1,6 @@
 import warnings
 from collections import namedtuple
-from typing import Any, Optional, Tuple, List, Callable, Dict
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
 from torch.sparse._semi_structured_conversions import (
@@ -9,14 +9,14 @@ from torch.sparse._semi_structured_conversions import (
 )
 from torch.sparse._semi_structured_ops import (
     fallback_dispatcher,
-    semi_sparse_values,
-    semi_sparse_indices,
-    semi_sparse_detach,
-    semi_sparse_t,
-    semi_sparse_view,
-    semi_sparse_mm,
     semi_sparse_addmm,
+    semi_sparse_detach,
+    semi_sparse_indices,
     semi_sparse_linear,
+    semi_sparse_mm,
+    semi_sparse_t,
+    semi_sparse_values,
+    semi_sparse_view,
 )
 
 __all__ = [
@@ -32,7 +32,7 @@ _SEMI_STRUCTURED_SPARSE_CONFIG = namedtuple(
 )
 
 
-class SparseSemiStructuredTensor(torch.Tensor):
+class SparseSemiStructuredTensor(torch.TensorBase):
     """
     This class implementes semi-structured sparsity as a Tensor subclass.
 
@@ -58,11 +58,11 @@ class SparseSemiStructuredTensor(torch.Tensor):
 
     SPARSE_DISPATCH: Dict[Callable, Callable]
 
-    packed: Optional[torch.Tensor]
-    meta: Optional[torch.Tensor]
-    packed_t: Optional[torch.Tensor]
-    meta_t: Optional[torch.Tensor]
-    threads_masks: Optional[torch.Tensor]
+    packed: Optional[torch.TensorBase]
+    meta: Optional[torch.TensorBase]
+    packed_t: Optional[torch.TensorBase]
+    meta_t: Optional[torch.TensorBase]
+    threads_masks: Optional[torch.TensorBase]
     fuse_transpose_cusparselt: bool
     alg_id_cusparselt: int
 
@@ -72,11 +72,11 @@ class SparseSemiStructuredTensor(torch.Tensor):
     def __new__(  # noqa: PYI034
         cls,
         shape: torch.Size,
-        packed: Optional[torch.Tensor],
-        meta: Optional[torch.Tensor],
-        packed_t: Optional[torch.Tensor],
-        meta_t: Optional[torch.Tensor],
-        threads_masks: Optional[torch.Tensor],
+        packed: Optional[torch.TensorBase],
+        meta: Optional[torch.TensorBase],
+        packed_t: Optional[torch.TensorBase],
+        meta_t: Optional[torch.TensorBase],
+        threads_masks: Optional[torch.TensorBase],
         fuse_transpose_cusparselt: bool = False,
         alg_id_cusparselt: int = 0,
         requires_grad: bool = False,
@@ -137,7 +137,7 @@ class SparseSemiStructuredTensor(torch.Tensor):
             "layout": previous_tensor.layout,
             "requires_grad": requires_grad,
         }
-        tensor = torch.Tensor._make_wrapper_subclass(cls, shape, **kwargs)  # type: ignore[attr-defined]
+        tensor = torch.TensorBase._make_wrapper_subclass(cls, shape, **kwargs)  # type: ignore[attr-defined]
 
         tensor.packed = packed
         tensor.meta = meta
@@ -170,10 +170,10 @@ class SparseSemiStructuredTensor(torch.Tensor):
     def __tensor_unflatten__(
         cls,
         inner_tensors,
-        tensor_meta : Tuple[torch.Size, bool, int, bool],
+        tensor_meta: Tuple[torch.Size, bool, int, bool],
         outer_size,
         outer_stride,
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         shape, fuse_transpose_cusparselt, alg_id_cusparselt, requires_grad = tensor_meta
         return cls(
             shape=shape,
@@ -221,7 +221,9 @@ class SparseSemiStructuredTensor(torch.Tensor):
                 cls.SPARSE_DISPATCH.update(custom_dispatch_table)
 
     @classmethod
-    def _validate_device_dim_dtype_shape(cls, original_tensor : torch.Tensor) -> None:
+    def _validate_device_dim_dtype_shape(
+        cls, original_tensor: torch.TensorBase
+    ) -> None:
         """
         Assert that the given tensor is valid for semi-structured sparse compression.
         """
@@ -265,7 +267,7 @@ class SparseSemiStructuredTensor(torch.Tensor):
             )
 
     @classmethod
-    def _pad_dense_input(cls, dense_input: torch.Tensor) -> torch.Tensor:
+    def _pad_dense_input(cls, dense_input: torch.TensorBase) -> torch.TensorBase:
         """
         Calculates padding for dense tensor and pads tensor if necessary.
         If padding is not required, this function returns the original tensor.
@@ -291,21 +293,23 @@ class SparseSemiStructuredTensor(torch.Tensor):
         return torch.mm(self, torch.eye(col, dtype=self.dtype, device=self.device))
 
     @classmethod
-    def from_dense(cls, original_tensor : torch.Tensor) -> "SparseSemiStructuredTensor":
+    def from_dense(
+        cls, original_tensor: torch.TensorBase
+    ) -> "SparseSemiStructuredTensor":
         raise NotImplementedError
 
     def _mm(
         self,
-        B: torch.Tensor,
+        B: torch.TensorBase,
         *,
-        bias: Optional[torch.Tensor] = None,
+        bias: Optional[torch.TensorBase] = None,
         **kwargs,
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         raise NotImplementedError
 
 
 def to_sparse_semi_structured(
-    original_tensor: torch.Tensor,
+    original_tensor: torch.TensorBase,
     transposed: bool = False,
 ) -> SparseSemiStructuredTensor:
     """
@@ -387,7 +391,7 @@ class SparseSemiStructuredTensorCUTLASS(SparseSemiStructuredTensor):
 
     @classmethod
     def from_dense(
-        cls, original_tensor: torch.Tensor
+        cls, original_tensor: torch.TensorBase
     ) -> "SparseSemiStructuredTensorCUTLASS":
         cls._validate_device_dim_dtype_shape(original_tensor)
         (
@@ -416,12 +420,8 @@ class SparseSemiStructuredTensorCUTLASS(SparseSemiStructuredTensor):
         )
 
     def _mm(
-        self,
-        B: torch.Tensor,
-        *,
-        bias: Optional[torch.Tensor] = None,
-        **kwargs
-    ) -> torch.Tensor:
+        self, B: torch.TensorBase, *, bias: Optional[torch.TensorBase] = None, **kwargs
+    ) -> torch.TensorBase:
         if isinstance(B, SparseSemiStructuredTensor):
             raise ValueError(
                 "`SparseSemiStructuredTensor @ SparseSemiStructuredTensor` is not supported by the hardware"
@@ -462,7 +462,9 @@ class SparseSemiStructuredTensorCUSPARSELT(SparseSemiStructuredTensor):
     }
 
     @classmethod
-    def from_dense(cls, original_tensor : torch.Tensor) -> "SparseSemiStructuredTensorCUSPARSELT":
+    def from_dense(
+        cls, original_tensor: torch.TensorBase
+    ) -> "SparseSemiStructuredTensorCUSPARSELT":
         cls._validate_device_dim_dtype_shape(original_tensor)
         return cls(
             shape=original_tensor.shape,
@@ -477,12 +479,8 @@ class SparseSemiStructuredTensorCUSPARSELT(SparseSemiStructuredTensor):
         )
 
     def _mm(
-        self,
-        B: torch.Tensor,
-        *,
-        bias: Optional[torch.Tensor] = None,
-        **kwargs
-    ) -> torch.Tensor:
+        self, B: torch.TensorBase, *, bias: Optional[torch.TensorBase] = None, **kwargs
+    ) -> torch.TensorBase:
         if isinstance(B, SparseSemiStructuredTensor):
             raise ValueError(
                 "`SparseSemiStructuredTensor @ SparseSemiStructuredTensor` is not supported by the hardware"

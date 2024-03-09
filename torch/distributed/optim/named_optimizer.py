@@ -2,7 +2,17 @@ import logging
 import warnings
 
 from copy import deepcopy
-from typing import Any, Callable, Collection, Dict, List, Mapping, Optional, Union, overload
+from typing import (
+    Any,
+    Callable,
+    Collection,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    overload,
+    Union,
+)
 
 import torch
 import torch.nn as nn
@@ -62,7 +72,7 @@ class _NamedOptimizer(optim.Optimizer):
 
     def __init__(
         self,
-        named_parameters: Mapping[str, Union[torch.Tensor, ShardedTensor]],
+        named_parameters: Mapping[str, Union[torch.TensorBase, ShardedTensor]],
         optimizer_class: optim.Optimizer,
         param_groups: Optional[Collection[Mapping[str, Any]]] = None,
         module: Optional[nn.Module] = None,
@@ -108,11 +118,11 @@ class _NamedOptimizer(optim.Optimizer):
                 assert isinstance(param_group, dict), "param group must be a dict"
                 assert "params" in param_group, "param group must contain key params"
                 params = param_group["params"]
-                if isinstance(params, torch.Tensor):
+                if isinstance(params, torch.TensorBase):
                     params = [params]
                 params = list(params)
                 for param in params:
-                    if not isinstance(param, torch.Tensor):
+                    if not isinstance(param, torch.TensorBase):
                         raise TypeError(
                             "optimizer can only optimize Tensors, "
                             "but one of the params is " + torch.typename(param)
@@ -148,12 +158,10 @@ class _NamedOptimizer(optim.Optimizer):
         return self._post_state_dict({"state": ret_state, "param_groups": ret_groups})
 
     @overload
-    def step(self, closure: None = ...) -> None:
-        ...
+    def step(self, closure: None = ...) -> None: ...
 
     @overload
-    def step(self, closure: Callable[[], float]) -> float:
-        ...
+    def step(self, closure: Callable[[], float]) -> float: ...
 
     def step(self, closure: Optional[Callable[[], float]] = None) -> Optional[float]:
         """
@@ -165,7 +173,7 @@ class _NamedOptimizer(optim.Optimizer):
         return self._optimizer.step(closure=closure)
 
     @property
-    def state(self) -> Mapping[torch.Tensor, Any]:  # type: ignore[override]
+    def state(self) -> Mapping[torch.TensorBase, Any]:  # type: ignore[override]
         return self._optimizer.state
 
     def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
@@ -232,8 +240,8 @@ class _NamedOptimizer(optim.Optimizer):
                         state_val.local_shards(), src_state_val.local_shards()
                     ):
                         shard.tensor.detach().copy_(src_shard.tensor)
-                elif isinstance(state_val, torch.Tensor):
-                    assert isinstance(src_state_val, torch.Tensor)
+                elif isinstance(state_val, torch.TensorBase):
+                    assert isinstance(src_state_val, torch.TensorBase)
                     state_val.detach().copy_(src_state_val)
                 else:
                     new_state[idx][state_key] = deepcopy(src_state_val)
@@ -281,7 +289,7 @@ class _NamedOptimizer(optim.Optimizer):
         assert isinstance(param_group, dict), "param group must be a dict"
 
         params = param_group["params"]
-        if isinstance(params, torch.Tensor):
+        if isinstance(params, torch.TensorBase):
             param_group["params"] = [params]
         else:
             param_group["params"] = list(params)

@@ -6,7 +6,7 @@ from collections import defaultdict
 from typing import Any, Dict, List, Optional, Union
 
 import torch.utils._pytree as pytree
-from torch import Tensor
+from torch import TensorBase
 from torch._C import DispatchKey
 from torch._ops import HigherOrderOperator
 from torch._prims_common import clone_preserve_strides
@@ -129,13 +129,13 @@ def generate_ttir(kernel, kwargs):
             ordered_args[name] = a
 
     ordered_tensor_names = [
-        name for name, arg in ordered_args.items() if isinstance(arg, Tensor)
+        name for name, arg in ordered_args.items() if isinstance(arg, TensorBase)
     ]
     specialization = kernel._get_config(*ordered_args.values())
     constants = {
         i: arg
         for i, arg in enumerate(ordered_args.values())
-        if not isinstance(arg, Tensor)
+        if not isinstance(arg, TensorBase)
     }
 
     # Build kernel signature -- doesn't include constexpr arguments.
@@ -630,7 +630,7 @@ def identify_mutated_tensors(kernel, kwargs):
                 log.debug("===\t%s\t===", name)
                 for ret, ops in fn.items():
                     log.debug("%s\t=>\t%s", ret, ops)
-        return [key for key, value in kwargs.items() if isinstance(value, Tensor)]
+        return [key for key, value in kwargs.items() if isinstance(value, TensorBase)]
 
 
 ###############################################################################
@@ -730,10 +730,10 @@ def triton_kernel_wrapper_mutation_functionalize(ctx, kernel_idx, grid, kwargs):
 
     assert set(unwrapped_outputs.keys()).issubset(set(kwargs.keys()))
     for key, output_arg in unwrapped_outputs.items():
-        if not isinstance(output_arg, Tensor):
+        if not isinstance(output_arg, TensorBase):
             continue
         input_arg = kwargs[key]
-        assert isinstance(input_arg, Tensor)
+        assert isinstance(input_arg, TensorBase)
 
         ctx.replace(input_arg, output_arg)
         # indicate that above replace is hidden from autograd

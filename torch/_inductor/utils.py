@@ -295,11 +295,15 @@ def convert_shape_to_symint(
     from .virtualized import V
 
     return [
-        i
-        if isinstance(i, int)
-        else int(i)
-        if isinstance(i, sympy.Integer)
-        else V.graph.sizevars.shape_env.create_symintnode(i, hint=None)
+        (
+            i
+            if isinstance(i, int)
+            else (
+                int(i)
+                if isinstance(i, sympy.Integer)
+                else V.graph.sizevars.shape_env.create_symintnode(i, hint=None)
+            )
+        )
         for i in lst
     ]
 
@@ -332,12 +336,12 @@ def gen_gm_and_inputs(target, args, kwargs):
     g_args = []
     a_args = []
     for n, arg in enumerate(args):
-        if isinstance(arg, torch.Tensor):
+        if isinstance(arg, torch.TensorBase):
             g_args.append(g.placeholder(f"arg{n}"))
             a_args.append(arg)
         else:
             g_args.append(arg)
-    assert all(not isinstance(x, torch.Tensor) for x in kwargs.values())
+    assert all(not isinstance(x, torch.TensorBase) for x in kwargs.values())
     node = g.call_function(target, tuple(g_args), kwargs)
     if (
         len(target._schema.returns) == 1
@@ -427,11 +431,9 @@ RV = TypeVar("RV", covariant=True)
 
 class CachedMethod(Generic[P, RV], Protocol):
     @staticmethod
-    def clear_cache(self) -> None:
-        ...
+    def clear_cache(self) -> None: ...
 
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> RV:
-        ...
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> RV: ...
 
 
 # See https://github.com/python/mypy/issues/13222#issuecomment-1193073470 to understand the type signature
@@ -629,7 +631,7 @@ def free_symbol_has(index: sympy.Expr, pattern: str):
 
 def is_symbolic(a: Any) -> bool:
     return isinstance(a, torch.SymInt) or (
-        isinstance(a, torch.Tensor)
+        isinstance(a, torch.TensorBase)
         and any(is_symbolic(x) for x in itertools.chain(a.size(), a.stride()))
     )
 
@@ -1098,7 +1100,7 @@ def developer_warning(msg):
         log.info(msg)
 
 
-def get_num_bytes(*args: torch.Tensor, num_in_out_args: int = 0) -> int:
+def get_num_bytes(*args: torch.TensorBase, num_in_out_args: int = 0) -> int:
     """
     Return the total number of bytes the arguments of tensor type takes.
 
@@ -1110,7 +1112,7 @@ def get_num_bytes(*args: torch.Tensor, num_in_out_args: int = 0) -> int:
     return sum(
         arg.numel() * arg.element_size() * (1 + int(i < num_in_out_args))
         for i, arg in enumerate(args)
-        if isinstance(arg, torch.Tensor)
+        if isinstance(arg, torch.TensorBase)
     )
 
 
@@ -1163,7 +1165,7 @@ def is_cpu_device(inputs):
     return all(
         item.device == torch.device("cpu")
         for item in inputs
-        if isinstance(item, torch.Tensor)
+        if isinstance(item, torch.TensorBase)
     )
 
 

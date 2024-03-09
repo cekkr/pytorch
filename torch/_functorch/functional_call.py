@@ -3,14 +3,16 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import torch
 import torch.nn as nn
-from torch import Tensor
+from torch import TensorBase
 from torch._functorch.utils import exposed_in
 
 
 @exposed_in("torch.func")
 def functional_call(
     module: "torch.nn.Module",
-    parameter_and_buffer_dicts: Union[Dict[str, Tensor], Sequence[Dict[str, Tensor]]],
+    parameter_and_buffer_dicts: Union[
+        Dict[str, TensorBase], Sequence[Dict[str, TensorBase]]
+    ],
     args: Union[Any, Tuple],
     kwargs: Optional[Dict[str, Any]] = None,
     *,
@@ -234,8 +236,8 @@ def stack_module_state(
 
 
 def construct_stacked_leaf(
-    tensors: Union[Tuple[Tensor, ...], List[Tensor]], name: str
-) -> Tensor:
+    tensors: Union[Tuple[TensorBase, ...], List[TensorBase]], name: str
+) -> TensorBase:
     all_requires_grad = all(t.requires_grad for t in tensors)
     none_requires_grad = all(not t.requires_grad for t in tensors)
     if not all_requires_grad and not none_requires_grad:

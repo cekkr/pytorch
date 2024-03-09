@@ -74,7 +74,7 @@ class FakeSequential(nn.Module):
         super().__init__()
         self._module_sequence = list(modules)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.TensorBase) -> torch.TensorBase:
         for module in self._module_sequence:
             x = module(x)
         return x
@@ -107,5 +107,5 @@ class NestedSequentialModel(nn.Module):
             ),
         )
 
-        def forward(self, x: torch.Tensor) -> torch.Tensor:
+        def forward(self, x: torch.TensorBase) -> torch.TensorBase:
             return self.seq2(self.lin(self.seq1(x)))

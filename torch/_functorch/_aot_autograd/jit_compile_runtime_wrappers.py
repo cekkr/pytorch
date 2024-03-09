@@ -14,7 +14,7 @@ from typing import Any, List, Optional
 
 import torch
 import torch.utils.dlpack
-from torch import Tensor
+from torch import TensorBase
 from torch._dynamo.utils import lazy_format_graph_code
 from torch._guards import detect_fake_mode, tracing, TracingContext
 from torch._logging import getArtifactLogger, trace_structured
@@ -73,7 +73,7 @@ def _compute_output_meta_with_inductor_strides(fw_module, fwd_output_strides):
         return out
     with TracingContext.get().fake_mode.shape_env.suppress_guards():
         for i in range(len(out)):
-            if not isinstance(out[i], Tensor):
+            if not isinstance(out[i], TensorBase):
                 continue
             if all(s1 == s2 for s1, s2 in zip(out[i].stride(), fwd_output_strides[i])):
                 continue
@@ -83,7 +83,7 @@ def _compute_output_meta_with_inductor_strides(fw_module, fwd_output_strides):
 
 def aot_dispatch_base(
     flat_fn,
-    flat_args: List[Tensor],
+    flat_args: List[TensorBase],
     aot_config: AOTConfig,
     *,
     fw_metadata: ViewAndMutationMeta,
@@ -389,7 +389,7 @@ def aot_dispatch_autograd(
             # saved tensor's stride.
             for i in range(len(placeholder_list)):
                 ph_arg = placeholder_list[i]
-                if not isinstance(ph_arg, torch.Tensor):
+                if not isinstance(ph_arg, torch.TensorBase):
                     continue
 
                 if forward_saved_for_backwards_strides is None:
@@ -525,7 +525,9 @@ def aot_dispatch_autograd(
             tensors_saved_for_backwards = fw_outs[
                 CompiledFunction.metadata.tensors_saved_for_backwards_slice
             ]
-            assert all(isinstance(x, torch.Tensor) for x in tensors_saved_for_backwards)
+            assert all(
+                isinstance(x, torch.TensorBase) for x in tensors_saved_for_backwards
+            )
             # See Note [Detaching saved tensors in AOTAutograd]
             ctx.save_for_backward(
                 *(
@@ -602,7 +604,8 @@ def aot_dispatch_autograd(
             fw_outs_not_requiring_grad = [
                 x
                 for (i, x) in enumerate(raw_returns_not_including_intermediate_bases)
-                if isinstance(x, torch.Tensor) and not raw_returns_meta[i].requires_grad
+                if isinstance(x, torch.TensorBase)
+                and not raw_returns_meta[i].requires_grad
             ]
             ctx.mark_non_differentiable(*fw_outs_not_requiring_grad)
             ctx._materialize_non_diff_grads = False
@@ -687,7 +690,7 @@ def aot_dispatch_autograd(
                     OutputType.unsafe_view_alias,
                     OutputType.custom_function_view,
                 ]
-                and issubclass(info.raw_type, torch.Tensor)
+                and issubclass(info.raw_type, torch.TensorBase)
                 and info.requires_grad
             ]
             # intermediate bases always require gradients, and always participate in the backward graph.
@@ -762,7 +765,7 @@ def aot_dispatch_autograd(
             # - at runtime in the backward our types are torch.Tensor...
             # - unless we're running compiled backward, in which case they are also FakeTensor
             grad_output_types_ = [
-                torch.Tensor if x is FakeTensor else x for x in grad_output_types
+                torch.TensorBase if x is FakeTensor else x for x in grad_output_types
             ]
             assert (
                 grad_output_types_ == CompiledFunction.metadata.output_types
@@ -788,12 +791,14 @@ Got grad_output types: {str(grad_output_types)}"""
             # Make the tangents contiguous. Note that we must do this after subclass desugaring
             # because inputs to inductor have to be contiguous
             all_args = [
-                t.contiguous()
-                if (
-                    (tangents_start_idx <= i < tangents_end_idx)
-                    and (not t.is_contiguous())
+                (
+                    t.contiguous()
+                    if (
+                        (tangents_start_idx <= i < tangents_end_idx)
+                        and (not t.is_contiguous())
+                    )
+                    else t
                 )
-                else t
                 for i, t in enumerate(all_args)
             ]
 
@@ -839,7 +844,7 @@ Got grad_output types: {str(grad_output_types)}"""
                 return tuple(out)
 
             if torch.is_grad_enabled() and any(
-                t.requires_grad for t in all_args if isinstance(t, torch.Tensor)
+                t.requires_grad for t in all_args if isinstance(t, torch.TensorBase)
             ):
                 # Ensure that the graph is connected, and error if double backward is performed.
                 # See comment for why once_differentiable is not sufficient:
@@ -905,7 +910,7 @@ Got grad_output types: {str(grad_output_types)}"""
         return compiled_function
 
     flat_requires_grad = [
-        a.requires_grad if isinstance(a, Tensor) else None for a in flat_args
+        a.requires_grad if isinstance(a, TensorBase) else None for a in flat_args
     ]
 
     @wraps(compiled_function)
@@ -922,7 +927,7 @@ Got grad_output types: {str(grad_output_types)}"""
         for i, a in enumerate(args):
             can_require_grad = flat_requires_grad[i]
             if can_require_grad is None:
-                assert not isinstance(a, Tensor)
+                assert not isinstance(a, TensorBase)
             elif not can_require_grad:
                 assert not a.requires_grad, format_guard_bug_msg(
                     aot_config,

@@ -44,8 +44,7 @@ class InputAdaptStep(Protocol):
         model: Optional[
             Union[torch.nn.Module, Callable, torch_export.ExportedProgram]
         ] = None,
-    ) -> Tuple[Sequence[Any], Mapping[str, Any]]:
-        ...
+    ) -> Tuple[Sequence[Any], Mapping[str, Any]]: ...
 
 
 class InputAdapter:
@@ -71,7 +70,7 @@ class InputAdapter:
             Union[torch.nn.Module, Callable, torch_export.ExportedProgram]
         ] = None,
         **model_kwargs,
-    ) -> Sequence[Union[int, float, bool, str, "torch.Tensor", None]]:
+    ) -> Sequence[Union[int, float, bool, str, "torch.TensorBase", None]]:
         """Converts the PyTorch model inputs to exported ONNX model inputs format.
 
         Args:
@@ -108,8 +107,7 @@ class OutputAdaptStep(Protocol):
         model: Optional[
             Union[torch.nn.Module, Callable, torch_export.ExportedProgram]
         ] = None,
-    ) -> Any:
-        ...
+    ) -> Any: ...
 
 
 class OutputAdapter:
@@ -134,7 +132,7 @@ class OutputAdapter:
         model: Optional[
             Union[torch.nn.Module, Callable, torch_export.ExportedProgram]
         ] = None,
-    ) -> Sequence[Union["torch.Tensor", int, float, bool, str]]:
+    ) -> Sequence[Union["torch.TensorBase", int, float, bool, str]]:
         """Converts the PyTorch model outputs to exported ONNX model outputs format.
 
         Args:
@@ -262,7 +260,7 @@ class MergeKwargsIntoArgsInputStep(InputAdaptStep):
 class LiftParametersAndBuffersIntoArgsInputStep(InputAdaptStep):
     """Append parameters and buffers to model's positional argument list."""
 
-    def __init__(self, inputs: Tuple["torch.Tensor", ...]) -> None:
+    def __init__(self, inputs: Tuple["torch.TensorBase", ...]) -> None:
         self.inputs = inputs
 
     def apply(
@@ -315,9 +313,11 @@ class ConvertComplexToRealRepresentationInputStep(InputAdaptStep):
         """
         return (
             tuple(
-                torch.view_as_real(arg.resolve_conj())
-                if isinstance(arg, torch.Tensor) and arg.is_complex()
-                else arg
+                (
+                    torch.view_as_real(arg.resolve_conj())
+                    if isinstance(arg, torch.TensorBase) and arg.is_complex()
+                    else arg
+                )
                 for arg in model_args
             ),
             model_kwargs,
@@ -531,9 +531,11 @@ class ConvertComplexToRealRepresentationOutputStep(OutputAdaptStep):
             A tuple of the model output.
         """
         return [
-            torch.view_as_real(output.resolve_conj())
-            if isinstance(output, torch.Tensor) and torch.is_complex(output)
-            else output
+            (
+                torch.view_as_real(output.resolve_conj())
+                if isinstance(output, torch.TensorBase) and torch.is_complex(output)
+                else output
+            )
             for output in model_outputs
         ]
 
@@ -668,9 +670,11 @@ class PrependParamsAndBuffersAotAutogradOutputStep(OutputAdaptStep):
             model, torch_export.ExportedProgram
         ), "'model' must be torch_export.ExportedProgram"
         ordered_buffers = tuple(
-            model.state_dict[name]
-            if name in model.state_dict
-            else model.constants[name]
+            (
+                model.state_dict[name]
+                if name in model.state_dict
+                else model.constants[name]
+            )
             for name in model.graph_signature.buffers_to_mutate.values()
         )
 

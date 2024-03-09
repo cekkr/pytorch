@@ -55,8 +55,8 @@ class ViewOp:
 
 
 def _inplace_generalized_scatter(
-    inp: torch.Tensor, src: torch.Tensor, view_ops: List[ViewOp]
-) -> torch.Tensor:
+    inp: torch.TensorBase, src: torch.TensorBase, view_ops: List[ViewOp]
+) -> torch.TensorBase:
     tmp = inp
     for view in view_ops:
         fake_args, fake_kwargs = pytree.tree_map(
@@ -69,16 +69,16 @@ def _inplace_generalized_scatter(
 
 
 def _generalized_scatter(
-    inp: torch.Tensor, src: torch.Tensor, view_ops: List[ViewOp]
-) -> torch.Tensor:
+    inp: torch.TensorBase, src: torch.TensorBase, view_ops: List[ViewOp]
+) -> torch.TensorBase:
     out = inp.clone()
     return _inplace_generalized_scatter(out, src, view_ops)
 
 
 def _decompose_scatter_functional_helper(
     graph: torch.fx.Graph,
-    inp: torch.Tensor,
-    src: torch.Tensor,
+    inp: torch.TensorBase,
+    src: torch.TensorBase,
     view_ops: List[ViewOp],
 ) -> torch.fx.Node:
     view_op, view_ops_tail = view_ops[0], view_ops[1:]

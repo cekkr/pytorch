@@ -917,7 +917,7 @@ def _get_modules_to_materialize(
 def _move_module_to_device(
     module: nn.Module,
     ignored_params: Set[nn.Parameter],
-    ignored_buffers: Set[torch.Tensor],
+    ignored_buffers: Set[torch.TensorBase],
     device_from_device_id: Optional[torch.device],
 ) -> None:
     """
@@ -939,7 +939,7 @@ def _move_module_to_device(
         queue: Deque[nn.Module] = collections.deque()
         queue.append(module)
         params: List[nn.Parameter] = []
-        buffers: List[torch.Tensor] = []
+        buffers: List[torch.TensorBase] = []
         while queue:
             curr_module = queue.popleft()
             # NOTE: We include a check to only move parameters/buffers that are
@@ -970,7 +970,7 @@ def _move_module_to_device(
 
 def _move_states_to_device(
     params: List[nn.Parameter],
-    buffers: List[torch.Tensor],
+    buffers: List[torch.TensorBase],
     device_from_device_id: Optional[torch.device],
 ) -> None:
     """
@@ -1061,7 +1061,7 @@ def _sync_module_params_and_buffers(
     Precondition: ``sync_module_states == True`` and ``self.process_group`` has
     been set.
     """
-    module_states: List[torch.Tensor] = []
+    module_states: List[torch.TensorBase] = []
     for buffer in module.buffers():
         # Avoid re-synchronizing buffers in case of nested wrapping
         if not getattr(buffer, FSDP_SYNCED, False):
@@ -1096,7 +1096,7 @@ def _sync_module_params_and_buffers(
 
 def _sync_module_states(
     params: List[nn.Parameter],
-    buffers: List[torch.Tensor],
+    buffers: List[torch.TensorBase],
     process_group: dist.ProcessGroup,
 ) -> None:
     # Assumes that each call to this method passes in disjoint `params` and
@@ -1114,7 +1114,7 @@ def _sync_module_states(
 
 
 def _check_module_states_for_sync_module_states(
-    module_states: List[torch.Tensor],
+    module_states: List[torch.TensorBase],
 ) -> None:
     if module_states and any(
         tensor.device == torch.device("cpu") for tensor in module_states

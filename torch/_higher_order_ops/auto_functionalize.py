@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.utils._pytree as pytree
-from torch import Tensor
+from torch import TensorBase
 from torch._C import DispatchKey
 from torch._ops import HigherOrderOperator
 from torch._prims_common import clone_preserve_strides
@@ -58,7 +58,7 @@ class AutoFunctionalized(HigherOrderOperator):
         self,
         _mutable_op: torch._ops.OpOverload,
         **kwargs: Dict[str, Any],
-    ) -> Tuple[Any, Tuple[Tensor, ...]]:
+    ) -> Tuple[Any, Tuple[TensorBase, ...]]:
         assert can_auto_functionalize(_mutable_op)
         assert isinstance(kwargs, dict)
         return super().__call__(_mutable_op, **kwargs)
@@ -110,7 +110,7 @@ def auto_functionalized_dense(
     _mutable_op: torch._ops.OpOverload,
     _only_clone_these_tensors: Optional[Tuple[str, ...]] = None,
     **kwargs: Dict[str, Any],
-) -> Tuple[Any, Tuple[Tensor, ...]]:
+) -> Tuple[Any, Tuple[TensorBase, ...]]:
     new_kwargs = dict(**kwargs)
     result = []
 
@@ -141,7 +141,7 @@ def auto_functionalized_fake(
     mode,
     _mutable_op: torch._ops.OpOverload,
     **kwargs: Dict[str, Any],
-) -> Tuple[Any, Tuple[Tensor, ...]]:
+) -> Tuple[Any, Tuple[TensorBase, ...]]:
     with mode:
         result = auto_functionalized_dense(_mutable_op, **kwargs)
         return result
@@ -152,7 +152,7 @@ def auto_functionalized_proxy(
     mode,
     _mutable_op: torch._ops.OpOverload,
     **kwargs: Dict[str, Any],
-) -> Tuple[Any, Tuple[Tensor, ...]]:
+) -> Tuple[Any, Tuple[TensorBase, ...]]:
     if not mode.enable_tracing:
         return auto_functionalized(_mutable_op, **kwargs)
 
@@ -244,7 +244,7 @@ def do_auto_functionalize(
         # Can be None if input was `Tensor(a!)?`
         if unwrapped_out is None:
             continue
-        assert isinstance(unwrapped_out, torch.Tensor)
+        assert isinstance(unwrapped_out, torch.TensorBase)
         orig_arg = normalized_kwargs[name]
         ctx.replace(orig_arg, unwrapped_out)
         ctx.commit_update(orig_arg)

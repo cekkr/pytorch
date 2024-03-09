@@ -73,7 +73,7 @@ def autograd_registration_check(op, args, kwargs):
     # responsibility to a different test (schema_check).
 
     flat_args = pytree.arg_tree_leaves(*args, **kwargs)
-    all_tensors = [arg for arg in flat_args if isinstance(arg, torch.Tensor)]
+    all_tensors = [arg for arg in flat_args if isinstance(arg, torch.TensorBase)]
     if not any(t.requires_grad for t in all_tensors):
         raise RuntimeError(
             "autograd_registration_check: no inputs have requires_grad=True so "
@@ -116,7 +116,9 @@ def autograd_registration_check(op, args, kwargs):
             return False
         return True
 
-    if not pytree.tree_any_only(torch.Tensor, not_an_input_and_requires_grad, all_outs):
+    if not pytree.tree_any_only(
+        torch.TensorBase, not_an_input_and_requires_grad, all_outs
+    ):
         return
 
     raise AssertionError(

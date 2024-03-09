@@ -79,7 +79,7 @@ _DTYPE_PRECISIONS.update(
 
 
 def default_tolerances(
-    *inputs: Union[torch.Tensor, torch.dtype],
+    *inputs: Union[torch.TensorBase, torch.dtype],
     dtype_precisions: Optional[Dict[torch.dtype, Tuple[float, float]]] = None,
 ) -> Tuple[float, float]:
     """Returns the default absolute and relative testing tolerances for a set of inputs based on the dtype.
@@ -91,7 +91,7 @@ def default_tolerances(
     """
     dtypes = []
     for input in inputs:
-        if isinstance(input, torch.Tensor):
+        if isinstance(input, torch.TensorBase):
             dtypes.append(input.dtype)
         elif isinstance(input, torch.dtype):
             dtypes.append(input)
@@ -105,7 +105,7 @@ def default_tolerances(
 
 
 def get_tolerances(
-    *inputs: Union[torch.Tensor, torch.dtype],
+    *inputs: Union[torch.TensorBase, torch.dtype],
     rtol: Optional[float],
     atol: Optional[float],
     id: Tuple[Any, ...] = (),
@@ -231,9 +231,9 @@ def make_scalar_mismatch_msg(
 
 
 def make_tensor_mismatch_msg(
-    actual: torch.Tensor,
-    expected: torch.Tensor,
-    matches: torch.Tensor,
+    actual: torch.TensorBase,
+    expected: torch.TensorBase,
+    matches: torch.TensorBase,
     *,
     rtol: float,
     atol: float,
@@ -659,7 +659,7 @@ class TensorLikePair(Pair):
 
     def _process_inputs(
         self, actual: Any, expected: Any, *, id: Tuple[Any, ...], allow_subclasses: bool
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> Tuple[torch.TensorBase, torch.TensorBase]:
         directly_related = isinstance(actual, type(expected)) or isinstance(
             expected, type(actual)
         )
@@ -674,8 +674,8 @@ class TensorLikePair(Pair):
             self._check_supported(tensor, id=id)
         return actual, expected
 
-    def _to_tensor(self, tensor_like: Any) -> torch.Tensor:
-        if isinstance(tensor_like, torch.Tensor):
+    def _to_tensor(self, tensor_like: Any) -> torch.TensorBase:
+        if isinstance(tensor_like, torch.TensorBase):
             return tensor_like
 
         try:
@@ -683,7 +683,9 @@ class TensorLikePair(Pair):
         except Exception:
             self._inputs_not_supported()
 
-    def _check_supported(self, tensor: torch.Tensor, *, id: Tuple[Any, ...]) -> None:
+    def _check_supported(
+        self, tensor: torch.TensorBase, *, id: Tuple[Any, ...]
+    ) -> None:
         if tensor.layout not in {
             torch.strided,
             torch.sparse_coo,
@@ -708,8 +710,8 @@ class TensorLikePair(Pair):
 
     def _compare_attributes(
         self,
-        actual: torch.Tensor,
-        expected: torch.Tensor,
+        actual: torch.TensorBase,
+        expected: torch.TensorBase,
     ) -> None:
         """Checks if the attributes of two tensors match.
 
@@ -764,8 +766,8 @@ class TensorLikePair(Pair):
             raise_mismatch_error("dtype", actual.dtype, expected.dtype)
 
     def _equalize_attributes(
-        self, actual: torch.Tensor, expected: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        self, actual: torch.TensorBase, expected: torch.TensorBase
+    ) -> Tuple[torch.TensorBase, torch.TensorBase]:
         """Equalizes some attributes of two tensors for value comparison.
 
         If ``actual`` and ``expected`` are ...
@@ -816,7 +818,9 @@ class TensorLikePair(Pair):
 
         return actual, expected
 
-    def _compare_values(self, actual: torch.Tensor, expected: torch.Tensor) -> None:
+    def _compare_values(
+        self, actual: torch.TensorBase, expected: torch.TensorBase
+    ) -> None:
         if actual.is_quantized:
             compare_fn = self._compare_quantized_values
         elif actual.is_sparse:
@@ -837,8 +841,8 @@ class TensorLikePair(Pair):
 
     def _compare_quantized_values(
         self,
-        actual: torch.Tensor,
-        expected: torch.Tensor,
+        actual: torch.TensorBase,
+        expected: torch.TensorBase,
         *,
         rtol: float,
         atol: float,
@@ -863,8 +867,8 @@ class TensorLikePair(Pair):
 
     def _compare_sparse_coo_values(
         self,
-        actual: torch.Tensor,
-        expected: torch.Tensor,
+        actual: torch.TensorBase,
+        expected: torch.TensorBase,
         *,
         rtol: float,
         atol: float,
@@ -911,8 +915,8 @@ class TensorLikePair(Pair):
 
     def _compare_sparse_compressed_values(
         self,
-        actual: torch.Tensor,
-        expected: torch.Tensor,
+        actual: torch.TensorBase,
+        expected: torch.TensorBase,
         *,
         rtol: float,
         atol: float,
@@ -928,23 +932,23 @@ class TensorLikePair(Pair):
         format_name, compressed_indices_method, plain_indices_method = {
             torch.sparse_csr: (
                 "CSR",
-                torch.Tensor.crow_indices,
-                torch.Tensor.col_indices,
+                torch.TensorBase.crow_indices,
+                torch.TensorBase.col_indices,
             ),
             torch.sparse_csc: (
                 "CSC",
-                torch.Tensor.ccol_indices,
-                torch.Tensor.row_indices,
+                torch.TensorBase.ccol_indices,
+                torch.TensorBase.row_indices,
             ),
             torch.sparse_bsr: (
                 "BSR",
-                torch.Tensor.crow_indices,
-                torch.Tensor.col_indices,
+                torch.TensorBase.crow_indices,
+                torch.TensorBase.col_indices,
             ),
             torch.sparse_bsc: (
                 "BSC",
-                torch.Tensor.ccol_indices,
-                torch.Tensor.row_indices,
+                torch.TensorBase.ccol_indices,
+                torch.TensorBase.row_indices,
             ),
         }[actual.layout]
 
@@ -988,8 +992,8 @@ class TensorLikePair(Pair):
 
     def _compare_regular_values_equal(
         self,
-        actual: torch.Tensor,
-        expected: torch.Tensor,
+        actual: torch.TensorBase,
+        expected: torch.TensorBase,
         *,
         equal_nan: bool = False,
         identifier: Optional[Union[str, Callable[[str], str]]] = None,
@@ -1001,8 +1005,8 @@ class TensorLikePair(Pair):
 
     def _compare_regular_values_close(
         self,
-        actual: torch.Tensor,
-        expected: torch.Tensor,
+        actual: torch.TensorBase,
+        expected: torch.TensorBase,
         *,
         rtol: float,
         atol: float,
@@ -1546,9 +1550,9 @@ def assert_allclose(
         stacklevel=2,
     )
 
-    if not isinstance(actual, torch.Tensor):
+    if not isinstance(actual, torch.TensorBase):
         actual = torch.tensor(actual)
-    if not isinstance(expected, torch.Tensor):
+    if not isinstance(expected, torch.TensorBase):
         expected = torch.tensor(expected, dtype=actual.dtype)
 
     if rtol is None and atol is None:

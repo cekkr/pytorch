@@ -92,8 +92,8 @@ def _get_dim0_padded_size(tensor_size: torch.Size, dim0_factor: int) -> torch.Si
 
 
 def _chunk_with_empty(
-    tensor: torch.Tensor, num_chunks: int, dim: int
-) -> List[torch.Tensor]:
+    tensor: torch.TensorBase, num_chunks: int, dim: int
+) -> List[torch.TensorBase]:
     chunks = list(torch.chunk(tensor, num_chunks, dim=dim))
     while len(chunks) < num_chunks:
         chunks.append(chunks[0].new_empty(0))
@@ -101,7 +101,7 @@ def _chunk_with_empty(
 
 
 def _get_dim0_chunked_size(
-    chunk: torch.Tensor, unchunked_size: torch.Size
+    chunk: torch.TensorBase, unchunked_size: torch.Size
 ) -> torch.Size:
     if chunk.numel() > 0:
         return chunk.size()
@@ -110,7 +110,7 @@ def _get_dim0_chunked_size(
 
 
 def _from_local_no_grad(
-    local_tensor: torch.Tensor,
+    local_tensor: torch.TensorBase,
     device_mesh: DeviceMesh,
     placements: Tuple[Placement, ...],
     global_size: torch.Size,
@@ -134,16 +134,16 @@ def _from_local_no_grad(
 
 
 def _to_dtype_if_needed(
-    tensor: torch.Tensor, dtype: Optional[torch.dtype]
-) -> torch.Tensor:
+    tensor: torch.TensorBase, dtype: Optional[torch.dtype]
+) -> torch.TensorBase:
     if dtype is not None and tensor.dtype != dtype:
         return tensor.to(dtype)
     return tensor
 
 
-def _cast_fp_tensor(dtype: torch.dtype, x: torch.Tensor) -> torch.Tensor:
+def _cast_fp_tensor(dtype: torch.dtype, x: torch.TensorBase) -> torch.TensorBase:
     if (
-        not isinstance(x, torch.Tensor)
+        not isinstance(x, torch.TensorBase)
         or not torch.is_floating_point(x)
         or x.dtype == dtype
     ):

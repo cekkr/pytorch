@@ -24,7 +24,7 @@ class VerifyStateDictMixin:
     def _compare_tensor(self, orig_tensor, dist_tensor):
         if isinstance(dist_tensor, (DTensor, ShardedTensor)):
             dist_tensor = _gather_state_dict({"mykey": dist_tensor}).pop("mykey")
-        self.assertTrue(isinstance(dist_tensor, torch.Tensor))
+        self.assertTrue(isinstance(dist_tensor, torch.TensorBase))
         self.assertTrue(torch.allclose(orig_tensor, dist_tensor))
 
     def _verify_msd(

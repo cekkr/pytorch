@@ -1,6 +1,6 @@
 from typing import Any, Callable, Iterable, Union
 
-from torch import device, Tensor
+from torch import device, TensorBase
 from torch.nn.modules import Module
 from .lr_scheduler import _LRScheduler
 from .optimizer import Optimizer
@@ -10,7 +10,7 @@ class AveragedModel(Module):
         self,
         model: Module,
         device: Union[int, device] = ...,
-        avg_fn: Callable[[Tensor, Tensor, int], Tensor] = ...,
+        avg_fn: Callable[[TensorBase, TensorBase, int], TensorBase] = ...,
         use_buffers: bool = ...,
     ) -> None: ...
     def update_parameters(self, model: Module) -> None: ...

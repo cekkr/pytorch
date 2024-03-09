@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 from torch.ao.quantization import ObserverOrFakeQuantize
 from torch.ao.quantization.qconfig import _ObserverOrFakeQuantizeConstructor
 from torch.fx import Node
@@ -98,7 +98,9 @@ class DerivedQuantizationSpec(QuantizationSpecBase):
     """Quantization spec for the Tensors whose quantization parameters are derived from other Tensors"""
 
     derived_from: List[EdgeOrNode]
-    derive_qparams_fn: Callable[[List[ObserverOrFakeQuantize]], Tuple[Tensor, Tensor]]
+    derive_qparams_fn: Callable[
+        [List[ObserverOrFakeQuantize]], Tuple[TensorBase, TensorBase]
+    ]
     dtype: torch.dtype
     quant_min: Optional[int] = None
     quant_max: Optional[int] = None

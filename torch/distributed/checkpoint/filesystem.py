@@ -24,7 +24,7 @@ from typing import (
 )
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 from torch._utils import _get_available_device_type, _get_device_module
 from torch.distributed._shard._utils import narrow_tensor_by_index
 from torch.futures import Future
@@ -73,7 +73,7 @@ class _TensorLoader(ABC):
         pass
 
     @abstractmethod
-    def values(self) -> Iterator[Tuple[torch.Tensor, object]]:
+    def values(self) -> Iterator[Tuple[torch.TensorBase, object]]:
         pass
 
 
@@ -88,7 +88,7 @@ class _SerialCpuLoader(_TensorLoader):
     def start_loading(self) -> None:
         pass
 
-    def values(self) -> Iterator[Tuple[torch.Tensor, object]]:
+    def values(self) -> Iterator[Tuple[torch.TensorBase, object]]:
         for _, obj in self.items:
             tensor = self.resolve_fun(obj).detach()
             tensor = tensor.cpu()
@@ -128,7 +128,7 @@ class _OverlappingCpuLoader(_TensorLoader):
     def _done(self) -> bool:
         return self.idx >= len(self.items)
 
-    def _drain(self) -> List[Tuple[torch.Tensor, object]]:
+    def _drain(self) -> List[Tuple[torch.TensorBase, object]]:
         drained = []
         if self.in_flight_data >= self.inflight_threshhold:
             self.stream.synchronize()
@@ -162,7 +162,7 @@ class _OverlappingCpuLoader(_TensorLoader):
                 )
                 self.in_flight_data += tensor.numel() * tensor.element_size()
 
-    def _finish(self) -> Iterable[Tuple[torch.Tensor, object]]:
+    def _finish(self) -> Iterable[Tuple[torch.TensorBase, object]]:
         assert self._done
         if len(self.current_items) > 0:
             self.stream.synchronize()
@@ -180,7 +180,7 @@ class _OverlappingCpuLoader(_TensorLoader):
         self.items.sort(key=lambda x: x[0])
         self._refill()
 
-    def values(self) -> Iterator[Tuple[torch.Tensor, object]]:
+    def values(self) -> Iterator[Tuple[torch.TensorBase, object]]:
         self.start_loading()
         while not self._done:
             drained = self._drain()
@@ -227,7 +227,7 @@ def _split_by_size_and_type(bins: int, items: List[WriteItem]) -> List[List[Writ
 
 def _write_item(
     stream: io.IOBase,
-    data: Union[io.BytesIO, torch.Tensor],
+    data: Union[io.BytesIO, torch.TensorBase],
     write_item: WriteItem,
     storage_key: str,
 ) -> WriteResult:
@@ -237,7 +237,7 @@ def _write_item(
         assert isinstance(data, io.BytesIO)
         stream.write(data.getbuffer())
     else:
-        assert isinstance(data, torch.Tensor)
+        assert isinstance(data, torch.TensorBase)
         assert data.device == torch.device("cpu")
         torch.save(data, cast(IO[bytes], stream))
     length = stream.tell() - offset
@@ -322,33 +322,27 @@ class FileSystemBase(ABC):
     @abstractmethod
     def create_stream(
         self, path: Union[str, os.PathLike], mode: str
-    ) -> Generator[io.IOBase, None, None]:
-        ...
+    ) -> Generator[io.IOBase, None, None]: ...
 
     @abstractmethod
     def concat_path(
         self, path: Union[str, os.PathLike], suffix: str
-    ) -> Union[str, os.PathLike]:
-        ...
+    ) -> Union[str, os.PathLike]: ...
 
     @abstractmethod
     def rename(
         self, path: Union[str, os.PathLike], new_path: Union[str, os.PathLike]
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @abstractmethod
-    def init_path(self, path: Union[str, os.PathLike]) -> Union[str, os.PathLike]:
-        ...
+    def init_path(self, path: Union[str, os.PathLike]) -> Union[str, os.PathLike]: ...
 
     @abstractmethod
-    def mkdir(self, path: Union[str, os.PathLike]) -> None:
-        ...
+    def mkdir(self, path: Union[str, os.PathLike]) -> None: ...
 
     @classmethod
     @abstractmethod
-    def validate_checkpoint_id(cls, checkpoint_id: Union[str, os.PathLike]) -> bool:
-        ...
+    def validate_checkpoint_id(cls, checkpoint_id: Union[str, os.PathLike]) -> bool: ...
 
 
 class FileSystem(FileSystemBase):
@@ -579,7 +573,7 @@ class FileSystemReader(StorageReader):
                         planner.load_bytes(req, read_bytes)
                     else:
                         tensor = cast(
-                            Tensor,
+                            TensorBase,
                             torch.load(cast(IO[bytes], file_slice), map_location="cpu"),
                         )
                         tensor = narrow_tensor_by_index(

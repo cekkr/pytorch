@@ -245,7 +245,7 @@ def infer_concrete_type_builder(nn_module, share_types=True):
         if name in user_annotated_ignored_attributes:
             continue
 
-        assert item is None or isinstance(item, torch.Tensor)
+        assert item is None or isinstance(item, torch.TensorBase)
         attr_type, _ = infer_type(name, item)
         # We currently have the invariant in various places in our code
         # that parameters must be Tensors. However, the nn.Module API also
@@ -259,7 +259,7 @@ def infer_concrete_type_builder(nn_module, share_types=True):
         if name in user_annotated_ignored_attributes:
             continue
 
-        assert item is None or isinstance(item, torch.Tensor)
+        assert item is None or isinstance(item, torch.TensorBase)
         attr_type, _ = infer_type(name, item)
         concrete_type_builder.add_attribute(name, attr_type.type(), False, True)
         added_names.add(name)

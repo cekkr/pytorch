@@ -30,7 +30,7 @@ def _as_tuple(inp, arg_name=None, fn_name=None):
         is_inp_tuple = False
 
     for i, el in enumerate(inp):
-        if not isinstance(el, torch.Tensor):
+        if not isinstance(el, torch.TensorBase):
             if is_inp_tuple:
                 raise TypeError(
                     f"The {arg_name} given to {fn_name} must be either a Tensor or a tuple of Tensors but the"
@@ -89,7 +89,7 @@ def _grad_preprocess(inputs, create_graph, need_graph):
 def _grad_postprocess(inputs, create_graph):
     # Postprocess the generated Tensors to avoid returning Tensors with history when the user did not
     # request it.
-    if isinstance(inputs[0], torch.Tensor):
+    if isinstance(inputs[0], torch.TensorBase):
         if not create_graph:
             return tuple(inp.detach() for inp in inputs)
         else:
@@ -178,8 +178,8 @@ def _autograd_grad(
     assert isinstance(grad_outputs, tuple)
     assert len(outputs) == len(grad_outputs)
 
-    new_outputs: Tuple[torch.Tensor, ...] = tuple()
-    new_grad_outputs: Tuple[torch.Tensor, ...] = tuple()
+    new_outputs: Tuple[torch.TensorBase, ...] = tuple()
+    new_grad_outputs: Tuple[torch.TensorBase, ...] = tuple()
     for out, grad_out in zip(outputs, grad_outputs):
         if out is not None and out.requires_grad:
             new_outputs += (out,)
@@ -208,7 +208,7 @@ def _fill_in_zeros(grads, refs, strict, create_graph, stage):
     if stage not in ["back", "back_trick", "double_back", "double_back_trick"]:
         raise RuntimeError(f"Invalid stage argument '{stage}' to _fill_in_zeros")
 
-    res: Tuple[torch.Tensor, ...] = tuple()
+    res: Tuple[torch.TensorBase, ...] = tuple()
     for i, grads_i in enumerate(grads):
         if grads_i is None:
             if strict:
@@ -467,8 +467,8 @@ def jvp(func, inputs, v=None, create_graph=False, strict=False):
 
 
 def _construct_standard_basis_for(
-    tensors: Tuple[torch.Tensor, ...], tensor_numels: Tuple[int, ...]
-) -> Tuple[torch.Tensor, ...]:
+    tensors: Tuple[torch.TensorBase, ...], tensor_numels: Tuple[int, ...]
+) -> Tuple[torch.TensorBase, ...]:
     # This function:
     # - constructs a N=sum(tensor_numels) standard basis. i.e. an NxN identity matrix.
     # - Splits the identity matrix into chunks with each chunk size determined by `tensor_numels`.
@@ -777,11 +777,11 @@ def jacobian(
                 jacobian_output_input, (is_outputs_tuple, is_inputs_tuple)
             )
 
-        jacobian: Tuple[torch.Tensor, ...] = tuple()
+        jacobian: Tuple[torch.TensorBase, ...] = tuple()
 
         for i, out in enumerate(outputs):
             # mypy complains that expression and variable have different types due to the empty list
-            jac_i: Tuple[List[torch.Tensor]] = tuple([] for _ in range(len(inputs)))  # type: ignore[assignment]
+            jac_i: Tuple[List[torch.TensorBase]] = tuple([] for _ in range(len(inputs)))  # type: ignore[assignment]
             for j in range(out.nelement()):
                 vj = _autograd_grad(
                     (out.reshape(-1)[j],),
@@ -932,7 +932,7 @@ def hessian(
         )
         _check_requires_grad(t_out, "outputs", strict=strict)
 
-        if is_out_tuple or not isinstance(out, torch.Tensor):
+        if is_out_tuple or not isinstance(out, torch.TensorBase):
             raise RuntimeError(
                 "The function given to hessian should return a single Tensor"
             )
@@ -1039,7 +1039,7 @@ def vhp(func, inputs, v=None, create_graph=False, strict=False):
         )
         _check_requires_grad(outputs, "outputs", strict=strict)
 
-        if is_outputs_tuple or not isinstance(outputs[0], torch.Tensor):
+        if is_outputs_tuple or not isinstance(outputs[0], torch.TensorBase):
             raise RuntimeError(
                 "The function given to vhp should return a single Tensor"
             )
@@ -1149,7 +1149,7 @@ def hvp(func, inputs, v=None, create_graph=False, strict=False):
         )
         _check_requires_grad(outputs, "outputs", strict=strict)
 
-        if is_outputs_tuple or not isinstance(outputs[0], torch.Tensor):
+        if is_outputs_tuple or not isinstance(outputs[0], torch.TensorBase):
             raise RuntimeError(
                 "The function given to hvp should return a single Tensor"
             )

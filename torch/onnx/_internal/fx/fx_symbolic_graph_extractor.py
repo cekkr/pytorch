@@ -178,7 +178,7 @@ class FXSymbolicTracer(exporter.FXGraphExtractor):
         # where "x" and "b" are argument names in "signature".
         concrete_args = {}
         for param_name, param_value in named_args.items():
-            if isinstance(param_value, torch.Tensor):
+            if isinstance(param_value, torch.TensorBase):
                 # param_value can be, e.g., a real tensor or a fake tensor.
                 # param_value is treated as substitutable tensor symbol (aka placeholder).
                 concrete_args[param_name] = torch.fx._symbolic_trace.PH

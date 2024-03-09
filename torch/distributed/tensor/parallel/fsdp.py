@@ -118,7 +118,7 @@ def _get_dt_pg(dt: DTensor) -> c10d.ProcessGroup:
 
 
 def _rewrite_spec_if_needed(
-    spec: shard_spec.ShardingSpec, tensor: torch.Tensor, rank: int
+    spec: shard_spec.ShardingSpec, tensor: torch.TensorBase, rank: int
 ) -> shard_spec.ShardingSpec:
     """
     Rewrite ``spec`` to match the device of ``tensor``.
@@ -147,12 +147,12 @@ def _rewrite_spec_if_needed(
 
 
 def _chunk_tensor(
-    tensor: torch.Tensor,
+    tensor: torch.TensorBase,
     rank: int,
     world_size: int,
     num_devices_per_node: int,
     pg: dist.ProcessGroup,
-) -> torch.Tensor:
+) -> torch.TensorBase:
     if type(tensor) is ShardedTensor:
         assert len(tensor.local_shards()) == 1
 
@@ -221,7 +221,7 @@ def _chunk_tensor(
 
 
 def _chunk_dtensor(
-    tensor: torch.Tensor,
+    tensor: torch.TensorBase,
     rank: int,
     device_mesh: DeviceMesh,
 ) -> DTensor:
@@ -245,7 +245,7 @@ def _chunk_dtensor(
     # When a layer is not involved in TP, then the tensor will not be a DTensor.
     # e.g. When a layer is not sppecified in the parallelize_plan, TP will have no effect on the layer.
     # e.g. When you do PairwiseParallel on a 3 layer model, TP will have no effect on the third layer.
-    if isinstance(tensor, torch.Tensor) and not isinstance(tensor, DTensor):
+    if isinstance(tensor, torch.TensorBase) and not isinstance(tensor, DTensor):
 
         # For tensors, it is replicated across tp dimension and sharded across FSDP dimension.
         # TP is the inner dimension and FSDP is the outer dimension.
@@ -287,8 +287,8 @@ def _chunk_dtensor(
 
 
 def _pre_load_state_dict(
-    tensor: torch.Tensor,
-) -> Tuple[torch.Tensor, List[Shard]]:
+    tensor: torch.TensorBase,
+) -> Tuple[torch.TensorBase, List[Shard]]:
     shards = cast(ShardedTensor, tensor).local_shards()
     if len(shards) == 1 and type(shards[0].tensor) is ShardedTensor:
         inner_tensor = shards[0].tensor
@@ -301,7 +301,7 @@ def _pre_load_state_dict(
 def _all_gather_dtensor(
     tensor: DTensor,
     parent_mesh: Optional[DeviceMesh],
-) -> torch.Tensor:
+) -> torch.TensorBase:
     """All gather a DTensor in its FSDP dimension and return the local tensor."""
     assert parent_mesh == tensor.device_mesh
 
@@ -325,6 +325,7 @@ class DTensorExtensions(FSDPExtensions):
     This is the implementation for FSDPExtensions defined in
     https://github.com/pytorch/pytorch/blob/main/torch/distributed/fsdp/_fsdp_extensions.py
     """
+
     def __init__(self, device_handle) -> None:
         super().__init__()
         self.compute_stream = None
@@ -335,13 +336,13 @@ class DTensorExtensions(FSDPExtensions):
 
     def pre_flatten_transform(
         self,
-        tensor: torch.Tensor,
-    ) -> Tuple[torch.Tensor, Optional[Any]]:
+        tensor: torch.TensorBase,
+    ) -> Tuple[torch.TensorBase, Optional[Any]]:
         return _flatten_tensor(tensor)
 
     def post_unflatten_transform(
-        self, tensor: torch.Tensor, param_extension: Any
-    ) -> torch.Tensor:
+        self, tensor: torch.TensorBase, param_extension: Any
+    ) -> torch.TensorBase:
         stream = self.compute_stream or self.device_handle.current_stream()
         with self.device_handle.stream(stream):
             # runtime we put the unflattened tensor call on the compute stream since
@@ -353,39 +354,39 @@ class DTensorExtensions(FSDPExtensions):
                 tensor,
                 param_extension,
                 device_handle=self.device_handle,
-                compute_stream=self.compute_stream
+                compute_stream=self.compute_stream,
             )
             _set_fsdp_flattened(result)
             return result
 
     def chunk_tensor(
         self,
-        tensor: torch.Tensor,
+        tensor: torch.TensorBase,
         rank: int,
         world_size: int,
         num_devices_per_node: int,
         pg: dist.ProcessGroup,
         device: Optional[torch.device] = None,
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         return _chunk_tensor(tensor, rank, world_size, num_devices_per_node, pg)
 
     def chunk_dtensor(
         self,
-        tensor: torch.Tensor,
+        tensor: torch.TensorBase,
         rank: int,
         device_mesh: DeviceMesh,
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         return _chunk_dtensor(tensor, rank, device_mesh)
 
     def pre_load_state_dict_transform(
         self,
-        tensor: torch.Tensor,
-    ) -> Tuple[torch.Tensor, List[Shard]]:
+        tensor: torch.TensorBase,
+    ) -> Tuple[torch.TensorBase, List[Shard]]:
         return _pre_load_state_dict(tensor)
 
     def all_gather_dtensor(
         self,
         tensor: DTensor,
         parent_mesh: Optional[DeviceMesh],
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         return _all_gather_dtensor(tensor, parent_mesh)

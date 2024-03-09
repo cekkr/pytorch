@@ -3,9 +3,10 @@ from typing import Dict, List, Optional
 import torch
 import torch.optim._functional as F
 
-from torch import Tensor
+from torch import TensorBase
 
 __all__: List[str] = []
+
 
 # Define a TorchScript compatible Functional Adagrad Optimizer
 # where we use these optimizer in a functional way.
@@ -20,7 +21,7 @@ __all__: List[str] = []
 class _FunctionalAdagrad:
     def __init__(
         self,
-        params: List[Tensor],
+        params: List[TensorBase],
         lr: float = 1e-2,
         lr_decay: float = 0.0,
         weight_decay: float = 0.0,
@@ -45,7 +46,9 @@ class _FunctionalAdagrad:
         self.coalesce_grad = coalesce_grad
         self.foreach = foreach
         self.maximize = maximize
-        self.state = torch.jit.annotate(Dict[torch.Tensor, Dict[str, torch.Tensor]], {})
+        self.state = torch.jit.annotate(
+            Dict[torch.TensorBase, Dict[str, torch.TensorBase]], {}
+        )
 
         if len(params) == 0 and not _allow_empty_param_list:
             raise ValueError("optimizer got an empty parameter list")
@@ -62,12 +65,12 @@ class _FunctionalAdagrad:
                 "step": torch.tensor(0.0),
             }
 
-    def step(self, gradients: List[Optional[Tensor]]):
+    def step(self, gradients: List[Optional[TensorBase]]):
         params = self.param_group["params"]
         params_with_grad = []
         grads = []
         state_sums = []
-        state_steps: List[Tensor] = []
+        state_steps: List[TensorBase] = []
 
         if len(params) != len(gradients):
             raise ValueError(

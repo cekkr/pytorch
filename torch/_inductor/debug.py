@@ -445,7 +445,7 @@ class DebugFormatter:
         self.filename = handler.filename
         self.handler = handler
 
-    def fx_graph(self, gm: torch.fx.GraphModule, inputs: List[torch.Tensor]):
+    def fx_graph(self, gm: torch.fx.GraphModule, inputs: List[torch.TensorBase]):
         with self.fopen("fx_graph_runnable.py") as fd:
             save_graph_repro(fd, gm, inputs, "inductor")
 
@@ -453,7 +453,7 @@ class DebugFormatter:
             fd.write(gm.print_readable(print_output=False))
 
     def fx_graph_transformed(
-        self, gm: torch.fx.GraphModule, inputs: List[torch.Tensor]
+        self, gm: torch.fx.GraphModule, inputs: List[torch.TensorBase]
     ):
         with self.fopen("fx_graph_transformed.py") as fd:
             fd.write(gm.print_readable(print_output=False))
@@ -604,7 +604,7 @@ def save_args_for_compile_fx_inner(*args, **kwargs):
 
         Convert all Tensor to metadata. This may also makes pickle faster.
         """
-        if isinstance(x, torch.Tensor):
+        if isinstance(x, torch.TensorBase):
             return TensorMetadataHolder(_extract_tensor_metadata(x), x.device)
         else:
             return x

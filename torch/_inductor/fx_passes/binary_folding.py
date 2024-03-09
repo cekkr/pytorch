@@ -20,7 +20,7 @@ def mark_mixed_dtype_conv(conv):
         return
 
     conv_user = next(iter(conv.users.keys()))
-    if not isinstance(conv_user.meta["val"], torch.Tensor):
+    if not isinstance(conv_user.meta["val"], torch.TensorBase):
         return
 
     if not conv_user.meta["val"].dtype == torch.float32:

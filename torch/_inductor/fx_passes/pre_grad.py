@@ -448,8 +448,8 @@ def linear_permute_fusion(module: torch.fx.GraphModule) -> torch.fx.GraphModule:
 # ---->
 # Y2 = (W * X^T + bias.unsqueeze(-1))^T
 def linear_transpose(
-    input: torch.Tensor, weight: torch.Tensor, bias: Optional[torch.Tensor]
-) -> torch.Tensor:
+    input: torch.TensorBase, weight: torch.TensorBase, bias: Optional[torch.TensorBase]
+) -> torch.TensorBase:
     if bias is None:
         return torch.matmul(weight, input.transpose(-1, -2))
     return torch.matmul(weight, input.transpose(-1, -2)) + bias.unsqueeze(-1)
@@ -544,16 +544,16 @@ def permute_matmul_fusion(module: torch.fx.GraphModule) -> torch.fx.GraphModule:
 # ---->
 # Y2 = X1.transpose(-1, -2) * W1^T + bias1
 def transpose_linear(
-    input: torch.Tensor, weight: torch.Tensor, bias: Optional[torch.Tensor]
-) -> torch.Tensor:
+    input: torch.TensorBase, weight: torch.TensorBase, bias: Optional[torch.TensorBase]
+) -> torch.TensorBase:
     if bias is None:
         return torch.matmul(input.transpose(-1, -2), weight.t())
     return torch.matmul(input.transpose(-1, -2), weight.t()) + bias
 
 
 def transpose_matmul(
-    A: torch.Tensor, B: torch.Tensor, Atrans: bool, Btrans: bool
-) -> torch.Tensor:
+    A: torch.TensorBase, B: torch.TensorBase, Atrans: bool, Btrans: bool
+) -> torch.TensorBase:
     if Atrans:
         A = A.transpose(-1, -2)
     if Btrans:

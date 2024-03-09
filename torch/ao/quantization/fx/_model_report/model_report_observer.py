@@ -42,21 +42,21 @@ class ModelReportObserver(ObserverBase):
     Note: this tool is meant for FX Graph Mode Quantization
     """
 
-    epoch_activation_min: torch.Tensor
-    epoch_activation_max: torch.Tensor
-    min_val: torch.Tensor
-    max_val: torch.Tensor
-    comp_percentile: torch.Tensor
-    average_percentile_ratio: torch.Tensor
-    percentile_batches_tracked: torch.Tensor
-    constant_channels: torch.Tensor
+    epoch_activation_min: torch.TensorBase
+    epoch_activation_max: torch.TensorBase
+    min_val: torch.TensorBase
+    max_val: torch.TensorBase
+    comp_percentile: torch.TensorBase
+    average_percentile_ratio: torch.TensorBase
+    percentile_batches_tracked: torch.TensorBase
+    constant_channels: torch.TensorBase
 
     def __init__(self, ch_axis: int = 1, comp_percentile: float = 0.9):
         super().__init__(torch.qint8)
         self.num_batches_tracked = 0
 
         # keep track of the min and mix of the range for average batch and epoch as a whole
-        self.average_batch_activation_range: torch.Tensor = torch.tensor(float(0))
+        self.average_batch_activation_range: torch.TensorBase = torch.tensor(float(0))
         self.register_buffer("epoch_activation_min", torch.tensor(float("inf")))
         self.register_buffer("epoch_activation_max", torch.tensor(float("-inf")))
 
@@ -177,18 +177,28 @@ class ModelReportObserver(ObserverBase):
         quantiles_to_find = torch.tensor(quantiles_list, dtype=self.min_val.dtype)
 
         # find the quantiles
-        desired_quantiles = torch.quantile(y, quantiles_to_find, dim=self.ch_axis, interpolation="lower")
+        desired_quantiles = torch.quantile(
+            y, quantiles_to_find, dim=self.ch_axis, interpolation="lower"
+        )
         zero_quantile = desired_quantiles[0]
         comp_quantile = desired_quantiles[1]
         hundreth_quartile = desired_quantiles[2]
 
         # if any of the channels have 0s, we ignore that channel for this calculation
-        any_non_zero_quantile_value: torch.Tensor = (comp_quantile != torch.tensor([0])) | (hundreth_quartile != torch.tensor([0]))
-        any_non_zero_quantile_value = any_non_zero_quantile_value.int()  # transform boolean values to int values
+        any_non_zero_quantile_value: torch.TensorBase = (
+            comp_quantile != torch.tensor([0])
+        ) | (hundreth_quartile != torch.tensor([0]))
+        any_non_zero_quantile_value = (
+            any_non_zero_quantile_value.int()
+        )  # transform boolean values to int values
 
         # we also check if we have a constant channel
-        any_constant_channels: torch.Tensor = (hundreth_quartile - zero_quantile) == torch.tensor([0])
-        any_constant_channels = any_constant_channels.int()  # transform boolean values to int values
+        any_constant_channels: torch.TensorBase = (
+            hundreth_quartile - zero_quantile
+        ) == torch.tensor([0])
+        any_constant_channels = (
+            any_constant_channels.int()
+        )  # transform boolean values to int values
 
         # possibilities to get nan as an answer
         #   will ignore any of these three cases with 0s and just not deal with them for now
@@ -203,8 +213,13 @@ class ModelReportObserver(ObserverBase):
         ratio_if_not_zero = any_non_zero_quantile_value * quantile_ratios
 
         # if num_batches and average_ratio are not initialized, we want to initialize them
-        if self.percentile_batches_tracked.shape[0] == 0 or self.average_percentile_ratio.shape[0] == 0:
-            self.percentile_batches_tracked = torch.zeros_like(any_non_zero_quantile_value)
+        if (
+            self.percentile_batches_tracked.shape[0] == 0
+            or self.average_percentile_ratio.shape[0] == 0
+        ):
+            self.percentile_batches_tracked = torch.zeros_like(
+                any_non_zero_quantile_value
+            )
             self.average_percentile_ratio = torch.zeros_like(ratio_if_not_zero)
 
         # also initialize the constant channel var if that is not initialized separately
@@ -216,12 +231,18 @@ class ModelReportObserver(ObserverBase):
         average_ratio = self.average_percentile_ratio
 
         # calculate new_number of batches, new_ratios, and get rid of nans because of 0 size batches
-        new_number_of_batches: torch.Tensor = num_batches + any_non_zero_quantile_value
-        new_ratios: torch.Tensor = ((average_ratio * num_batches) + ratio_if_not_zero) / new_number_of_batches
+        new_number_of_batches: torch.TensorBase = (
+            num_batches + any_non_zero_quantile_value
+        )
+        new_ratios: torch.TensorBase = (
+            (average_ratio * num_batches) + ratio_if_not_zero
+        ) / new_number_of_batches
         new_ratios = torch.nan_to_num(new_ratios)
 
         # update the number of non-constant channels
-        new_constant_count: torch.Tensor = self.constant_channels + any_constant_channels
+        new_constant_count: torch.TensorBase = (
+            self.constant_channels + any_constant_channels
+        )
 
         # update the values locally
         self.percentile_batches_tracked.copy_(new_number_of_batches)

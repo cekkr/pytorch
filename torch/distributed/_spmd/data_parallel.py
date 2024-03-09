@@ -112,7 +112,7 @@ class DataParallelStrategy(OpStrategy):
 
 
 @contextmanager
-def gradients_tagging(params: Dict[str, torch.Tensor]):
+def gradients_tagging(params: Dict[str, torch.TensorBase]):
     """Tag the gradient of the parameters with a special tag, so that we can identify them during SPMD expansion.
 
     It's safe to trace those hooks and we would remove those nodes later.
@@ -588,7 +588,7 @@ def mark_data_parallel_shardings(
 
 def _partition_val(val: Any, spec: DTensorSpec) -> Any:
     """Util function to convert a full tensor val to its local component."""
-    if isinstance(val, torch.Tensor):
+    if isinstance(val, torch.TensorBase):
         local_shard = val
         if val.ndim == 0:
             # If it's already a scalar tensor, it is already local, we don't
@@ -656,7 +656,7 @@ def partitioner(graph: GraphModule) -> GraphModule:
                     input_arg_tensor = input_arg.meta["val"]
 
                     # insert reshard operation
-                    def reshard_fn(local_tensor: torch.Tensor) -> torch.Tensor:
+                    def reshard_fn(local_tensor: torch.TensorBase) -> torch.TensorBase:
                         return redistribute_local_tensor(
                             local_tensor,
                             input_arg_spec,
@@ -679,7 +679,7 @@ def partitioner(graph: GraphModule) -> GraphModule:
 
             if node.target == torch.ops.aten.repeat.default:
                 # for repeat op, we need to infer the repeat sizes
-                assert isinstance(output_val, torch.Tensor)
+                assert isinstance(output_val, torch.TensorBase)
                 local_shape = compute_local_shape(
                     output_val.shape, out_spec.mesh, out_spec.placements
                 )
@@ -702,7 +702,7 @@ def partitioner(graph: GraphModule) -> GraphModule:
 
             elif node.target in shape_adjustment_ops:
                 # for view related op that needs shape, adjust shape to local shape if needed
-                assert isinstance(output_val, torch.Tensor)
+                assert isinstance(output_val, torch.TensorBase)
                 local_shape = compute_local_shape(
                     output_val.shape, out_spec.mesh, out_spec.placements
                 )
@@ -721,7 +721,7 @@ def partitioner(graph: GraphModule) -> GraphModule:
     for node in graph.graph.nodes:
         if "sharding" in node.meta:
             del node.meta["sharding"]
-        if "val" in node.meta and isinstance(node.meta["val"], torch.Tensor):
+        if "val" in node.meta and isinstance(node.meta["val"], torch.TensorBase):
             local_tensor_meta = _extract_tensor_metadata(node.meta["val"])
             node.meta["tensor_meta"] = local_tensor_meta
 
@@ -734,7 +734,7 @@ def partition_data_parallel(
     graph: GraphModule,
     model: nn.Module,
     optimizer: Optional[torch.optim.Optimizer],
-    params_buffers: Dict[str, torch.Tensor],
+    params_buffers: Dict[str, torch.TensorBase],
     named_states: Dict[str, Any],
     args: Tuple[Any, ...],
     kwargs: Dict[str, Any],
@@ -809,7 +809,7 @@ def partition_data_parallel(
             param_states = named_states[param_key]
             param_dtensor_states = {}
             for state_key, state_val in param_states.items():
-                if isinstance(state_val, torch.Tensor) and state_val.ndim > 0:
+                if isinstance(state_val, torch.TensorBase) and state_val.ndim > 0:
                     # shard/replicate non-scalar tensors, for scalar tensor, we
                     # don't do anything
                     dtensor_state = distribute_tensor(state_val, mesh, [placement])

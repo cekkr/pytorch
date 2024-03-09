@@ -10,7 +10,7 @@ import torch
 
 import torch._prims_common as utils
 import torch.library
-from torch import sym_float, Tensor, TypedStorage
+from torch import sym_float, TensorBase, TypedStorage
 from torch._C import _get_default_device
 from torch._prims.debug_prims import register_debug_prims
 from torch._prims.rng_prims import register_rng_prims
@@ -216,7 +216,7 @@ __all__ = [
 
 
 def TensorMeta(
-    tensorlike: Optional[Union[NumberType, torch.Tensor]] = None,
+    tensorlike: Optional[Union[NumberType, torch.TensorBase]] = None,
     *,
     shape: Optional[ShapeType] = None,
     strides: Optional[StrideType] = None,
@@ -234,7 +234,7 @@ def TensorMeta(
         # needs to behave differently than a scalar tensor for type
         # promotion purposes
     elif tensorlike is not None:
-        assert isinstance(tensorlike, torch.Tensor)
+        assert isinstance(tensorlike, torch.TensorBase)
         inferred_shape = tuple(tensorlike.shape)
         inferred_strides = tuple(tensorlike.stride())
         inferred_dtype = tensorlike.dtype
@@ -590,7 +590,7 @@ bitwise_not = _make_elementwise_unary_prim(
 )
 
 
-def _cbrt_aten(a: torch.Tensor) -> Tensor:
+def _cbrt_aten(a: torch.TensorBase) -> TensorBase:
     torch._check(
         not a.is_complex(),
         lambda: "cbrt: Complex inputs not supported. Consider calling torch.pow(a, 1.0/3.0)",
@@ -958,7 +958,7 @@ bitwise_xor = _make_elementwise_binary_prim(
 #   and true division for floating and complex inputs
 def _div_aten(a, b):
     is_integral = isinstance(a, (bool, int, torch.SymInt)) or (
-        isinstance(a, torch.Tensor) and utils.is_integer_dtype(a.dtype)
+        isinstance(a, torch.TensorBase) and utils.is_integer_dtype(a.dtype)
     )
 
     if is_integral:
@@ -1180,7 +1180,7 @@ def _as_strided_meta(
         # NOTE: This special case is to avoid having to acquire the storage below
         # as_strided to shapes with no elements are trivially valid, so it's OK
         pass
-    elif isinstance(a, torch.Tensor):
+    elif isinstance(a, torch.TensorBase):
         utils.check_in_bounds_for_storage(
             a._typed_storage(), size, stride, storage_offset
         )
@@ -1189,8 +1189,8 @@ def _as_strided_meta(
 
 
 def _as_strided_aten(
-    a: Tensor, size: ShapeType, stride: StrideType, storage_offset: int
-) -> Tensor:
+    a: TensorBase, size: ShapeType, stride: StrideType, storage_offset: int
+) -> TensorBase:
     return torch.as_strided(a, size, stride, storage_offset)
 
 
@@ -1299,7 +1299,7 @@ broadcast_in_dim = _make_prim(
 )
 
 
-def _validate_collapse_args(a: Tensor, start: int, end: int) -> None:
+def _validate_collapse_args(a: TensorBase, start: int, end: int) -> None:
     # Special-case for zero dimensional tensors
     ndim = max(1, a.dim())
     utils.validate_idx(ndim, start)
@@ -1393,7 +1393,7 @@ def _collapse_view_meta(a: TensorLikeType, start: int, end: int) -> TensorLikeTy
     return a.as_strided(new_shape, new_strides, a.storage_offset())
 
 
-def _collapse_view_aten(a: Tensor, start: int, end: int) -> Tensor:
+def _collapse_view_aten(a: TensorBase, start: int, end: int) -> TensorBase:
     new_shape = _collapsed_shape(a.shape, start, end)
     return a.view(new_shape)
 
@@ -1539,11 +1539,11 @@ def _slice_meta(
 
 
 def _slice_aten(
-    a: Tensor,
+    a: TensorBase,
     start_indices: DimsSequenceType,
     limit_indices: DimsSequenceType,
     strides: Optional[StrideType] = None,
-) -> Tensor:
+) -> TensorBase:
     _strides = strides if strides is not None else [1] * len(start_indices)
 
     slices = []
@@ -1620,12 +1620,12 @@ def _slice_in_dim_meta(
 
 
 def _slice_in_dim_aten(
-    a: Tensor,
+    a: TensorBase,
     start_index: int,
     limit_index: int,
     stride: int = 1,
     axis: int = 0,
-) -> Tensor:
+) -> TensorBase:
     start_indices = [0] * a.ndim
     limit_indices = list(a.shape)
     strides = [1] * a.ndim
@@ -1678,7 +1678,7 @@ def _split_dim_meta(a: TensorLikeType, dim: int, outer_length: int) -> TensorLik
     return a.as_strided(new_shape, new_strides, a.storage_offset())
 
 
-def _split_dim_aten(a: Tensor, dim: int, outer_length: int) -> Tensor:
+def _split_dim_aten(a: TensorBase, dim: int, outer_length: int) -> TensorBase:
     inner_length = a.shape[dim] // outer_length
     new_shape = a.shape[0:dim] + (outer_length, inner_length) + a.shape[dim + 1 :]
 
@@ -1757,7 +1757,7 @@ def _transpose_meta(a: TensorLikeType, permutation: DimsSequenceType) -> TensorL
     return a.as_strided(tuple(new_shape), tuple(new_strides), a.storage_offset())
 
 
-def _transpose_aten(a: Tensor, permutation: DimsSequenceType) -> Tensor:
+def _transpose_aten(a: TensorBase, permutation: DimsSequenceType) -> TensorBase:
     return torch.permute(a, permutation)
 
 
@@ -1782,7 +1782,7 @@ def _view_of_meta(a: TensorLikeType) -> TensorLikeType:
     return a.as_strided(a.shape, a.stride(), a.storage_offset())
 
 
-def _view_of_aten(a: Tensor) -> Tensor:
+def _view_of_aten(a: TensorBase) -> TensorBase:
     return a.view(a.shape)
 
 
@@ -1803,7 +1803,7 @@ def _view_element_type_meta(a: TensorLikeType, dtype: torch.dtype) -> TensorLike
     return a.view(dtype)
 
 
-def _view_element_type_aten(a: Tensor, dtype: torch.dtype) -> Tensor:
+def _view_element_type_aten(a: TensorBase, dtype: torch.dtype) -> TensorBase:
     return a.view(dtype)
 
 
@@ -1871,14 +1871,14 @@ as_strided_scatter = _make_prim(
 #
 
 
-def _collapse_meta(a: Tensor, start: int, end: int) -> Tensor:
+def _collapse_meta(a: TensorBase, start: int, end: int) -> TensorBase:
     # Special-case for zero dimensional tensors
     _validate_collapse_args(a, start, end)
     new_shape = _collapsed_shape(a.shape, start, end)
     return a.new_empty(new_shape)
 
 
-def _collapse_aten(a: Tensor, start: int, end: int) -> Tensor:
+def _collapse_aten(a: TensorBase, start: int, end: int) -> TensorBase:
     new_shape = _collapsed_shape(a.shape, start, end)
     out = a.new_empty(new_shape)
     with torch.no_grad():
@@ -1930,7 +1930,9 @@ def _cat_meta(tensors: Sequence[TensorLikeType], dim: int) -> TensorLikeType:
     )
 
 
-def _cat_aten(tensors: Union[Tuple[Tensor, ...], List[Tensor]], dim: int) -> Tensor:
+def _cat_aten(
+    tensors: Union[Tuple[TensorBase, ...], List[TensorBase]], dim: int
+) -> TensorBase:
     return torch.cat(tensors, dim)
 
 
@@ -1963,7 +1965,7 @@ def _reshape_meta(a: TensorLikeType, shape: ShapeType):
     return TensorMeta(a, shape=shape, strides=utils.make_contiguous_strides_for(shape))
 
 
-def _reshape_aten(a: Tensor, shape: ShapeType) -> Tensor:
+def _reshape_aten(a: TensorBase, shape: ShapeType) -> TensorBase:
     return a.reshape(shape).contiguous().clone()
 
 
@@ -2046,7 +2048,7 @@ def _convert_element_type_meta(a: TensorLikeType, dtype: torch.dtype) -> TensorL
     return TensorMeta(a, strides=strides, dtype=dtype)
 
 
-def _convert_element_type_aten(a: Tensor, dtype: torch.dtype) -> Tensor:
+def _convert_element_type_aten(a: TensorBase, dtype: torch.dtype) -> TensorBase:
     # Propagates requires grad when possible
     if not utils.is_grad_dtype(dtype):
         requires_grad = False
@@ -2087,7 +2089,7 @@ def _device_put_meta(
     return TensorMeta(a, device=utils.canonicalize_device(device))
 
 
-def _device_put_aten(a: Tensor, device: Union[str, torch.device]) -> Tensor:
+def _device_put_aten(a: TensorBase, device: Union[str, torch.device]) -> TensorBase:
     return a.to(device)
 
 
@@ -2121,7 +2123,7 @@ _item_doc = """
 item = _make_prim(
     schema="item(Tensor a) -> Scalar",
     meta=_item_meta,
-    impl_aten=torch.Tensor.item,
+    impl_aten=torch.TensorBase.item,
     return_type=RETURN_TYPE.NEW,
     doc=_item_doc,
 )
@@ -2214,7 +2216,7 @@ def _copy_to_meta(a: TensorLikeType, b: TensorLikeType):
     return a
 
 
-def _copy_to_aten(a: Tensor, b: Tensor) -> Tensor:
+def _copy_to_aten(a: TensorBase, b: TensorBase) -> TensorBase:
     return a.copy_(b)
 
 
@@ -2244,7 +2246,7 @@ def _copy_strided_meta(a: TensorLikeType, stride: ShapeType):
     )
 
 
-def _copy_strided_aten(a: Tensor, stride: ShapeType) -> Tensor:
+def _copy_strided_aten(a: TensorBase, stride: ShapeType) -> TensorBase:
     out = torch.empty_strided(
         a.size(),
         stride=stride,
@@ -2275,7 +2277,7 @@ def _resize_meta(a: TensorLikeType, shape: ShapeType):
     return a.resize_(shape)
 
 
-def _resize_aten(a: Tensor, shape: ShapeType) -> Tensor:
+def _resize_aten(a: TensorBase, shape: ShapeType) -> TensorBase:
     return a.resize_(shape)
 
 
@@ -2379,7 +2381,7 @@ def _xor_sum_aten(
     dims: Optional[DimsSequenceType],
     *,
     dtype: Optional[torch.dtype] = None,
-) -> Tensor:
+) -> TensorBase:
     raise NotImplementedError("xor_sum only implemented with inductor")
 
 
@@ -2395,7 +2397,7 @@ def _prod_aten(
     dims: Optional[DimsSequenceType],
     *,
     dtype: Optional[torch.dtype] = None,
-) -> Tensor:
+) -> TensorBase:
     if dims is not None:
         for d in sorted(dims, reverse=True):
             assert d >= 0
@@ -2494,7 +2496,7 @@ def _empty_meta(
 
 def _empty_aten(
     shape: ShapeType, *, dtype: torch.dtype, device: torch.device, requires_grad: bool
-) -> Tensor:
+) -> TensorBase:
     return torch.empty(shape, dtype=dtype, device=device, requires_grad=requires_grad)
 
 
@@ -2610,7 +2612,7 @@ def _full_aten(
     dtype: torch.dtype,
     device: torch.device,
     requires_grad: bool,
-) -> Tensor:
+) -> TensorBase:
     # Note that Mypy thinks torch.full can't accept a complex fill_value
     return torch.full(
         shape, fill_value, dtype=dtype, device=device, requires_grad=requires_grad  # type: ignore[arg-type]
@@ -2647,13 +2649,13 @@ def _full_like_meta(
 
 
 def _full_like_aten(
-    a: Tensor,
+    a: TensorBase,
     fill_value: NumberType,
     *,
     dtype: torch.dtype,
     device: torch.device,
     requires_grad: bool,
-) -> Tensor:
+) -> TensorBase:
     # Note that Mypy thinks torch.full can't accept a complex fill_value
     return torch.full_like(
         a, fill_value, dtype=dtype, device=device, requires_grad=requires_grad  # type: ignore[arg-type]
@@ -2691,7 +2693,7 @@ def _scalar_tensor_aten(
     *,
     dtype: torch.dtype,
     device: torch.device,
-) -> Tensor:
+) -> TensorBase:
     if isinstance(scalar, complex) and (
         dtype is None or not utils.is_complex_dtype(dtype)
     ):
@@ -2758,7 +2760,7 @@ def _svd_meta(
 
 def _svd_aten(
     A: TensorLikeType, *, full_matrices: bool
-) -> Tuple[Tensor, Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase, TensorBase]:
     return torch.linalg.svd(A, full_matrices=full_matrices)
 
 
@@ -2815,7 +2817,7 @@ def _normal_aten(
     device: torch.device,
     requires_grad: bool,
     generator: Optional[torch.Generator] = None,
-) -> Tensor:
+) -> TensorBase:
     a = torch.empty(shape, dtype=dtype, device=device, requires_grad=requires_grad)
     with torch.no_grad():
         # NOTE: normal_ is incorrectly annotated to expect mean to be a float
@@ -2862,7 +2864,7 @@ def _uniform_aten(
     dtype: torch.dtype,
     device: torch.device,
     generator: Optional[torch.Generator] = None,
-) -> Tensor:
+) -> TensorBase:
     a = torch.empty(shape, dtype=dtype, device=device)
     a.uniform_(low, high, generator=generator)
     return a

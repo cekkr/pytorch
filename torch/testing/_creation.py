@@ -31,7 +31,7 @@ _BOOLEAN_OR_INTEGRAL_TYPES = [torch.bool, *_INTEGRAL_TYPES]
 _FLOATING_OR_COMPLEX_TYPES = [*_FLOATING_TYPES, *_COMPLEX_TYPES]
 
 
-def _uniform_random_(t: torch.Tensor, low: float, high: float) -> torch.Tensor:
+def _uniform_random_(t: torch.TensorBase, low: float, high: float) -> torch.TensorBase:
     # uniform_ requires to-from <= std::numeric_limits<scalar_t>::max()
     # Work around this by scaling the range before and after the PRNG
     if high - low >= torch.finfo(t.dtype).max:
@@ -50,7 +50,7 @@ def make_tensor(
     noncontiguous: bool = False,
     exclude_zero: bool = False,
     memory_format: Optional[torch.memory_format] = None,
-) -> torch.Tensor:
+) -> torch.TensorBase:
     r"""Creates a tensor with the given :attr:`shape`, :attr:`device`, and :attr:`dtype`, and filled with
     values uniformly drawn from ``[low, high)``.
 

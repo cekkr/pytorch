@@ -35,7 +35,7 @@ def autograd_not_implemented_inner(
         result = operator(*args, **kwargs)
         flat_operands = pytree.arg_tree_leaves(*args)
         if torch.is_grad_enabled() and any(
-            f.requires_grad for f in flat_operands if isinstance(f, torch.Tensor)
+            f.requires_grad for f in flat_operands if isinstance(f, torch.TensorBase)
         ):
             if delayed_error:
                 err_fn = torch._C._functions.DelayedError(
@@ -50,7 +50,7 @@ def autograd_not_implemented_inner(
                     return tensor
 
                 return pytree.tree_map_only(
-                    torch.Tensor, lambda x: err_fn(fake_requires_grad(x)), result
+                    torch.TensorBase, lambda x: err_fn(fake_requires_grad(x)), result
                 )
             else:
                 raise RuntimeError(f"Autograd not implemented for {str(operator)}")

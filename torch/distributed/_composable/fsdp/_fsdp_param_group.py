@@ -304,7 +304,7 @@ class FSDPParamGroup:
             # Save the autograd-computed gradients before resharding to only
             # access the unsharded parameters when their data is present
             fsdp_params_with_grad: List[FSDPParam] = []
-            unsharded_grads: List[torch.Tensor] = []
+            unsharded_grads: List[torch.TensorBase] = []
             for fsdp_param in self.fsdp_params:
                 if fsdp_param.unsharded_param.grad is not None:
                     fsdp_params_with_grad.append(fsdp_param)
@@ -404,7 +404,7 @@ class FSDPParamGroup:
         kwargs_list, kwargs_spec = tree_flatten(kwargs)
         args_kwargs_list = list(args_list) + list(kwargs_list)
         inp_tensor_indices: List[int] = []
-        inp_tensors: List[torch.Tensor] = []
+        inp_tensors: List[torch.TensorBase] = []
         for i, obj in enumerate(args_kwargs_list):
             if torch.is_tensor(obj) and obj.requires_grad:
                 inp_tensor_indices.append(i)
@@ -431,12 +431,12 @@ class FSDPParamGroup:
             self._to_sharded()
 
         for module in modules_with_fsdp_params:
-            self._module_to_pre_save_state_dict_hook_handle[
-                module
-            ] = module.register_state_dict_pre_hook(to_sharded_hook)
-            self._module_to_pre_load_state_dict_hook_handle[
-                module
-            ] = module._register_load_state_dict_pre_hook(to_sharded_hook)
+            self._module_to_pre_save_state_dict_hook_handle[module] = (
+                module.register_state_dict_pre_hook(to_sharded_hook)
+            )
+            self._module_to_pre_load_state_dict_hook_handle[module] = (
+                module._register_load_state_dict_pre_hook(to_sharded_hook)
+            )
 
     # Properties #
     @property
@@ -495,12 +495,12 @@ def _get_param_module_infos(
 
 class RegisterPostBackwardFunction(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, param_group: FSDPParamGroup, *inputs: torch.Tensor):
+    def forward(ctx, param_group: FSDPParamGroup, *inputs: torch.TensorBase):
         # All tensors in `inputs` should require gradient
         ctx.param_group = param_group
         return inputs
 
     @staticmethod
-    def backward(ctx, *grads: torch.Tensor):
+    def backward(ctx, *grads: torch.TensorBase):
         ctx.param_group.post_backward()
         return (None,) + grads

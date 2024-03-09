@@ -31,7 +31,9 @@ class WhileLoopOp(HigherOrderOperator):
             )
         if not isinstance(operands, tuple):
             raise RuntimeError("operands must be a tuple, got " f"{type(operands)}")
-        if not all(isinstance(t, (torch.Tensor, int, float, bool)) for t in operands):
+        if not all(
+            isinstance(t, (torch.TensorBase, int, float, bool)) for t in operands
+        ):
             raise RuntimeError(
                 "operands must be a tuple of tensors, ints, floats, or bools, got "
                 f"{operands}"
@@ -104,7 +106,7 @@ def while_loop(cond_fn, body_fn, operands):
             raise RuntimeError("Expect cond_fn and body_fn to be callbale.")
 
         if not isinstance(operands, (tuple, list)) or pytree.tree_any(
-            lambda t: not isinstance(t, torch.Tensor), operands
+            lambda t: not isinstance(t, torch.TensorBase), operands
         ):
             raise RuntimeError(
                 "Expect operands to be a tuple of possibly nested dict/list/tuple that only"
@@ -125,7 +127,7 @@ def while_loop_dense(cond_fn, body_fn, operands):
 
     def _is_boolean_scalar_tensor(pred):
         return (
-            isinstance(pred, torch.Tensor)
+            isinstance(pred, torch.TensorBase)
             and pred.size() == torch.Size([])
             and pred.dtype == torch.bool
         )

@@ -6,7 +6,7 @@ import torch
 import torch._prims_common as utils
 import torch.distributed._functional_collectives as funcol
 import torch.distributed.distributed_c10d as c10d
-from torch import Tensor
+from torch import TensorBase
 from torch.distributed._tensor import DTensor, Replicate, Shard
 from torch.distributed._tensor.ops.embedding_ops import _MaskPartial
 from torch.distributed._tensor.ops.math_ops import (
@@ -94,7 +94,7 @@ def _cast_to_dtensor(
             return tensor
         else:
             raise RuntimeError(f"Expected {placements} but got {tensor.placements}.")
-    elif isinstance(tensor, torch.Tensor):
+    elif isinstance(tensor, torch.TensorBase):
         return DTensor.from_local(
             tensor, device_mesh=mesh, placements=placements, run_check=False
         )
@@ -190,22 +190,22 @@ def _log_softmax_backward_handler(
 # NOTE: The implementation follows torch._decomp.decomposition._nll_loss_forward,
 # with customized communication inserted to perform distributed computation.
 def _nll_loss_forward(
-    x: Tensor,
-    target: Tensor,
-    weight: Optional[Tensor],
-    local_weight: Optional[Tensor],
+    x: TensorBase,
+    target: TensorBase,
+    weight: Optional[TensorBase],
+    local_weight: Optional[TensorBase],
     reduction: int,
     ignore_index: int,
     channel_dim_size: int,
     mesh: DeviceMesh,
     mesh_dim: int,
-) -> Tuple[Tensor, Tensor]:
+) -> Tuple[TensorBase, TensorBase]:
     n_dims = x.dim()
     channel_dim = 1
     if n_dims < 2:
         channel_dim = 0
 
-    def _weight_view(weight: Tensor) -> Tensor:
+    def _weight_view(weight: TensorBase) -> TensorBase:
         if n_dims > 1:
             shape = [
                 1,
@@ -340,17 +340,17 @@ def _nll_loss_forward_handler(
 # The implementation resembles _nll_loss_backward and _log_softmax_backward_data
 # from torch._decomp.decomposition.
 def _nll_loss_and_log_softmax_backward(
-    grad_output: Tensor,
-    x: Tensor,
-    target: Tensor,
-    weight: Optional[Tensor],
+    grad_output: TensorBase,
+    x: TensorBase,
+    target: TensorBase,
+    weight: Optional[TensorBase],
     reduction: int,
     ignore_index: int,
-    total_weight: Tensor,
+    total_weight: TensorBase,
     channel_dim_size: int,
     mesh: DeviceMesh,
     mesh_dim: int,
-) -> Tensor:
+) -> TensorBase:
     channel_dim = 0 if x.dim() < 2 else 1
     if reduction == Reduction.MEAN.value:
         grad_output = grad_output / total_weight
@@ -418,7 +418,7 @@ def _nll_loss_backward_handler(
     weight = args[3]
     reduction = cast(int, args[4])
     ignore_index = cast(int, args[5])
-    total_weight = cast(Tensor, args[6])
+    total_weight = cast(TensorBase, args[6])
 
     channel_dim = 1 if x.dim() >= 2 else 0
     channel_dim_size = x.shape[channel_dim]

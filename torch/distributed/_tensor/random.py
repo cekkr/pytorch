@@ -6,7 +6,7 @@ from typing import Dict, List, Optional
 import torch
 import torch.distributed as dist
 
-from torch import Tensor
+from torch import TensorBase
 from torch.distributed._tensor.placement_types import DTensorSpec, Shard
 from torch.distributed.device_mesh import _get_device_handle, DeviceMesh
 
@@ -107,12 +107,12 @@ class RNGStateTracker:
                 f"{self.__class__.__name__} instantiation requires the presence of CUDA/CUDA-like device"
             )
 
-        self._states: Dict[str, Tensor] = {}
+        self._states: Dict[str, TensorBase] = {}
         self._devices = [self._device_handle.current_device()]
         self._use_distribute_region = True
 
     @property
-    def rng_states(self) -> Dict[str, Tensor]:
+    def rng_states(self) -> Dict[str, TensorBase]:
         return self._states
 
     @property
@@ -365,8 +365,8 @@ class TensorParallelRNGTracker(RNGStateTracker):
                 try:
                     yield
                 finally:
-                    self.rng_states[
-                        "tensor-parallel-rng"
-                    ] = self._device_handle.get_rng_state()
+                    self.rng_states["tensor-parallel-rng"] = (
+                        self._device_handle.get_rng_state()
+                    )
         else:
             yield

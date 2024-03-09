@@ -385,7 +385,7 @@ def view_copy_dtype(self, dtype):
 
 
 def get_like_layout(
-    tensor: torch.Tensor, memory_format: Optional[torch.memory_format]
+    tensor: torch.TensorBase, memory_format: Optional[torch.memory_format]
 ) -> torch.memory_format:
     # TODO: _to_copy tensor to stride permutation
     if memory_format is torch.preserve_format or memory_format is None:
@@ -471,13 +471,13 @@ def randint(high, size, **kwargs):
 # scale and zero_point is scalar or scalar tensor
 @register_decomposition(quantized_decomposed.quantize_per_tensor.default)
 def quantize_per_tensor_default_decomp_impl(
-    input: torch.Tensor,
+    input: torch.TensorBase,
     scale: float,
     zero_point: int,
     quant_min: int,
     quant_max: int,
     dtype: torch.dtype,
-) -> torch.Tensor:
+) -> torch.TensorBase:
     if input.dtype == torch.bfloat16:
         input = input.to(torch.float32)
     inv_scale = 1.0 / scale
@@ -490,25 +490,25 @@ def quantize_per_tensor_default_decomp_impl(
 # scale and zero_point is scalar or scalar tensor
 @register_decomposition(quantized_decomposed.dequantize_per_tensor.default)
 def dequantize_per_tensor_default_decomp_impl(
-    input: torch.Tensor,
+    input: torch.TensorBase,
     scale: float,
     zero_point: int,
     quant_min: int,
     quant_max: int,
     dtype: torch.dtype,
-) -> torch.Tensor:
+) -> torch.TensorBase:
     return (input.to(torch.float32) - zero_point) * scale
 
 
 @register_decomposition(quantized_decomposed.quantize_per_tensor.tensor)
 def quantize_per_tensor_tensor_decomp_impl(
-    input: torch.Tensor,
-    scale: torch.Tensor,
-    zero_point: torch.Tensor,
+    input: torch.TensorBase,
+    scale: torch.TensorBase,
+    zero_point: torch.TensorBase,
     quant_min: int,
     quant_max: int,
     dtype: torch.dtype,
-) -> torch.Tensor:
+) -> torch.TensorBase:
     if input.dtype == torch.bfloat16:
         input = input.to(torch.float32)
     inv_scale = 1.0 / scale
@@ -519,13 +519,13 @@ def quantize_per_tensor_tensor_decomp_impl(
 
 @register_decomposition(quantized_decomposed.dequantize_per_tensor.tensor)
 def dequantize_per_tensor_tensor_decomp_impl(
-    input: torch.Tensor,
-    scale: torch.Tensor,
-    zero_point: torch.Tensor,
+    input: torch.TensorBase,
+    scale: torch.TensorBase,
+    zero_point: torch.TensorBase,
     quant_min: int,
     quant_max: int,
     dtype: torch.dtype,
-) -> torch.Tensor:
+) -> torch.TensorBase:
     return (input.to(torch.float32) - zero_point.to(torch.int32)) * scale.to(
         torch.float32
     )
@@ -548,12 +548,12 @@ def q_embedding_bag_byte_unpack_decomp(packed):
 @register_decomposition([aten.grid_sampler_2d])
 @pw_cast_for_opmath
 def grid_sampler_2d(
-    a: torch.Tensor,
-    grid: torch.Tensor,
+    a: torch.TensorBase,
+    grid: torch.TensorBase,
     interpolation_mode: int = 0,
     padding_mode: int = 0,
     align_corners: bool = False,
-) -> torch.Tensor:
+) -> torch.TensorBase:
     # We do not expand the grid (_expand_grid=False) on cpu for performance reasons
     # Experimenting locally it was found that compiled CUDA code is accelerated by ~5x
     # and CPU code by ~2x on bicubic mode, if we expand the grid from (N, H, W, 2) into (N, C, H, W, 2)
@@ -603,11 +603,11 @@ def _foreach_lerp_scalar(start_tensors, end_tensors, weight):
 @aten.miopen_batch_norm.default.py_impl(torch._C.DispatchKey.Autograd)
 @register_decomposition(aten.miopen_batch_norm)
 def miopen_batch_norm(
-    input: torch.Tensor,
-    weight: torch.Tensor,
-    bias: typing.Optional[torch.Tensor],
-    running_mean: typing.Optional[torch.Tensor],
-    running_var: typing.Optional[torch.Tensor],
+    input: torch.TensorBase,
+    weight: torch.TensorBase,
+    bias: typing.Optional[torch.TensorBase],
+    running_mean: typing.Optional[torch.TensorBase],
+    running_var: typing.Optional[torch.TensorBase],
     training: bool,
     exponential_average_factor: float,
     epsilon: float,
@@ -657,11 +657,15 @@ def masked_scatter(self, mask, source):
 
 @register_decomposition(quantized_decomposed.choose_qparams.tensor)
 def choose_qparams_tensor(
-    input: torch.Tensor, quant_min: int, quant_max: int, eps: float, dtype: torch.dtype
+    input: torch.TensorBase,
+    quant_min: int,
+    quant_max: int,
+    eps: float,
+    dtype: torch.dtype,
 ):
     min_val, max_val = torch.aminmax(input)
     scale = (max_val - min_val) / float(quant_max - quant_min)
-    scale = torch.max(scale, torch.Tensor([eps]))
+    scale = torch.max(scale, torch.TensorBase([eps]))
     zero_point = quant_min - torch.round(min_val / scale).to(torch.int)
     zero_point = torch.clamp(zero_point, quant_min, quant_max)
     return scale.to(torch.float64), zero_point.to(torch.int64)

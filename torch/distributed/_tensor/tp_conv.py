@@ -111,8 +111,8 @@ def tp_convolution(
 
     rank = dist.get_rank()
     size = dist.get_world_size()
-    in_tensor = cast(torch.Tensor, local_tensor_args[0])
-    weight = cast(torch.Tensor, local_tensor_args[1])
+    in_tensor = cast(torch.TensorBase, local_tensor_args[0])
+    weight = cast(torch.TensorBase, local_tensor_args[1])
     stride, padding, dilation = local_tensor_args[3:6]
 
     assert _is_supported(in_tensor.shape, weight.shape, stride, padding, dilation)
@@ -164,9 +164,9 @@ def tp_convolution_backward(
 
     rank = dist.get_rank()
     size = dist.get_world_size()
-    grad_out_tensor = cast(torch.Tensor, local_tensor_args[0])
-    in_tensor = cast(torch.Tensor, local_tensor_args[1])
-    weight = cast(torch.Tensor, local_tensor_args[2])
+    grad_out_tensor = cast(torch.TensorBase, local_tensor_args[0])
+    in_tensor = cast(torch.TensorBase, local_tensor_args[1])
+    weight = cast(torch.TensorBase, local_tensor_args[2])
     stride, padding, dilation = local_tensor_args[4:7]
 
     assert _is_supported(in_tensor.shape, weight.shape, stride, padding, dilation)

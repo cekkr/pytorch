@@ -44,7 +44,7 @@ def remove_no_ops(
     graph = gm.graph
 
     def fake_tensors_eq(t1, t2, fields=("shape", "dtype", "device")):
-        if any(not isinstance(t, torch.Tensor) for t in (t1, t2)):
+        if any(not isinstance(t, torch.TensorBase) for t in (t1, t2)):
             return False
         for field in fields:
             if getattr(t1, field) != getattr(t2, field):
@@ -178,7 +178,7 @@ class UniformValueConstantFolder(ConstantFolder):
         # see: [constant folding refining of symints]
         self.node_replacements_shapes: Dict[torch.fx.Node, List[int]] = {}
 
-    def insertable_tensor_check(self, t: torch.Tensor) -> bool:
+    def insertable_tensor_check(self, t: torch.TensorBase) -> bool:
         # TODO - we could also Tensors which get replaced with arange here
         return (
             t.numel() != 0
@@ -187,7 +187,9 @@ class UniformValueConstantFolder(ConstantFolder):
             and t.layout == torch.strided
         )
 
-    def add_node_replacement(self, node: torch.fx.Node, tensor: torch.Tensor) -> None:
+    def add_node_replacement(
+        self, node: torch.fx.Node, tensor: torch.TensorBase
+    ) -> None:
         self.node_replacements[node] = tensor.flatten()[0].item()
         self.constant_data_ptrs[node] = StorageWeakRef(tensor.untyped_storage())
         shape = list(tensor.shape)

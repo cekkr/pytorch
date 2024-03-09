@@ -96,7 +96,7 @@ def _apply_requires_grad_to_samples(sample_inputs):
     def wrapper(op_info, device, dtype, requires_grad, layout, **kwargs):
         def apply_requires_grad(x):
             if (
-                not isinstance(x, torch.Tensor)
+                not isinstance(x, torch.TensorBase)
                 or x.requires_grad
                 or not requires_grad
                 or not (x.is_floating_point() or x.is_complex())

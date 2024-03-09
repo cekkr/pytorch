@@ -1,42 +1,42 @@
 import copy
+
 import torch
+from torch.distributed._shard.common_op_utils import _register_default_op
 from torch.distributed._shard.sharded_tensor import (
     _sharded_op_impl,
     Shard,
     ShardedTensor,
 )
-from ._common import (
-    _register_sharded_op_on_local_shards,
-)
-from torch.distributed._shard.common_op_utils import _register_default_op
+from ._common import _register_sharded_op_on_local_shards
 
 
 # Tensor properties access
-_register_default_op(torch.Tensor.shape.__get__, _sharded_op_impl)  # type: ignore[attr-defined]
-_register_default_op(torch.Tensor.dtype.__get__, _sharded_op_impl)  # type: ignore[attr-defined]
-_register_default_op(torch.Tensor.layout.__get__, _sharded_op_impl)  # type: ignore[attr-defined]
-_register_default_op(torch.Tensor.size, _sharded_op_impl)
-_register_default_op(torch.Tensor.dim, _sharded_op_impl)
-_register_default_op(torch.Tensor.ndim.__get__, _sharded_op_impl)  # type: ignore[attr-defined]
-_register_default_op(torch.Tensor.is_contiguous, _sharded_op_impl)
-_register_default_op(torch.Tensor.contiguous, _sharded_op_impl)
-_register_default_op(torch.Tensor.is_floating_point, _sharded_op_impl)
+_register_default_op(torch.TensorBase.shape.__get__, _sharded_op_impl)  # type: ignore[attr-defined]
+_register_default_op(torch.TensorBase.dtype.__get__, _sharded_op_impl)  # type: ignore[attr-defined]
+_register_default_op(torch.TensorBase.layout.__get__, _sharded_op_impl)  # type: ignore[attr-defined]
+_register_default_op(torch.TensorBase.size, _sharded_op_impl)
+_register_default_op(torch.TensorBase.dim, _sharded_op_impl)
+_register_default_op(torch.TensorBase.ndim.__get__, _sharded_op_impl)  # type: ignore[attr-defined]
+_register_default_op(torch.TensorBase.is_contiguous, _sharded_op_impl)
+_register_default_op(torch.TensorBase.contiguous, _sharded_op_impl)
+_register_default_op(torch.TensorBase.is_floating_point, _sharded_op_impl)
 
 # __reduce_ex__ to dispatch to get_state/set_state
-_register_default_op(torch.Tensor.__reduce_ex__, _sharded_op_impl)
+_register_default_op(torch.TensorBase.__reduce_ex__, _sharded_op_impl)
 
 # autograd related properties
-_register_default_op(torch.Tensor.requires_grad.__get__, _sharded_op_impl)  # type: ignore[attr-defined]
+_register_default_op(torch.TensorBase.requires_grad.__get__, _sharded_op_impl)  # type: ignore[attr-defined]
 # TODO: set grad with a ShardedTensor that consists of all local grads
-_register_default_op(torch.Tensor.grad.__get__, _sharded_op_impl)  # type: ignore[union-attr]
-_register_default_op(torch.Tensor.grad_fn.__get__, _sharded_op_impl)  # type: ignore[union-attr]
-_register_default_op(torch.Tensor.is_leaf.__get__, _sharded_op_impl)  # type: ignore[attr-defined]
+_register_default_op(torch.TensorBase.grad.__get__, _sharded_op_impl)  # type: ignore[union-attr]
+_register_default_op(torch.TensorBase.grad_fn.__get__, _sharded_op_impl)  # type: ignore[union-attr]
+_register_default_op(torch.TensorBase.is_leaf.__get__, _sharded_op_impl)  # type: ignore[attr-defined]
+
 
 # device property is ambiguous as from a global prospective,
 # ShardedTensor.device consists of multiple devices (might even across hosts)
 # We choose to return the current device of the local tensor to represent
 # the device property on each rank
-@_sharded_op_impl(torch.Tensor.device.__get__)
+@_sharded_op_impl(torch.TensorBase.device.__get__)
 def tensor_device(types, args=(), kwargs=None, pg=None):
     self_st = args[0]
     # Validate types
@@ -51,7 +51,8 @@ def tensor_device(types, args=(), kwargs=None, pg=None):
         dev = torch.device(torch.cuda.current_device())
     return dev
 
-@_sharded_op_impl(torch.Tensor.is_meta.__get__)  # type: ignore[attr-defined]
+
+@_sharded_op_impl(torch.TensorBase.is_meta.__get__)  # type: ignore[attr-defined]
 def st_is_meta(types, args=(), kwargs=None, pg=None):
     return args[0].local_tensor().is_meta
 
@@ -67,7 +68,9 @@ def sharded_type_as_check(*args, **kwargs):
     """
     if len(args) < 2:
         raise ValueError("Needs to give a tensor to cast type as!")
-    if not isinstance(args[1], torch.Tensor) and not isinstance(args[1], ShardedTensor):
+    if not isinstance(args[1], torch.TensorBase) and not isinstance(
+        args[1], ShardedTensor
+    ):
         raise ValueError("Needs to give a Tensor or ShardedTensor to cast type as!")
 
 
@@ -105,7 +108,7 @@ def sharded_type_as(args, kwargs, pg):
 
 
 _register_sharded_op_on_local_shards(
-    torch.Tensor.type_as,
+    torch.TensorBase.type_as,
     early_stop_func=same_dtype,
     extra_check=sharded_type_as_check,
     customized_func=sharded_type_as,
@@ -125,12 +128,12 @@ def sharded_deepcopy(args, kwargs, pg):
 
 
 _register_sharded_op_on_local_shards(
-    torch.Tensor.__deepcopy__,
+    torch.TensorBase.__deepcopy__,
     customized_func=sharded_deepcopy,
 )
 
 
-@_sharded_op_impl(torch.Tensor.copy_)
+@_sharded_op_impl(torch.TensorBase.copy_)
 def sharded_inplace_copy(types, args, kwargs, pg):
     # NOTE: inplace op don't need to rewrap
     kwargs = {} if kwargs is None else kwargs
@@ -165,7 +168,7 @@ def sharded_clone(args, kwargs, pg):
 
 
 _register_sharded_op_on_local_shards(
-    torch.Tensor.clone,
+    torch.TensorBase.clone,
     customized_func=sharded_clone,
 )
 
@@ -185,12 +188,12 @@ def sharded_detach(args, kwargs, pg):
 
 
 _register_sharded_op_on_local_shards(
-    torch.Tensor.detach,
+    torch.TensorBase.detach,
     customized_func=sharded_detach,
 )
 
 
-@_sharded_op_impl(torch.Tensor.requires_grad_)
+@_sharded_op_impl(torch.TensorBase.requires_grad_)
 def tensor_requires_grad_set(types, args=(), kwargs=None, pg=None):
     self_st = args[0]
     # Validate types

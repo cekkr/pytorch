@@ -2,21 +2,21 @@ import builtins
 from typing import Optional, Tuple
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 
-class Parameter(Tensor):
+class Parameter(TensorBase):
     def __init__(
         self,
-        data: Tensor = ...,
+        data: TensorBase = ...,
         requires_grad: builtins.bool = ...,
     ): ...
 
-def is_lazy(param: Tensor): ...
+def is_lazy(param: TensorBase): ...
 
-class UninitializedParameter(Tensor):
+class UninitializedParameter(TensorBase):
     def __init__(
         self,
-        data: Tensor = ...,
+        data: TensorBase = ...,
         requires_grad: builtins.bool = ...,
     ): ...
     def materialize(
@@ -26,10 +26,10 @@ class UninitializedParameter(Tensor):
         dtype: Optional[torch.dtype] = None,
     ): ...
 
-class UninitializedBuffer(Tensor):
+class UninitializedBuffer(TensorBase):
     def __init__(
         self,
-        data: Tensor = ...,
+        data: TensorBase = ...,
         requires_grad: builtins.bool = ...,
     ): ...
     def materialize(

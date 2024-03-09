@@ -6,13 +6,24 @@
 # LICENSE file in the root directory of this source tree.
 """The Pipe interface."""
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Any, Iterable, Iterator, List, Optional, Union, Sequence, Tuple, cast
+from typing import (
+    Any,
+    cast,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    TYPE_CHECKING,
+    Union,
+)
 
 import torch
-from torch import Tensor, nn
-from torch.distributed.rpc import RRef
 import torch.autograd
 import torch.cuda
+from torch import nn, TensorBase
+from torch.distributed.rpc import RRef
 
 from . import microbatch
 from .batchnorm import DeferredBatchNorm
@@ -27,8 +38,8 @@ __all__ = ["Pipe", "BalanceError", "PipeSequential", "WithDevice"]
 Device = Union[torch.device, int, str]
 Devices = Union[Iterable[Device], List[Device]]
 
-Tensors = Sequence[Tensor]
-TensorOrTensors = Union[Tensor, Tensors]
+Tensors = Sequence[TensorBase]
+TensorOrTensors = Union[TensorBase, Tensors]
 
 if TYPE_CHECKING:
     # Typechecking: nn.Module is not a Generic
@@ -71,7 +82,9 @@ def _verify_splitting(
     module: nn.Sequential, partitions: List[nn.Sequential], devices: List[torch.device]
 ) -> None:
     num_parameters = len(list(module.parameters()))
-    num_child_parameters = sum(len(list(child.parameters())) for child in module.children())
+    num_child_parameters = sum(
+        len(list(child.parameters())) for child in module.children()
+    )
     if num_parameters == num_child_parameters:
         return
 
@@ -84,7 +97,9 @@ def _verify_splitting(
             for p in parti.parameters():
                 for q in partj.parameters():
                     if p is q:
-                        raise ValueError("module with duplicate parameters on distinct devices is not supported")
+                        raise ValueError(
+                            "module with duplicate parameters on distinct devices is not supported"
+                        )
 
 
 class BalanceError(ValueError):
@@ -112,8 +127,9 @@ def _retrieve_device(module: nn.Module) -> torch.device:
             device = parameter.device
         elif device != parameter.device:
             raise ValueError(
-                f'nn.Module: {module}, should have all parameters on a single device,'
-                ' please use .to() to place the module on a single device')
+                f"nn.Module: {module}, should have all parameters on a single device,"
+                " please use .to() to place the module on a single device"
+            )
 
     return device if device is not None else torch.device("cpu")
 
@@ -161,6 +177,7 @@ class WithDevice(nn.Module):
         >>> # xdoctest: +SKIP("Needs RPC framework init")
         >>> model = Pipe(model, chunks=8)
     """
+
     def __init__(self, module: nn.Module, device: torch.device):
         super().__init__()
         self._module = module
@@ -188,7 +205,9 @@ def _assemble_partition(modules: List[nn.Module]):
     return PipeSequential(*modules_list)
 
 
-def _split_module(modules: nn.Sequential) -> Tuple[List[nn.Sequential], List[torch.device]]:
+def _split_module(
+    modules: nn.Sequential,
+) -> Tuple[List[nn.Sequential], List[torch.device]]:
     partitions = []
     devices = []
 
@@ -202,7 +221,9 @@ def _split_module(modules: nn.Sequential) -> Tuple[List[nn.Sequential], List[tor
             module.to(device)
         else:
             device = _retrieve_device(module)
-        if current_device is not None and (current_device != device or device.type == 'cpu'):
+        if current_device is not None and (
+            current_device != device or device.type == "cpu"
+        ):
             partitions.append(_assemble_partition(current_partition))
             devices.append(current_device)
             current_partition = []
@@ -218,7 +239,9 @@ def _split_module(modules: nn.Sequential) -> Tuple[List[nn.Sequential], List[tor
     return partitions, devices
 
 
-MOVING_DENIED = TypeError("denied to move parameters and buffers, because Pipe should manage device placement")
+MOVING_DENIED = TypeError(
+    "denied to move parameters and buffers, because Pipe should manage device placement"
+)
 
 
 class Pipe(Module):
@@ -317,8 +340,9 @@ class Pipe(Module):
         # Check if RPC framework is initialized.
         if not torch.distributed.rpc._is_current_rpc_agent_set():
             raise RuntimeError(
-                'Please initialize RPC framework for Pipe using '
-                'torch.distributed.rpc.init_rpc')
+                "Please initialize RPC framework for Pipe using "
+                "torch.distributed.rpc.init_rpc"
+            )
 
         chunks = int(chunks)
         checkpoint = str(checkpoint)
@@ -326,7 +350,9 @@ class Pipe(Module):
         if chunks <= 0:
             raise ValueError("number of chunks must be positive integer")
         if checkpoint not in ["always", "except_last", "never"]:
-            raise ValueError("checkpoint is not one of 'always', 'except_last', or 'never'")
+            raise ValueError(
+                "checkpoint is not one of 'always', 'except_last', or 'never'"
+            )
 
         _verify_module(module)
 
@@ -350,9 +376,19 @@ class Pipe(Module):
         copy_streams = self._ensure_copy_streams()
 
         # The micro-batch index where the checkpointing stops.
-        checkpoint_stop = {"always": self.chunks, "except_last": self.chunks - 1, "never": 0}[self.checkpoint]
+        checkpoint_stop = {
+            "always": self.chunks,
+            "except_last": self.chunks - 1,
+            "never": 0,
+        }[self.checkpoint]
 
-        self.pipeline = Pipeline(self.partitions, self.devices, copy_streams, self._skip_layout, checkpoint_stop)
+        self.pipeline = Pipeline(
+            self.partitions,
+            self.devices,
+            copy_streams,
+            self._skip_layout,
+            checkpoint_stop,
+        )
 
     def __len__(self) -> int:
         """Counts the length of the underlying sequential module."""
@@ -423,7 +459,9 @@ class Pipe(Module):
         """
         if not self._copy_streams:
             for device in self.devices:
-                self._copy_streams.append([new_stream(device) for _ in range(self.chunks)])
+                self._copy_streams.append(
+                    [new_stream(device) for _ in range(self.chunks)]
+                )
 
         return self._copy_streams
 
@@ -472,7 +510,9 @@ class Pipe(Module):
             TypeError: input doesn't contain at least one tensor
 
         """
-        first_partition_device = self.devices[0] if len(self.devices) != 0 else torch.device("cpu")
+        first_partition_device = (
+            self.devices[0] if len(self.devices) != 0 else torch.device("cpu")
+        )
         microbatch.check(first_partition_device, *inputs)
 
         if not self.devices:

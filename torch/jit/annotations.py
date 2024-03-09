@@ -83,8 +83,8 @@ class Module:
 
 class EvalEnv:
     env = {
-        "torch": Module("torch", {"Tensor": torch.Tensor}),
-        "Tensor": torch.Tensor,
+        "torch": Module("torch", {"Tensor": torch.TensorBase}),
+        "Tensor": torch.TensorBase,
         "typing": Module("typing", {"Tuple": Tuple}),
         "Tuple": Tuple,
         "List": List,
@@ -368,7 +368,7 @@ def get_enum_value_type(e: Type[enum.Enum], loc):
 
 
 def is_tensor(ann):
-    if issubclass(ann, torch.Tensor):
+    if issubclass(ann, torch.TensorBase):
         return True
 
     if issubclass(

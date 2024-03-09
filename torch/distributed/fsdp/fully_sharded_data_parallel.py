@@ -975,7 +975,7 @@ class FullyShardedDataParallel(nn.Module, _FSDPState):
         self,
         *args,
         **kwargs,
-    ) -> Iterator[Tuple[str, torch.Tensor]]:
+    ) -> Iterator[Tuple[str, torch.TensorBase]]:
         """Return an iterator over module buffers, yielding both the name of the buffer and the buffer itself.
 
         Intercepts buffer names and removes all occurrences of the FSDP-specific flattened buffer prefix
@@ -1069,7 +1069,7 @@ class FullyShardedDataParallel(nn.Module, _FSDPState):
     @torch.no_grad()
     def clip_grad_norm_(
         self, max_norm: Union[float, int], norm_type: Union[float, int] = 2.0
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         """Clip the gradient norm of all parameters.
 
         The norm is computed over all parameters' gradients as viewed as a single vector, and the
@@ -1123,7 +1123,7 @@ class FullyShardedDataParallel(nn.Module, _FSDPState):
         norm_type = float(norm_type)
         sharded_params = set()
         nonsharded_params = set()  # `NO_SHARD` or not FSDP-managed
-        grads: List[torch.Tensor] = []
+        grads: List[torch.TensorBase] = []
         for handle in self._all_handles:
             target_set = (
                 sharded_params if handle.uses_sharded_strategy else nonsharded_params
@@ -2004,7 +2004,7 @@ class FullyShardedDataParallel(nn.Module, _FSDPState):
 def _get_grad_norm(
     params: Iterable[nn.Parameter],
     norm_type: float,
-) -> torch.Tensor:
+) -> torch.TensorBase:
     """
     Return the gradient norm of parameters ``param`` s, where the gradients are viewed as a single vector.
 

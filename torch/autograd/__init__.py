@@ -6,6 +6,7 @@ for which gradients should be computed with the ``requires_grad=True`` keyword.
 As of now, we only support autograd for floating point :class:`Tensor` types (
 half, float, double and bfloat16) and complex :class:`Tensor` types (cfloat, cdouble).
 """
+
 import warnings
 from typing import Any, Callable, cast, List, Optional, Sequence, Tuple, Union
 
@@ -33,12 +34,12 @@ from .variable import Variable
 
 __all__ = ["Variable", "Function", "backward", "grad_mode"]
 
-_OptionalTensor = Optional[torch.Tensor]
-_ShapeorNestedShape = Union[_size, Sequence[_size], torch.Tensor]
+_OptionalTensor = Optional[torch.TensorBase]
+_ShapeorNestedShape = Union[_size, Sequence[_size], torch.TensorBase]
 
 
 def _calculate_shape(
-    output: torch.Tensor, grad: torch.Tensor, is_grads_batched: bool
+    output: torch.TensorBase, grad: torch.TensorBase, is_grads_batched: bool
 ) -> Tuple[_ShapeorNestedShape, _ShapeorNestedShape]:
     # is_same_size ensures that both tensors are either nested or non nested
     # circular import
@@ -58,13 +59,13 @@ def _calculate_shape(
 
 
 def _make_grads(
-    outputs: Sequence[torch.Tensor],
+    outputs: Sequence[torch.TensorBase],
     grads: Sequence[_OptionalTensor],
     is_grads_batched: bool,
 ) -> Tuple[_OptionalTensor, ...]:
     new_grads: List[_OptionalTensor] = []
     for out, grad in zip(outputs, grads):
-        if isinstance(grad, torch.Tensor):
+        if isinstance(grad, torch.TensorBase):
             from torch.fx.experimental.symbolic_shapes import expect_true, sym_eq
 
             first_grad = grad if not is_grads_batched else grad[0]
@@ -157,7 +158,7 @@ def _tensor_or_tensors_to_tuple(
 ) -> Tuple[_OptionalTensor, ...]:
     if tensors is None:
         return (None,) * length
-    if isinstance(tensors, torch.Tensor):
+    if isinstance(tensors, torch.TensorBase):
         return (tensors,)
     return tuple(tensors)
 
@@ -247,13 +248,11 @@ def backward(
     if inputs is not None and len(inputs) == 0:
         raise RuntimeError("'inputs' argument to backward() cannot be empty.")
 
-    tensors = (tensors,) if isinstance(tensors, torch.Tensor) else tuple(tensors)
+    tensors = (tensors,) if isinstance(tensors, torch.TensorBase) else tuple(tensors)
     inputs = (
         (inputs,)
-        if isinstance(inputs, (torch.Tensor, graph.GradientEdge))
-        else tuple(inputs)
-        if inputs is not None
-        else tuple()
+        if isinstance(inputs, (torch.TensorBase, graph.GradientEdge))
+        else tuple(inputs) if inputs is not None else tuple()
     )
 
     grad_tensors_ = _tensor_or_tensors_to_tuple(grad_tensors, len(tensors))
@@ -285,7 +284,7 @@ def grad(
     allow_unused: Optional[bool] = None,
     is_grads_batched: bool = False,
     materialize_grads: bool = False,
-) -> Tuple[torch.Tensor, ...]:
+) -> Tuple[torch.TensorBase, ...]:
     r"""Computes and returns the sum of gradients of outputs with respect to
     the inputs.
 
@@ -350,7 +349,7 @@ def grad(
     if allow_unused is None:
         allow_unused = materialize_grads
     t_outputs = cast(
-        Tuple[torch.Tensor, ...],
+        Tuple[torch.TensorBase, ...],
         (outputs,) if is_tensor_like(outputs) else tuple(outputs),
     )
     if is_tensor_like(inputs) or isinstance(inputs, graph.GradientEdge):
@@ -427,9 +426,11 @@ def grad(
                 "materialize_grads cannot be used when the given input is a GradientEdge"
             )
         result = tuple(
-            output
-            if output is not None
-            else torch.zeros_like(input, requires_grad=True)
+            (
+                output
+                if output is not None
+                else torch.zeros_like(input, requires_grad=True)
+            )
             for (output, input) in zip(result, inputs)
         )
     return result

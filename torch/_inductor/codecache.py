@@ -458,7 +458,7 @@ class FxGraphCachePickler(pickle.Pickler):
 
     dispatch_table = copyreg.dispatch_table.copy()
     dispatch_table[FakeTensor] = _reduce_fake_tensor
-    dispatch_table[torch.Tensor] = _reduce_tensor
+    dispatch_table[torch.TensorBase] = _reduce_tensor
     dispatch_table[torch.SymInt] = _reduce_symint
 
     @staticmethod
@@ -531,7 +531,7 @@ class FxGraphHashDetails:
     def __init__(
         self,
         gm: torch.fx.GraphModule,
-        example_inputs: List[torch.Tensor],
+        example_inputs: List[torch.TensorBase],
         fx_kwargs: Dict[str, Any],
     ):
         self.gm = gm
@@ -584,7 +584,7 @@ class FxGraphHashDetails:
         """
 
         def get_str(obj) -> str:
-            if isinstance(obj, torch.Tensor):
+            if isinstance(obj, torch.TensorBase):
                 return str(extract_tensor_metadata(obj))
             elif isinstance(obj, bytes):
                 return "<bytes>"
@@ -609,7 +609,7 @@ class FxGraphHashDetails:
 
 def compiled_fx_graph_hash(
     gm: torch.fx.GraphModule,
-    example_inputs: List[torch.Tensor],
+    example_inputs: List[torch.TensorBase],
     fx_kwargs: Dict[str, Any],
 ) -> str:
     """
@@ -687,7 +687,7 @@ class FxGraphCache:
     @staticmethod
     def _lookup_graph(
         key: str,
-        example_inputs: List[torch.Tensor],
+        example_inputs: List[torch.TensorBase],
     ) -> Optional[CompiledFxGraph]:
         """
         Lookup a compiled graph in the cache by key. On a hit, return the
@@ -750,7 +750,9 @@ class FxGraphCache:
 
     @staticmethod
     def _save_graph(
-        key: str, compiled_graph: CompiledFxGraph, example_inputs: List[torch.Tensor]
+        key: str,
+        compiled_graph: CompiledFxGraph,
+        example_inputs: List[torch.TensorBase],
     ):
         """
         Store a serialized CompiledFxGraph on disk.
@@ -806,7 +808,7 @@ class FxGraphCache:
     def load(
         compile_fx_fn: Callable[..., Any],
         gm: torch.fx.GraphModule,
-        example_inputs: List[torch.Tensor],
+        example_inputs: List[torch.TensorBase],
         fx_kwargs: Dict[str, Any],
     ):
         """
@@ -866,7 +868,7 @@ class CompiledFxGraph:
     device_idxs: Set[int]
     mutated_inputs: Set[str]
     mutated_input_idxs: Set[int]
-    constants: Dict[str, torch.Tensor]
+    constants: Dict[str, torch.TensorBase]
     output_strides: Optional[List[Optional[Tuple[int, ...]]]]
     disabled_cudagraphs_reason: Optional[str]
     metrics_deltas: metrics.CachedMetricsDeltas
@@ -1761,7 +1763,7 @@ class AotCodeCompiler:
             else:
                 run_command_and_check(cmd)
 
-            def _to_bytes(t: torch.Tensor) -> bytes:
+            def _to_bytes(t: torch.TensorBase) -> bytes:
                 # This serializes the tensor's untyped_storage to bytes by accessing
                 # the raw data of the underlying structure.
                 import ctypes

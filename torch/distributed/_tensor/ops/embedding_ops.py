@@ -33,7 +33,7 @@ aten = torch.ops.aten
 
 @dataclass
 class MaskBuffer:
-    data: Optional[torch.Tensor] = None
+    data: Optional[torch.TensorBase] = None
 
     def materialize_mask(self, mask):
         if self.data is not None:
@@ -76,8 +76,8 @@ class _MaskPartial(_Partial):
     mask_buffer: MaskBuffer = field(default_factory=MaskBuffer)
 
     def _partition_value(
-        self, tensor: torch.Tensor, mesh: DeviceMesh, mesh_dim: int
-    ) -> torch.Tensor:
+        self, tensor: torch.TensorBase, mesh: DeviceMesh, mesh_dim: int
+    ) -> torch.TensorBase:
         # override parent logic to perform partial mask for embedding
         num_chunks = mesh.size(mesh_dim)
         # get local shard size and offset on the embedding_dim
@@ -101,8 +101,8 @@ class _MaskPartial(_Partial):
         return masked_tensor
 
     def _reduce_value(
-        self, tensor: torch.Tensor, mesh: DeviceMesh, mesh_dim: int
-    ) -> torch.Tensor:
+        self, tensor: torch.TensorBase, mesh: DeviceMesh, mesh_dim: int
+    ) -> torch.TensorBase:
         # by the time we ned reduction, we should have already saved the mask
         assert self.mask_buffer.data is not None
 
@@ -119,11 +119,11 @@ class _MaskPartial(_Partial):
 
     def _reduce_shard_value(
         self,
-        tensor: torch.Tensor,
+        tensor: torch.TensorBase,
         mesh: DeviceMesh,
         mesh_dim: int,
         shard_spec: Placement,
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         # by the time we ned reduction, we should have already saved the mask
         assert self.mask_buffer.data is not None
 

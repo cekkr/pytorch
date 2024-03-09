@@ -8,17 +8,17 @@
 from typing import Dict, List, Tuple
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 
 from .stream import default_stream, use_stream
 
 __all__: List[str] = ["get_phony"]
 
 
-_phonies: Dict[Tuple[torch.device, bool], Tensor] = {}
+_phonies: Dict[Tuple[torch.device, bool], TensorBase] = {}
 
 
-def get_phony(device: torch.device, *, requires_grad: bool) -> Tensor:
+def get_phony(device: torch.device, *, requires_grad: bool) -> TensorBase:
     """Get a phony. Phony is tensor without space.
 
     It is useful to make arbitrary dependency in a autograd graph because it doesn't require any

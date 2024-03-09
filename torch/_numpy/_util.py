@@ -209,7 +209,7 @@ def _coerce_to_tensor(obj, dtype=None, copy=False, ndmin=0):
     ndarrays (those should be handled in the ndarray-aware layer prior to
     invoking this function).
     """
-    if isinstance(obj, torch.Tensor):
+    if isinstance(obj, torch.TensorBase):
         tensor = obj
     else:
         # tensor.dtype is the pytorch default, typically float32. If obj's elements

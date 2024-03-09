@@ -14,7 +14,7 @@ from torch.fx.experimental._backward_state import BackwardState
 from torch.fx.experimental.proxy_tensor import py_sym_types
 
 KNOWN_TYPES = [
-    torch.Tensor,
+    torch.TensorBase,
     BackwardState,
     int,
     str,
@@ -127,9 +127,9 @@ def call_func_at_runtime_with_args(f, args, steal_args=False, disable_amp=False)
 class PytreeThunk:
     spec: Optional[pytree.TreeSpec] = None
     # These are some kinda dumb microoptimizations that save about 3-4 us of overhead.
-    is_simple: Optional[
-        bool
-    ] = None  # if the output spec is a tuple/list, we won't bother unflattening it.
+    is_simple: Optional[bool] = (
+        None  # if the output spec is a tuple/list, we won't bother unflattening it.
+    )
     is_really_simple: Optional[bool] = None  # if the output spec is a LeafSpec
 
     def set(self, spec: pytree.TreeSpec) -> None:
@@ -210,7 +210,7 @@ def create_tree_flattened_fn(fn, args, kwargs=None) -> Tuple[Callable, PytreeThu
 #     that has multiple input aliases.
 # (3) If any of those corresponding inputs get metadata mutations, then we clone the base.
 def maybe_to_fresh_input(idx, t, meta):
-    if not isinstance(t, torch.Tensor):
+    if not isinstance(t, torch.TensorBase):
         return t
     if idx in meta.mutated_inp_runtime_indices:
         # We only need to bother cloning mutated inputs that participate in autograd.

@@ -286,7 +286,7 @@ def make_graphed_callables(
             )
         flatten_arg = _pytree.arg_tree_leaves(*args)
         flatten_sample_args.append(tuple(flatten_arg))
-        assert all(isinstance(arg, torch.Tensor) for arg in flatten_arg), (
+        assert all(isinstance(arg, torch.TensorBase) for arg in flatten_arg), (
             "In the beta API, sample_args "
             + "for each callable must contain only Tensors. Other types are not allowed."
         )

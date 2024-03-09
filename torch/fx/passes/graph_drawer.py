@@ -1,17 +1,18 @@
-
 import hashlib
+from itertools import chain
+from typing import Any, Dict, Optional, TYPE_CHECKING
+
 import torch
 import torch.fx
-from typing import Any, Dict, Optional, TYPE_CHECKING
-from torch.fx.node import _get_qualified_name, _format_arg
-from torch.fx.graph import _parse_stack_trace
-from torch.fx.passes.shape_prop import TensorMetadata
 from torch.fx._compatibility import compatibility
-from itertools import chain
+from torch.fx.graph import _parse_stack_trace
+from torch.fx.node import _format_arg, _get_qualified_name
+from torch.fx.passes.shape_prop import TensorMetadata
 
-__all__ = ['FxGraphDrawer']
+__all__ = ["FxGraphDrawer"]
 try:
     import pydot
+
     HAS_PYDOT = True
 except ImportError:
     HAS_PYDOT = False
@@ -50,6 +51,7 @@ _WEIGHT_TEMPLATE = {
 }
 
 if HAS_PYDOT:
+
     @compatibility(is_backward_compatible=False)
     class FxGraphDrawer:
         """
@@ -77,7 +79,12 @@ if HAS_PYDOT:
 
             self._dot_graphs = {
                 name: self._to_dot(
-                    graph_module, name, ignore_getattr, ignore_parameters_and_buffers, skip_node_names_in_args, parse_stack_trace
+                    graph_module,
+                    name,
+                    ignore_getattr,
+                    ignore_parameters_and_buffers,
+                    skip_node_names_in_args,
+                    parse_stack_trace,
                 )
             }
 
@@ -89,7 +96,6 @@ if HAS_PYDOT:
 
                 if not isinstance(leaf_node, torch.fx.GraphModule):
                     continue
-
 
                 self._dot_graphs[f"{name}_{node.target}"] = self._to_dot(
                     leaf_node,
@@ -151,7 +157,9 @@ if HAS_PYDOT:
                 # Use a random color for each node; based on its name so it's stable.
                 target_name = node._pretty_print_target(node.target)
                 target_hash = int(hashlib.md5(target_name.encode()).hexdigest()[:8], 16)
-                template["fillcolor"] = _HASH_COLOR_MAP[target_hash % len(_HASH_COLOR_MAP)]
+                template["fillcolor"] = _HASH_COLOR_MAP[
+                    target_hash % len(_HASH_COLOR_MAP)
+                ]
             return template
 
         def _get_leaf_node(
@@ -189,11 +197,10 @@ if HAS_PYDOT:
             full_file_name: str,
             truncate_to_last_n: int = 2,
         ):
-            splits = full_file_name.split('/')
+            splits = full_file_name.split("/")
             if len(splits) >= truncate_to_last_n:
-                return '/'.join(splits[-truncate_to_last_n:])
+                return "/".join(splits[-truncate_to_last_n:])
             return full_file_name
-
 
         def _get_node_label(
             self,
@@ -209,8 +216,7 @@ if HAS_PYDOT:
                 elif isinstance(arg, dict):
                     prefix, suffix = r"|kwargs={\l", r",\n}\l"
                     arg_strs_list = [
-                        f"{k}: {_format_arg(v, max_list_len=8)}"
-                        for k, v in arg.items()
+                        f"{k}: {_format_arg(v, max_list_len=8)}" for k, v in arg.items()
                     ]
                 else:  # Fall back to nothing in unexpected case.
                     return ""
@@ -224,7 +230,6 @@ if HAS_PYDOT:
                 if len(arg_strs_list) == 1:
                     arg_strs = arg_strs.replace(r"\l", "").replace(r"\n", "")
                 return arg_strs.replace("{", r"\{").replace("}", r"\}")
-
 
             label = "{" + f"name=%{node.name}|op_code={node.op}\n"
 
@@ -245,12 +250,12 @@ if HAS_PYDOT:
                     label += _get_str_for_args_kwargs(node.kwargs)
                 label += f"|num_users={len(node.users)}" + r"\n"
 
-            tensor_meta = node.meta.get('tensor_meta')
+            tensor_meta = node.meta.get("tensor_meta")
             label += self._tensor_meta_to_label(tensor_meta)
 
             # for original fx graph
             # print buf=buf0, n_origin=6
-            buf_meta = node.meta.get('buf_meta', None)
+            buf_meta = node.meta.get("buf_meta", None)
             if buf_meta is not None:
                 label += f"|buf={buf_meta.name}" + r"\n"
                 label += f"|n_origin={buf_meta.n_origin}" + r"\n"
@@ -260,8 +265,10 @@ if HAS_PYDOT:
             if parse_stack_trace and node.stack_trace is not None:
                 parsed_stack_trace = _parse_stack_trace(node.stack_trace)
                 fname = self._shorten_file_name(parsed_stack_trace.file)
-                label += f"|file={fname}:{parsed_stack_trace.lineno} {parsed_stack_trace.code}" + r"\n"
-
+                label += (
+                    f"|file={fname}:{parsed_stack_trace.lineno} {parsed_stack_trace.code}"
+                    + r"\n"
+                )
 
             return label + "}"
 
@@ -301,25 +308,49 @@ if HAS_PYDOT:
                 assert "qscheme" in tm.qparams
                 qscheme = tm.qparams["qscheme"]
                 if qscheme in {
-                        torch.per_tensor_affine,
-                        torch.per_tensor_symmetric,
+                    torch.per_tensor_affine,
+                    torch.per_tensor_symmetric,
                 }:
                     result += "|" + "q_scale" + "=" + str(tm.qparams["scale"]) + r"\n"
-                    result += "|" + "q_zero_point" + "=" + str(tm.qparams["zero_point"]) + r"\n"
+                    result += (
+                        "|"
+                        + "q_zero_point"
+                        + "="
+                        + str(tm.qparams["zero_point"])
+                        + r"\n"
+                    )
                 elif qscheme in {
-                        torch.per_channel_affine,
-                        torch.per_channel_symmetric,
-                        torch.per_channel_affine_float_qparams,
+                    torch.per_channel_affine,
+                    torch.per_channel_symmetric,
+                    torch.per_channel_affine_float_qparams,
                 }:
-                    result += "|" + "q_per_channel_scale" + "=" + str(tm.qparams["scale"]) + r"\n"
-                    result += "|" + "q_per_channel_zero_point" + "=" + str(tm.qparams["zero_point"]) + r"\n"
-                    result += "|" + "q_per_channel_axis" + "=" + str(tm.qparams["axis"]) + r"\n"
+                    result += (
+                        "|"
+                        + "q_per_channel_scale"
+                        + "="
+                        + str(tm.qparams["scale"])
+                        + r"\n"
+                    )
+                    result += (
+                        "|"
+                        + "q_per_channel_zero_point"
+                        + "="
+                        + str(tm.qparams["zero_point"])
+                        + r"\n"
+                    )
+                    result += (
+                        "|"
+                        + "q_per_channel_axis"
+                        + "="
+                        + str(tm.qparams["axis"])
+                        + r"\n"
+                    )
                 else:
                     raise RuntimeError(f"Unsupported qscheme: {qscheme}")
                 result += "|" + "qscheme" + "=" + str(tm.qparams["qscheme"]) + r"\n"
             return result
 
-        def _get_tensor_label(self, t: torch.Tensor) -> str:
+        def _get_tensor_label(self, t: torch.TensorBase) -> str:
             return str(t.dtype) + str(list(t.shape)) + r"\n"
 
         # when parse_stack_trace=True
@@ -342,7 +373,6 @@ if HAS_PYDOT:
             # "TB" means top-to-bottom rank direction in layout
             dot_graph = pydot.Dot(name, rankdir="TB")
 
-
             buf_name_to_subgraph = {}
 
             for node in graph_module.graph.nodes:
@@ -351,16 +381,22 @@ if HAS_PYDOT:
 
                 style = self._get_node_style(node)
                 dot_node = pydot.Node(
-                    node.name, label=self._get_node_label(graph_module, node, skip_node_names_in_args, parse_stack_trace), **style
+                    node.name,
+                    label=self._get_node_label(
+                        graph_module, node, skip_node_names_in_args, parse_stack_trace
+                    ),
+                    **style,
                 )
 
                 current_graph = dot_graph
 
-                buf_meta = node.meta.get('buf_meta', None)
+                buf_meta = node.meta.get("buf_meta", None)
                 if buf_meta is not None and buf_meta.n_origin > 1:
                     buf_name = buf_meta.name
                     if buf_name not in buf_name_to_subgraph:
-                        buf_name_to_subgraph[buf_name] = pydot.Cluster(buf_name, label=buf_name)
+                        buf_name_to_subgraph[buf_name] = pydot.Cluster(
+                            buf_name, label=buf_name
+                        )
                     current_graph = buf_name_to_subgraph.get(buf_name)
 
                 current_graph.add_node(dot_node)
@@ -386,12 +422,14 @@ if HAS_PYDOT:
                 if node.op == "call_module":
                     leaf_module = self._get_leaf_node(graph_module, node)
 
-                    if not ignore_parameters_and_buffers and not isinstance(leaf_module, torch.fx.GraphModule):
+                    if not ignore_parameters_and_buffers and not isinstance(
+                        leaf_module, torch.fx.GraphModule
+                    ):
                         get_module_params_or_buffers()
 
             for subgraph in buf_name_to_subgraph.values():
-                subgraph.set('color', 'royalblue')
-                subgraph.set('penwidth', '2')
+                subgraph.set("color", "royalblue")
+                subgraph.set("penwidth", "2")
                 dot_graph.add_subgraph(subgraph)
 
             for node in graph_module.graph.nodes:
@@ -405,6 +443,7 @@ if HAS_PYDOT:
 
 else:
     if not TYPE_CHECKING:
+
         @compatibility(is_backward_compatible=False)
         class FxGraphDrawer:
             def __init__(
@@ -417,5 +456,7 @@ else:
                 parse_stack_trace: bool = False,
                 dot_graph_shape: Optional[str] = None,
             ):
-                raise RuntimeError('FXGraphDrawer requires the pydot package to be installed. Please install '
-                                   'pydot through your favorite Python package manager.')
+                raise RuntimeError(
+                    "FXGraphDrawer requires the pydot package to be installed. Please install "
+                    "pydot through your favorite Python package manager."
+                )

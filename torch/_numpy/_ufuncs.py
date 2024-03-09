@@ -89,14 +89,14 @@ def deco_binary_ufunc(torch_func):
         if dtype is not None:
 
             def cast(x, dtype):
-                if isinstance(x, torch.Tensor):
+                if isinstance(x, torch.TensorBase):
                     return _util.typecast_tensor(x, dtype, casting)
                 else:
                     return torch.as_tensor(x, dtype=dtype)
 
             x1 = cast(x1, dtype)
             x2 = cast(x2, dtype)
-        elif isinstance(x1, torch.Tensor) and isinstance(x2, torch.Tensor):
+        elif isinstance(x1, torch.TensorBase) and isinstance(x2, torch.TensorBase):
             dtype = _dtypes_impl.result_type_impl(x1, x2)
             x1, x2 = _util.typecast_tensors((x1, x2), dtype, casting)
         else:
@@ -161,12 +161,12 @@ def ldexp(
     extobj: NotImplementedType = None,
 ):
     if dtype is not None:
-        if isinstance(x1, torch.Tensor):
+        if isinstance(x1, torch.TensorBase):
             x1 = _util.typecast_tensor(x1, dtype, casting)
         else:
             x1 = torch.as_tensor(x1, dtype=dtype)
     else:
-        if not isinstance(x1, torch.Tensor):
+        if not isinstance(x1, torch.TensorBase):
             x1 = torch.as_tensor(x1)
             x1 = _util.cast_int_to_float(x1)
 

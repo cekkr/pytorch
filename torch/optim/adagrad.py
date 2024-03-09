@@ -1,10 +1,19 @@
-import torch
-from torch import Tensor
-
-from .optimizer import (Optimizer, _use_grad_for_differentiable, _get_value, _view_as_real,
-                        _default_to_fused_or_foreach, _get_scalar_dtype, _differentiable_doc,
-                        _foreach_doc, _maximize_doc)
 from typing import List, Optional
+
+import torch
+from torch import TensorBase
+
+from .optimizer import (
+    _default_to_fused_or_foreach,
+    _differentiable_doc,
+    _foreach_doc,
+    _get_scalar_dtype,
+    _get_value,
+    _maximize_doc,
+    _use_grad_for_differentiable,
+    _view_as_real,
+    Optimizer,
+)
 
 __all__ = ["Adagrad", "adagrad"]
 
@@ -116,7 +125,9 @@ class Adagrad(Optimizer):
             state_sums = []
             state_steps = []
 
-            has_sparse_grad, has_complex = self._init_group(group, params_with_grad, grads, state_sums, state_steps)
+            has_sparse_grad, has_complex = self._init_group(
+                group, params_with_grad, grads, state_sums, state_steps
+            )
 
             adagrad(
                 params_with_grad,
@@ -137,7 +148,8 @@ class Adagrad(Optimizer):
         return loss
 
 
-Adagrad.__doc__ = r"""Implements Adagrad algorithm.
+Adagrad.__doc__ = (
+    r"""Implements Adagrad algorithm.
 
     .. math::
        \begin{aligned}
@@ -162,7 +174,8 @@ Adagrad.__doc__ = r"""Implements Adagrad algorithm.
 
     For further details regarding the algorithm we refer to `Adaptive Subgradient Methods for Online Learning
     and Stochastic Optimization`_.
-    """ + fr"""
+    """
+    + rf"""
     Args:
         params (iterable): iterable of parameters to optimize or dicts defining
             parameter groups
@@ -179,13 +192,14 @@ Adagrad.__doc__ = r"""Implements Adagrad algorithm.
         Optimization: http://jmlr.org/papers/v12/duchi11a.html
 
     """
+)
 
 
 def adagrad(
-    params: List[Tensor],
-    grads: List[Tensor],
-    state_sums: List[Tensor],
-    state_steps: List[Tensor],
+    params: List[TensorBase],
+    grads: List[TensorBase],
+    state_sums: List[TensorBase],
+    state_steps: List[TensorBase],
     # kwonly args with defaults are not supported by functions compiled with torchscript issue #70627
     # setting these as kwargs for now as functional API is compiled by torch/distributed/optim
     has_sparse_grad: bool = None,
@@ -203,13 +217,15 @@ def adagrad(
 
     See :class:`~torch.optim.Adagrad` for details.
     """
-    if not all(isinstance(t, torch.Tensor) for t in state_steps):
+    if not all(isinstance(t, torch.TensorBase) for t in state_steps):
         raise RuntimeError(
             "API has changed, `state_steps` argument must contain a list of singleton tensors"
         )
 
     if foreach is None:
-        _, foreach = _default_to_fused_or_foreach(params, differentiable, use_fused=False)
+        _, foreach = _default_to_fused_or_foreach(
+            params, differentiable, use_fused=False
+        )
 
     if foreach and torch.jit.is_scripting():
         raise RuntimeError("torch.jit.script not supported with foreach optimizers")
@@ -243,10 +259,10 @@ def _make_sparse(grad, grad_indices, values):
 
 
 def _single_tensor_adagrad(
-    params: List[Tensor],
-    grads: List[Tensor],
-    state_sums: List[Tensor],
-    state_steps: List[Tensor],
+    params: List[TensorBase],
+    grads: List[TensorBase],
+    state_sums: List[TensorBase],
+    state_steps: List[TensorBase],
     *,
     lr: float,
     weight_decay: float,
@@ -258,7 +274,7 @@ def _single_tensor_adagrad(
     has_complex: bool,
 ):
 
-    for (param, grad, state_sum, step_t) in zip(params, grads, state_sums, state_steps):
+    for param, grad, state_sum, step_t in zip(params, grads, state_sums, state_steps):
         # update step
         step_t += 1
         step = _get_value(step_t)
@@ -302,10 +318,10 @@ def _single_tensor_adagrad(
 
 
 def _multi_tensor_adagrad(
-    params: List[Tensor],
-    grads: List[Tensor],
-    state_sums: List[Tensor],
-    state_steps: List[Tensor],
+    params: List[TensorBase],
+    grads: List[TensorBase],
+    state_sums: List[TensorBase],
+    state_steps: List[TensorBase],
     *,
     lr: float,
     weight_decay: float,
@@ -323,9 +339,18 @@ def _multi_tensor_adagrad(
     if len(params) == 0:
         return
 
-    grouped_tensorlists = Optimizer._group_tensors_by_device_and_dtype([params, grads, state_sums, state_steps])
-    for ((device_params, device_grads, device_state_sums, device_state_steps), _) in grouped_tensorlists.values():
-        device_has_sparse_grad = has_sparse_grad and any(grad.is_sparse for grad in device_grads)
+    grouped_tensorlists = Optimizer._group_tensors_by_device_and_dtype(
+        [params, grads, state_sums, state_steps]
+    )
+    for (
+        device_params,
+        device_grads,
+        device_state_sums,
+        device_state_steps,
+    ), _ in grouped_tensorlists.values():
+        device_has_sparse_grad = has_sparse_grad and any(
+            grad.is_sparse for grad in device_grads
+        )
 
         if device_has_sparse_grad:
             _single_tensor_adagrad(
@@ -356,7 +381,9 @@ def _multi_tensor_adagrad(
         # and over. 1 will then be wrapped into a Tensor over and over again, which is slower than if we just
         # wrapped it once now. The alpha is required to assure we go to the right overload.
         if device_state_steps[0].is_cpu:
-            torch._foreach_add_(device_state_steps, torch.tensor(1.0, device='cpu'), alpha=1.0)
+            torch._foreach_add_(
+                device_state_steps, torch.tensor(1.0, device="cpu"), alpha=1.0
+            )
         else:
             torch._foreach_add_(device_state_steps, 1)
 
@@ -365,9 +392,13 @@ def _multi_tensor_adagrad(
             if maximize:
                 torch._foreach_add_(device_grads, device_params, alpha=weight_decay)
             else:
-                device_grads = torch._foreach_add(device_grads, device_params, alpha=weight_decay)
+                device_grads = torch._foreach_add(
+                    device_grads, device_params, alpha=weight_decay
+                )
 
-        minus_clr = [-lr / (1 + (_get_value(step) - 1) * lr_decay) for step in device_state_steps]
+        minus_clr = [
+            -lr / (1 + (_get_value(step) - 1) * lr_decay) for step in device_state_steps
+        ]
 
         torch._foreach_addcmul_(device_state_sums, device_grads, device_grads, value=1)
 

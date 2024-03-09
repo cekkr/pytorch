@@ -228,7 +228,7 @@ cannot specify additional metadata in keyword arguments"""
             # Format any instance of `Tensor` (standalone, in list, or in dict)
             # by Tensor[TensorShape]
             # Eg. Tensor with shape (3, 4) is formatted as Tensor[3, 4]
-            if isinstance(arg, torch.Tensor):
+            if isinstance(arg, torch.TensorBase):
                 shape = str(tuple(arg.shape))
                 dtype = str(arg.dtype)
                 device = str(arg.device)
@@ -256,7 +256,7 @@ cannot specify additional metadata in keyword arguments"""
                 with torch.no_grad():
                     return f(t)
 
-            if isinstance(t, torch.Tensor):
+            if isinstance(t, torch.TensorBase):
                 return _tt(t)
             elif isinstance(t, torch.dtype):
                 return _tt(t)
@@ -290,7 +290,7 @@ cannot specify additional metadata in keyword arguments"""
     # Converts dtypes by remapping them using torch_to_numpy_dtype_dict
     def numpy(self):
         def to_numpy(t):
-            if isinstance(t, torch.Tensor):
+            if isinstance(t, torch.TensorBase):
                 if t.dtype is torch.bfloat16:
                     return t.detach().cpu().to(torch.float32).numpy()
                 if t.dtype is torch.chalf:
@@ -305,7 +305,7 @@ cannot specify additional metadata in keyword arguments"""
 
     def noncontiguous(self):
         def to_noncontiguous(t):
-            if isinstance(t, torch.Tensor):
+            if isinstance(t, torch.TensorBase):
                 return noncontiguous_like(t)
             elif isinstance(t, torch.dtype):
                 return t
@@ -340,8 +340,8 @@ class AliasInfo:
     def __init__(self, alias_name):
         self.name = alias_name
         self.op = _getattr_qual(torch, alias_name)
-        self.method_variant = getattr(torch.Tensor, alias_name, None)
-        self.inplace_variant = getattr(torch.Tensor, alias_name + "_", None)
+        self.method_variant = getattr(torch.TensorBase, alias_name, None)
+        self.inplace_variant = getattr(torch.TensorBase, alias_name + "_", None)
 
     def __call__(self, *args, **kwargs):
         return self.op(*args, **kwargs)
@@ -911,13 +911,19 @@ class OpInfo:
             else (
                 self.backward_dtypesIfCUDA
                 if self.backward_dtypesIfCUDA is not None
-                else self.backward_dtypes
-                if self.backward_dtypes is not None
-                else self.dtypesIfROCM
-                if self.dtypesIfROCM is not None
-                else self.dtypesIfCUDA
-                if self.dtypesIfCUDA is not None
-                else self.dtypes
+                else (
+                    self.backward_dtypes
+                    if self.backward_dtypes is not None
+                    else (
+                        self.dtypesIfROCM
+                        if self.dtypesIfROCM is not None
+                        else (
+                            self.dtypesIfCUDA
+                            if self.dtypesIfCUDA is not None
+                            else self.dtypes
+                        )
+                    )
+                )
             )
         )
         self.backward_dtypesIfCUDA = (
@@ -926,9 +932,7 @@ class OpInfo:
             else (
                 self.backward_dtypes
                 if self.backward_dtypes is not None
-                else self.dtypesIfCUDA
-                if self.dtypesIfCUDA is not None
-                else self.dtypes
+                else self.dtypesIfCUDA if self.dtypesIfCUDA is not None else self.dtypes
             )
         )
         self.backward_dtypes = (
@@ -951,7 +955,7 @@ class OpInfo:
             self.op = _getattr_qual(torch, self.name)
 
         if self.method_variant is _NOTHING:
-            self.method_variant = getattr(torch.Tensor, self.name, None)
+            self.method_variant = getattr(torch.TensorBase, self.name, None)
 
         # attributes like real, imag are not callable
         if not callable(self.method_variant):
@@ -959,7 +963,7 @@ class OpInfo:
 
         if self.inplace_variant is _NOTHING:
             inplace_name = self.name + "_"
-            self.inplace_variant = getattr(torch.Tensor, inplace_name, None)
+            self.inplace_variant = getattr(torch.TensorBase, inplace_name, None)
 
         if self.operator_variant is _NOTHING:
             self.operator_variant = getattr(operator, self.name, None)
@@ -1162,7 +1166,7 @@ class OpInfo:
         for i, sample in enumerate(samples):
             sample = conj_samples[i]
             # Note: it is assumed that the input here is either a tensor or tensorlist
-            if isinstance(sample.input, torch.Tensor):
+            if isinstance(sample.input, torch.TensorBase):
                 sample.input = conjugate(sample.input)
             else:
                 sample.input[0] = conjugate(sample.input[0])
@@ -2663,16 +2667,18 @@ def sample_inputs_foreach(
     else:
         # interweave some empty tensors + have the last 2 tensors be empty (see #100701)
         return [
-            torch.empty(0, dtype=dtype, device=device, requires_grad=requires_grad)
-            if (i % 3 == 0 or i >= N - 2) and intersperse_empty_tensors
-            else make_tensor(
-                (N - i, N - i),
-                dtype=dtype,
-                device=device,
-                noncontiguous=noncontiguous,
-                low=low,
-                high=high,
-                requires_grad=requires_grad,
+            (
+                torch.empty(0, dtype=dtype, device=device, requires_grad=requires_grad)
+                if (i % 3 == 0 or i >= N - 2) and intersperse_empty_tensors
+                else make_tensor(
+                    (N - i, N - i),
+                    dtype=dtype,
+                    device=device,
+                    noncontiguous=noncontiguous,
+                    low=low,
+                    high=high,
+                    requires_grad=requires_grad,
+                )
             )
             for i in range(N)
         ]
@@ -2687,7 +2693,7 @@ def get_foreach_method_names(name):
     inplace_op = getattr(torch, inplace_op_name, None)
 
     ref = getattr(torch, name, None)
-    ref_inplace = getattr(torch.Tensor, name + "_", None)
+    ref_inplace = getattr(torch.TensorBase, name + "_", None)
     return op, inplace_op, ref, ref_inplace
 
 
@@ -2754,11 +2760,11 @@ class ForeachFuncInfo(OpInfo):
         elif name == "minimum":
             # because minimum ref does not support inplace or scalar
             self.ref = torch.clamp_max
-            self.ref_inplace = torch.Tensor.clamp_max_
+            self.ref_inplace = torch.TensorBase.clamp_max_
         elif name == "maximum":
             # because maximum ref does not support inplace or scalar
             self.ref = torch.clamp_min
-            self.ref_inplace = torch.Tensor.clamp_min_
+            self.ref_inplace = torch.TensorBase.clamp_min_
 
     def sample_zero_size_inputs(self, device, dtype, requires_grad=False, **kwargs):
         if not hasattr(self.sample_inputs_func, "sample_zero_size_tensor_inputs"):
@@ -2850,7 +2856,7 @@ def clone_sample(sample, **kwargs):
     """
 
     def clone_tensor(t):
-        if isinstance(t, torch.Tensor):
+        if isinstance(t, torch.TensorBase):
             return t.detach().clone().requires_grad_(t.requires_grad)
         else:
             return t

@@ -51,9 +51,11 @@ def init_rank(num_ranks, uid, rank):
     return torch._C._nccl_init_rank(num_ranks, uid, rank)
 
 
-def _check_sequence_type(inputs: Union[torch.Tensor, Sequence[torch.Tensor]]) -> None:
+def _check_sequence_type(
+    inputs: Union[torch.TensorBase, Sequence[torch.TensorBase]]
+) -> None:
     if not isinstance(inputs, collections.abc.Container) or isinstance(
-        inputs, torch.Tensor
+        inputs, torch.TensorBase
     ):
         raise TypeError("Inputs should be a collection of tensors")
 
@@ -69,17 +71,17 @@ def all_reduce(inputs, outputs=None, op=SUM, streams=None, comms=None):
 # `output` used to be `outputs`, taking in a list of tensors. So we have two
 # arguments for BC reasons.
 def reduce(
-    inputs: Sequence[torch.Tensor],
-    output: Optional[Union[torch.Tensor, Sequence[torch.Tensor]]] = None,
+    inputs: Sequence[torch.TensorBase],
+    output: Optional[Union[torch.TensorBase, Sequence[torch.TensorBase]]] = None,
     root: int = 0,
     op: int = SUM,
     streams: Optional[Sequence[torch.cuda.Stream]] = None,
     comms=None,
     *,
-    outputs: Optional[Sequence[torch.Tensor]] = None,
+    outputs: Optional[Sequence[torch.TensorBase]] = None,
 ) -> None:
     _check_sequence_type(inputs)
-    _output: torch.Tensor
+    _output: torch.TensorBase
     if outputs is not None:
         if output is not None:
             raise ValueError(
@@ -93,7 +95,7 @@ def reduce(
                 "Please specify a single output tensor with argument 'output' instead instead."
             )
             _output = outputs[root]
-    elif not isinstance(output, torch.Tensor) and isinstance(
+    elif not isinstance(output, torch.TensorBase) and isinstance(
         output, collections.abc.Sequence
     ):
         # User called old API with positional arguments of list of output tensors.
@@ -108,15 +110,15 @@ def reduce(
 
 
 def broadcast(
-    inputs: Sequence[torch.Tensor], root: int = 0, streams=None, comms=None
+    inputs: Sequence[torch.TensorBase], root: int = 0, streams=None, comms=None
 ) -> None:
     _check_sequence_type(inputs)
     torch._C._nccl_broadcast(inputs, root, streams, comms)
 
 
 def all_gather(
-    inputs: Sequence[torch.Tensor],
-    outputs: Sequence[torch.Tensor],
+    inputs: Sequence[torch.TensorBase],
+    outputs: Sequence[torch.TensorBase],
     streams=None,
     comms=None,
 ) -> None:
@@ -126,8 +128,8 @@ def all_gather(
 
 
 def reduce_scatter(
-    inputs: Sequence[torch.Tensor],
-    outputs: Sequence[torch.Tensor],
+    inputs: Sequence[torch.TensorBase],
+    outputs: Sequence[torch.TensorBase],
     op: int = SUM,
     streams=None,
     comms=None,

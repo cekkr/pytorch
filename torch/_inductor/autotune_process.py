@@ -378,7 +378,7 @@ class TensorMeta:
             ),
         )
 
-    def to_tensor(self) -> torch.Tensor:
+    def to_tensor(self) -> torch.TensorBase:
         return rand_strided(
             self.sizes,
             self.strides,
@@ -420,7 +420,7 @@ class BenchmarkRequest:
         self.extra_args = extra_args
 
     def make_run_fn(
-        self, *input_tensors: torch.Tensor, output_tensor: torch.Tensor
+        self, *input_tensors: torch.TensorBase, output_tensor: torch.TensorBase
     ) -> Callable[[], None]:
         raise NotImplementedError()
 
@@ -429,8 +429,8 @@ class BenchmarkRequest:
 
     def benchmark(
         self,
-        *input_tensors: torch.Tensor,
-        output_tensor: Optional[torch.Tensor] = None,
+        *input_tensors: torch.TensorBase,
+        output_tensor: Optional[torch.TensorBase] = None,
     ) -> float:
         debug = log.isEnabledFor(logging.DEBUG)
         if debug:
@@ -478,7 +478,9 @@ class TestBenchmarkRequest(BenchmarkRequest):
         self.value = value
 
     def benchmark(
-        self, *input_tensors: torch.Tensor, output_tensor: Optional[torch.Tensor] = None
+        self,
+        *input_tensors: torch.TensorBase,
+        output_tensor: Optional[torch.TensorBase] = None,
     ) -> float:
         if self.value is None:
             raise Exception("Failed to run")
@@ -511,7 +513,7 @@ class TritonBenchmarkRequest(BenchmarkRequest):
         self.matrix_instr_nonkdim = matrix_instr_nonkdim
 
     def make_run_fn(
-        self, *input_tensors: torch.Tensor, output_tensor: torch.Tensor
+        self, *input_tensors: torch.TensorBase, output_tensor: torch.TensorBase
     ) -> Callable[[], None]:
         mod = PyCodeCache.load_by_key_path(self.module_cache_key, self.module_path)
         log.debug(
@@ -574,7 +576,7 @@ class CUDABenchmarkRequest(BenchmarkRequest):
         super().__init__(kernel_name, input_tensor_meta, output_tensor_meta, extra_args)
         self.source_code = source_code
         self.workspace_size: int = 0
-        self.workspace: Optional[torch.Tensor] = None
+        self.workspace: Optional[torch.TensorBase] = None
         self.DLL: Optional[DLLWrapper] = None
         self.hash_key: str = ""
         self.source_file: str = ""
@@ -588,7 +590,7 @@ class CUDABenchmarkRequest(BenchmarkRequest):
         log.debug("Done precompiling %s", self)
 
     def make_run_fn(
-        self, *input_tensors: torch.Tensor, output_tensor: torch.Tensor
+        self, *input_tensors: torch.TensorBase, output_tensor: torch.TensorBase
     ) -> Callable[[], None]:
         self.DLL, self.hash_key, self.source_file = CUDACodeCache.load(
             self.source_code, "so"

@@ -5,7 +5,7 @@ if TYPE_CHECKING:
     import torch
 
 # Executed in the order they're registered
-INTERMEDIATE_HOOKS: List[Callable[[str, "torch.Tensor"], None]] = []
+INTERMEDIATE_HOOKS: List[Callable[[str, "torch.TensorBase"], None]] = []
 
 
 @contextlib.contextmanager

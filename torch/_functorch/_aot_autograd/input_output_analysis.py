@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.utils._pytree as pytree
-from torch import Tensor
+from torch import TensorBase
 from torch._subclasses.functional_tensor import FunctionalTensor
 from torch.fx.experimental.symbolic_shapes import is_concrete_int
 from .schemas import (
@@ -101,7 +101,7 @@ def create_synthetic_base_metadata(
     m: ViewAndMutationMeta,
     # Maps each outer argument idx to its inner idx (or, if this outer arg is generated from a
     # synthetic base, you get a tuple of (i, TensorMeta), telling you the base tensor idx, and view metadata)
-    synthetic_base_info: List[Union[int, Tuple[int, torch.Tensor]]],
+    synthetic_base_info: List[Union[int, Tuple[int, torch.TensorBase]]],
     outer_args: List[Any],
     inner_args: List[Any],
 ) -> Tuple[ViewAndMutationMeta, List[int]]:
@@ -158,9 +158,11 @@ def create_synthetic_base_metadata(
             mutations_hidden_from_autograd=all(
                 m.input_info[x].mutations_hidden_from_autograd for x in outer_indices
             ),
-            mutates_storage_metadata=False
-            if len(outer_indices) > 1
-            else m.input_info[outer_indices[0]].mutates_storage_metadata,
+            mutates_storage_metadata=(
+                False
+                if len(outer_indices) > 1
+                else m.input_info[outer_indices[0]].mutates_storage_metadata
+            ),
             mutations_under_no_grad_or_inference_mode=mutations_under_no_grad_or_inference_mode,
             is_leaf=any_leaf,
             requires_grad=requires_grad,
@@ -360,8 +362,8 @@ def create_graph_signature(
     in_spec: pytree.TreeSpec,
     out_spec: pytree.TreeSpec,
     *,
-    user_args_flat: List[Tensor],
-    params_and_buffers_flat: List[Tensor],
+    user_args_flat: List[TensorBase],
+    params_and_buffers_flat: List[TensorBase],
     param_names: List[str],
     buffer_names: List[str],
     trace_joint: bool,

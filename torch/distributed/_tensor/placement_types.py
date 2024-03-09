@@ -36,12 +36,12 @@ class Shard(Placement):
 
     def _split_tensor(
         self,
-        tensor: torch.Tensor,
+        tensor: torch.TensorBase,
         num_chunks: int,
         *,
         with_padding: bool = True,
         contiguous: bool = True,
-    ) -> Tuple[List[torch.Tensor], List[int]]:
+    ) -> Tuple[List[torch.TensorBase], List[int]]:
         """
         This function uses torch.chunk to split a tensor into num_chunks shards along
         the Shard placement dimension, and return a list of shards with their pad sizes.
@@ -92,9 +92,9 @@ class Shard(Placement):
 
     def _pad_tensor(
         self,
-        tensor: torch.Tensor,
+        tensor: torch.TensorBase,
         pad_size: int,
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         if pad_size == 0:
             return tensor
         pad = [0, 0] * (tensor.ndim - self.dim)
@@ -103,9 +103,9 @@ class Shard(Placement):
 
     def _unpad_tensor(
         self,
-        tensor: torch.Tensor,
+        tensor: torch.TensorBase,
         pad_size: int,
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         if pad_size == 0:
             return tensor
         return tensor.narrow(
@@ -143,8 +143,8 @@ class Shard(Placement):
             return local_shard_size, shard_starting_idx if return_offset else -1
 
     def _shard_tensor(
-        self, tensor: torch.Tensor, mesh: DeviceMesh, mesh_dim: int
-    ) -> torch.Tensor:
+        self, tensor: torch.TensorBase, mesh: DeviceMesh, mesh_dim: int
+    ) -> torch.TensorBase:
         """
         shard and scatter a tensor on a mesh dimension (use coordinate
         0 on the mesh dimension as source of truth)
@@ -171,11 +171,11 @@ class Shard(Placement):
 
     def _reduce_shard_tensor(
         self,
-        tensor: torch.Tensor,
+        tensor: torch.TensorBase,
         mesh: DeviceMesh,
         reduce_op: c10d.ReduceOp.RedOpType,
         mesh_dim: int,
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         """
         reduce and scatter a tensor on a mesh dimension
         """
@@ -206,11 +206,11 @@ class Shard(Placement):
 
     def _to_replicate_tensor(
         self,
-        local_tensor: torch.Tensor,
+        local_tensor: torch.TensorBase,
         mesh: DeviceMesh,
         mesh_dim: int,
         current_logical_shape: List[int],
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         """
         This function all_gather all shards and return a tensor that
         is replicated on the previously sharded mesh dimension
@@ -242,11 +242,11 @@ class Shard(Placement):
 
     def _replicate_to_shard(
         self,
-        local_tensor: torch.Tensor,
+        local_tensor: torch.TensorBase,
         mesh: DeviceMesh,
         mesh_dim: int,
         shard_index: int,
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         """
         transform from replicated tensor to a sharded tensor on
         the current rank, which would perform a local chunk
@@ -304,8 +304,8 @@ class Replicate(Placement):
         return "R"
 
     def _replicate_tensor(
-        self, tensor: torch.Tensor, mesh: DeviceMesh, mesh_dim: int
-    ) -> torch.Tensor:
+        self, tensor: torch.TensorBase, mesh: DeviceMesh, mesh_dim: int
+    ) -> torch.TensorBase:
         """
         Replicate (broadcast) a torch.Tensor on a mesh dimension (use
         the first coordinate on the mesh dimension as source of truth)
@@ -332,26 +332,26 @@ class _Partial(Placement):
     reduce_op: c10d.ReduceOp.RedOpType = c10d.ReduceOp.SUM
 
     def _reduce_value(
-        self, tensor: torch.Tensor, mesh: DeviceMesh, mesh_dim: int
-    ) -> torch.Tensor:
+        self, tensor: torch.TensorBase, mesh: DeviceMesh, mesh_dim: int
+    ) -> torch.TensorBase:
         return funcol.all_reduce(
             tensor, reduceOp=self.reduce_op.name, group=(mesh, mesh_dim)
         )
 
     def _reduce_shard_value(
         self,
-        tensor: torch.Tensor,
+        tensor: torch.TensorBase,
         mesh: DeviceMesh,
         mesh_dim: int,
         shard_spec: Placement,
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         # by default call reduce_shard_tensor of the shard_spec.
         shard_spec = cast(Shard, shard_spec)
         return shard_spec._reduce_shard_tensor(tensor, mesh, self.reduce_op, mesh_dim)
 
     def _partition_value(
-        self, tensor: torch.Tensor, mesh: DeviceMesh, mesh_dim: int
-    ) -> torch.Tensor:
+        self, tensor: torch.TensorBase, mesh: DeviceMesh, mesh_dim: int
+    ) -> torch.TensorBase:
         # _partition_value is the conjugate operation of _reduce_value
         # - i.e. _partition_value on a sum reduce op is just a divison operation
         # - the _reduce_value on a sum reduce op would just be a sum(allreduce) operation

@@ -3,9 +3,10 @@ from typing import Dict, List, Optional, Tuple
 import torch
 import torch.optim._functional as F
 
-from torch import Tensor
+from torch import TensorBase
 
 __all__: List[str] = []
+
 
 # Define a TorchScript compatible Functional AdamW Optimizer
 # where we use these optimizer in a functional way.
@@ -20,7 +21,7 @@ __all__: List[str] = []
 class _FunctionalAdamW:
     def __init__(
         self,
-        params: List[Tensor],
+        params: List[TensorBase],
         lr: float = 1e-3,
         betas: Tuple[float, float] = (0.9, 0.999),
         eps: float = 1e-8,
@@ -53,7 +54,9 @@ class _FunctionalAdamW:
         self.maximize = maximize
         self.foreach = foreach
         self.fused = fused
-        self.state = torch.jit.annotate(Dict[torch.Tensor, Dict[str, torch.Tensor]], {})
+        self.state = torch.jit.annotate(
+            Dict[torch.TensorBase, Dict[str, torch.TensorBase]], {}
+        )
 
         if len(params) == 0 and not _allow_empty_param_list:
             raise ValueError("optimizer got an empty parameter list")
@@ -62,13 +65,13 @@ class _FunctionalAdamW:
         # param group as it's not a common use case.
         self.param_group = {"params": params}
 
-    def step_param(self, param: Tensor, grad: Optional[Tensor]):
+    def step_param(self, param: TensorBase, grad: Optional[TensorBase]):
         params_with_grad = []
         grads = []
         exp_avgs = []
         exp_avg_sqs = []
         max_exp_avg_sqs = []
-        state_steps: List[Tensor] = []
+        state_steps: List[TensorBase] = []
         has_complex = torch.is_complex(param)
         if grad is not None:
             params_with_grad.append(param)
@@ -123,14 +126,14 @@ class _FunctionalAdamW:
                 has_complex=has_complex,
             )
 
-    def step(self, gradients: List[Optional[Tensor]]):
+    def step(self, gradients: List[Optional[TensorBase]]):
         params = self.param_group["params"]
         params_with_grad = []
         grads = []
         exp_avgs = []
         exp_avg_sqs = []
         max_exp_avg_sqs = []
-        state_steps: List[Tensor] = []
+        state_steps: List[TensorBase] = []
 
         if len(params) != len(gradients):
             raise ValueError(

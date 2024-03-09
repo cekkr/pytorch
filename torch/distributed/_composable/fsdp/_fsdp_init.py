@@ -95,13 +95,13 @@ def _get_managed_modules(root_module: nn.Module) -> List[nn.Module]:
 
 def _get_managed_states(
     modules: List[nn.Module],
-) -> Tuple[List[nn.Parameter], List[torch.Tensor]]:
+) -> Tuple[List[nn.Parameter], List[torch.TensorBase]]:
     params: List[nn.Parameter] = []
-    buffers: List[torch.Tensor] = []
+    buffers: List[torch.TensorBase] = []
     # Track visited parameters/buffers to avoid visiting shared parameters and
     # buffers multiple times
     visited_params: Set[nn.Parameter] = set()
-    visited_buffers: Set[torch.Tensor] = set()
+    visited_buffers: Set[torch.TensorBase] = set()
     for module in modules:
         for param in module.parameters(recurse=False):
             if param not in visited_params:
@@ -116,7 +116,7 @@ def _get_managed_states(
 
 def _move_states_to_device(
     params: List[nn.Parameter],
-    buffers: List[torch.Tensor],
+    buffers: List[torch.TensorBase],
     device: torch.device,
     mesh_info: FSDPMeshInfo,
 ) -> None:

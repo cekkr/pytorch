@@ -1,11 +1,11 @@
 import builtins
+import collections
 import copy
 import functools
 import inspect
 import math
 import os
 import warnings
-import collections
 from itertools import chain
 from types import CodeType, FunctionType, ModuleType
 from typing import (
@@ -26,11 +26,11 @@ import torch.utils._pytree as pytree
 from torch._C import ScriptObject  # type: ignore[attr-defined]
 
 from ._compatibility import compatibility
+from ._lazy_graph_module import _make_graph_module
 from .graph import _PyTreeCodeGen, _PyTreeInfo, Graph
 from .graph_module import GraphModule
-from ._lazy_graph_module import _make_graph_module
 from .node import Argument, base_types, map_aggregate
-from .proxy import ParameterProxy, Proxy, TracerBase, Scope, ScopeContextManager
+from .proxy import ParameterProxy, Proxy, Scope, ScopeContextManager, TracerBase
 
 HAS_VARSTUFF = inspect.CO_VARARGS | inspect.CO_VARKEYWORDS
 
@@ -45,6 +45,7 @@ _is_fx_tracing_flag = False
 
 def is_fx_tracing():
     return _is_fx_tracing_flag
+
 
 @compatibility(is_backward_compatible=True)
 class ProxyableClassMeta(type):
@@ -211,6 +212,7 @@ class PHWithMeta(PHBase):
     """
     Object representing an input placeholder to `concrete_args`
     """
+
     def __init__(self, ph_key: Optional[str] = None):
         super().__init__()
 
@@ -345,7 +347,7 @@ class Tracer(TracerBase):
                 if a is p:
                     return self.create_node("get_attr", n, (), {})
             raise NameError("parameter is not a member of this module")
-        elif isinstance(a, torch.Tensor):
+        elif isinstance(a, torch.TensorBase):
             for n_, p_ in self.root.named_buffers():
                 if a is p_:
                     return self.create_node("get_attr", n_, (), {})
@@ -366,7 +368,7 @@ class Tracer(TracerBase):
         # a get_attr to retrieve that tensor. Otherwise, we'll store away the
         # tensor value into a special attribute on the Module s.t. we can
         # retrieve it with a get_attr.
-        if isinstance(a, (torch.Tensor, ScriptObject)):
+        if isinstance(a, (torch.TensorBase, ScriptObject)):
             qualname: Optional[str] = self.tensor_attrs.get(a)
 
             # Tensor was not found in the Module hierarchy, stow it away in a
@@ -421,9 +423,9 @@ class Tracer(TracerBase):
                 appear with the qualified name ``foo.bar.baz`` here.
         """
         return (
-            (m.__module__.startswith("torch.nn") or m.__module__.startswith("torch.ao.nn"))
-            and not isinstance(m, torch.nn.Sequential)
-        )
+            m.__module__.startswith("torch.nn")
+            or m.__module__.startswith("torch.ao.nn")
+        ) and not isinstance(m, torch.nn.Sequential)
 
     @compatibility(is_backward_compatible=True)
     def path_of_module(self, mod: torch.nn.Module) -> str:
@@ -487,14 +489,21 @@ class Tracer(TracerBase):
             value was returned from the ``Module`` invocation.
         """
         module_qualified_name = self.path_of_module(m)
-        with ScopeContextManager(self.scope, Scope(module_qualified_name, type(m))) as _scope:
+        with ScopeContextManager(
+            self.scope, Scope(module_qualified_name, type(m))
+        ) as _scope:
             # module_stack is an ordered dict so writing then deleting the
             # entry is equivalent to push/pop on a list
-            self.module_stack[_scope.module_path] = (module_qualified_name, _scope.module_type)
+            self.module_stack[_scope.module_path] = (
+                module_qualified_name,
+                _scope.module_type,
+            )
             if not self.is_leaf_module(m, module_qualified_name):
                 ret_val = forward(*args, **kwargs)
             else:
-                ret_val = self.create_proxy("call_module", module_qualified_name, args, kwargs)
+                ret_val = self.create_proxy(
+                    "call_module", module_qualified_name, args, kwargs
+                )
             key, _ = self.module_stack.popitem(last=True)
             assert key == _scope.module_path, f" Unexpected key {key}"
 
@@ -523,6 +532,7 @@ class Tracer(TracerBase):
 
             The return value from the getattr call.
         """
+
         def maybe_get_proxy_for_attr(
             attr_val, collection_to_search, parameter_proxy_cache
         ):
@@ -553,7 +563,7 @@ class Tracer(TracerBase):
             if maybe_parameter_proxy is not None:
                 return maybe_parameter_proxy
 
-        if self.proxy_buffer_attributes and isinstance(attr_val, torch.Tensor):
+        if self.proxy_buffer_attributes and isinstance(attr_val, torch.TensorBase):
             maybe_buffer_proxy = maybe_get_proxy_for_attr(
                 attr_val, self.root.named_buffers(), parameter_proxy_cache
             )
@@ -592,15 +602,16 @@ class Tracer(TracerBase):
 
         sig = inspect.signature(fn_for_analysis)
 
-
         # This covers the very specific case where we are passing in flat
         # concrete_args as a tuple, but our traced fn takes (*args, **kwargs).
         # In this case, just take the concrete_args and pass them through.
         name_idx = 0
-        if isinstance(concrete_args, tuple) and \
-                len(concrete_args) > 0 and \
-                (co.co_flags & HAS_VARSTUFF) and \
-                total_args == 1:
+        if (
+            isinstance(concrete_args, tuple)
+            and len(concrete_args) > 0
+            and (co.co_flags & HAS_VARSTUFF)
+            and total_args == 1
+        ):
             for concrete_arg in concrete_args:
                 out = self.create_proxy("placeholder", f"input_{name_idx}", (), {})
                 if isinstance(concrete_arg, PHBase):
@@ -700,6 +711,7 @@ class Tracer(TracerBase):
                 #   https://gist.github.com/shunting314/75549c2e82ae07ac1139c94a3583d259
                 # without this.
                 from torch.fx._lazy_graph_module import _LazyGraphModule
+
                 _LazyGraphModule.force_recompile(root)
 
                 self.root = root
@@ -717,23 +729,23 @@ class Tracer(TracerBase):
 
             tracer_cls: Optional[Type[Tracer]] = getattr(self, "__class__", None)
             self.graph = Graph(tracer_cls=tracer_cls)
-            if hasattr(fn, '__code__'):
+            if hasattr(fn, "__code__"):
                 code = fn.__code__
                 self.graph._co_fields = {
-                    'co_name': code.co_name,
-                    'co_filename': code.co_filename,
-                    'co_firstlineno': code.co_firstlineno,
+                    "co_name": code.co_name,
+                    "co_filename": code.co_filename,
+                    "co_firstlineno": code.co_firstlineno,
                 }
 
             # When we encounter a Tensor value that's not a parameter, we look if it
             # is some other attribute on the model. Construct a dict mapping Tensor
             # values to the qualified name here for efficiency. This is used downstream
             # in create_arg
-            self.tensor_attrs: Dict[Union[torch.Tensor, ScriptObject], str] = {}
+            self.tensor_attrs: Dict[Union[torch.TensorBase, ScriptObject], str] = {}
 
             def collect_tensor_attrs(m: torch.nn.Module, prefix_atoms: List[str]):
                 for k, v in m.__dict__.items():
-                    if isinstance(v, (torch.Tensor, ScriptObject)):
+                    if isinstance(v, (torch.TensorBase, ScriptObject)):
                         self.tensor_attrs[v] = ".".join(prefix_atoms + [k])
                 for k, v in m.named_children():
                     collect_tensor_attrs(v, prefix_atoms + [k])
@@ -747,9 +759,9 @@ class Tracer(TracerBase):
                 fn, isinstance(root, torch.nn.Module), concrete_args
             )
 
-            parameter_proxy_cache: Dict[
-                str, Proxy
-            ] = {}  # Reduce number of get_attr calls
+            parameter_proxy_cache: Dict[str, Proxy] = (
+                {}
+            )  # Reduce number of get_attr calls
 
             # Method dispatch on parameters is not recorded unless it's directly used.
             # Thus, we need to insert a proxy when __getattr__ requests a parameter.
@@ -805,7 +817,7 @@ class Tracer(TracerBase):
         new_tracer = Tracer.__new__(Tracer)
 
         for k, v in self.__dict__.items():
-            if k in {'_autowrap_search'}:
+            if k in {"_autowrap_search"}:
                 new_obj = copy.copy(v)
             else:
                 new_obj = copy.deepcopy(v, memo)
@@ -823,9 +835,7 @@ class Tracer(TracerBase):
                 cnt += 1
                 param = sig.parameters[name]
                 default = (
-                    ()
-                    if param.default is inspect.Parameter.empty
-                    else (param.default,)
+                    () if param.default is inspect.Parameter.empty else (param.default,)
                 )
                 out = self.create_proxy(
                     "placeholder", f"{name}_{str(cnt)}", default, {}
@@ -846,7 +856,7 @@ class Tracer(TracerBase):
                 if (
                     type(x) == bool
                     or type(x) in base_types
-                    and type(x) != torch.Tensor
+                    and type(x) != torch.TensorBase
                 ):
                     torch._assert(
                         out == x,
@@ -878,7 +888,7 @@ class Tracer(TracerBase):
             name,
             default,
             {},
-            type_expr=fn_for_analysis.__annotations__.get(name, None)
+            type_expr=fn_for_analysis.__annotations__.get(name, None),
         )
 
 
@@ -898,7 +908,7 @@ if os.environ.get("FX_PATCH_GETITEM") == "1":
     # but causes issues in quantization documented here:
     # https://github.com/pytorch/pytorch/issues/50710
     # once that is fixed we can make this the default behavior.
-    _wrapped_methods_to_patch.append((torch.Tensor, "__getitem__"))
+    _wrapped_methods_to_patch.append((torch.TensorBase, "__getitem__"))
 
 
 def _find_proxy(*objects_to_search):

@@ -6,18 +6,18 @@
 # LICENSE file in the root directory of this source tree.
 """Manipulation of micro-batches."""
 import typing
-from typing import Any, Callable, List, Union, cast, Sequence
+from typing import Any, Callable, cast, List, Sequence, Union
 
 import torch
-from torch import Tensor
 import torch.cuda.comm
+from torch import TensorBase
 
 __all__: List[str] = ["NoChunk", "Batch", "check", "scatter", "gather"]
 
 
-Tensors = Sequence[Tensor]
-TensorOrTensors = Union[Tensor, Tensors]
-Function = Callable[[TensorOrTensors], Union[List[Any], Tensor]]
+Tensors = Sequence[TensorBase]
+TensorOrTensors = Union[TensorBase, Tensors]
+Function = Callable[[TensorOrTensors], Union[List[Any], TensorBase]]
 
 
 class NoChunk:
@@ -27,9 +27,10 @@ class NoChunk:
     as-is across all micro-batches. This is useful for tensors which might
     not have any 'batch' semantics for the model.
     """
-    def __init__(self, inp: Tensor):
+
+    def __init__(self, inp: TensorBase):
         if not torch.is_tensor(inp):
-            raise TypeError(f'NoChunk only supported for tensors, found: {inp}')
+            raise TypeError(f"NoChunk only supported for tensors, found: {inp}")
         self._tensor = inp
 
     @property
@@ -42,21 +43,21 @@ class Batch:
     An abstraction representing a microbatch in the pipeline.
     """
 
-    def __init__(self, values: Union[List[Any], Tensor]) -> None:
+    def __init__(self, values: Union[List[Any], TensorBase]) -> None:
         self._values = values
         self.atomic = torch.is_tensor(values)
 
         # Verify at least on tensor
         if not self.atomic:
             if not any(torch.is_tensor(value) for value in self._values):
-                raise TypeError(f'No tensors found in batch: {self._values}')
+                raise TypeError(f"No tensors found in batch: {self._values}")
 
     @property
-    def tensor(self) -> Tensor:
+    def tensor(self) -> TensorBase:
         """Retrieves the underlying tensor."""
         if not self.atomic:
             raise AttributeError("not atomic batch")
-        return cast(Tensor, self._values)
+        return cast(TensorBase, self._values)
 
     @property
     def values(self):
@@ -118,12 +119,10 @@ class Batch:
 
     # NOTE(sublee): pyflakes can't detect "overload" instead of "typing.overload".
     @typing.overload
-    def __setitem__(self, index: int, value: Tensor) -> None:
-        ...
+    def __setitem__(self, index: int, value: TensorBase) -> None: ...
 
     @typing.overload
-    def __setitem__(self, index: slice, value: Tensors) -> None:
-        ...
+    def __setitem__(self, index: slice, value: Tensors) -> None: ...
 
     def __setitem__(self, index: Union[int, slice], value) -> None:
         if isinstance(index, int):
@@ -167,14 +166,16 @@ def check(first_device, *inputs) -> None:
     """
 
     if not any(torch.is_tensor(input) for input in inputs):
-        raise TypeError(f'inputs do not have any tensors: {inputs}')
+        raise TypeError(f"inputs do not have any tensors: {inputs}")
     if any(torch.is_tensor(input) and input.device != first_device for input in inputs):
-        raise ValueError('All inputs should be on the same device as the first partition')
+        raise ValueError(
+            "All inputs should be on the same device as the first partition"
+        )
 
 
 def scatter(*inputs, chunks: int) -> List[Batch]:
     """Splits an input mini-batch into multiple micro-batches."""
-    if len(inputs) == 1 and isinstance(inputs[0], Tensor):
+    if len(inputs) == 1 and isinstance(inputs[0], TensorBase):
         return [Batch(x) for x in inputs[0].chunk(chunks)]
 
     batches: List[Any] = [[] for _ in range(chunks)]
@@ -187,7 +188,9 @@ def scatter(*inputs, chunks: int) -> List[Batch]:
 
             # Validate number of chunks equal across all inputs.
             if num_chunks != -1 and num_chunks != len(tensors):
-                raise RuntimeError(f'Found different number of chunks produced for inputs: {num_chunks} and {len(tensors)}')
+                raise RuntimeError(
+                    f"Found different number of chunks produced for inputs: {num_chunks} and {len(tensors)}"
+                )
             num_chunks = len(tensors)
 
             for i, tensor in enumerate(tensors):
@@ -221,7 +224,9 @@ def gather(outputs: List[Batch]):
             current_outputs = []
             for batch in outputs:
                 if output_type != type(batch[i]):
-                    raise TypeError(f'Types for microbatch outputs do not match, found: {output_type} and {type(batch[i])}')
+                    raise TypeError(
+                        f"Types for microbatch outputs do not match, found: {output_type} and {type(batch[i])}"
+                    )
                 current_outputs.append(batch[i])
 
             if torch.is_tensor(outputs[0][i]):

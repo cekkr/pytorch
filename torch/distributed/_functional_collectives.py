@@ -146,7 +146,7 @@ def wait_tensor(tensor):
         return torch.ops.c10d_functional.wait_tensor(tensor)  # type: ignore[attr-defined]
 
 
-def broadcast(self: torch.Tensor, src: int, group: RANK_TYPES, tag: str = ""):
+def broadcast(self: torch.TensorBase, src: int, group: RANK_TYPES, tag: str = ""):
     """
     Broadcasts the tensor to all processes in the given process group.
 
@@ -166,7 +166,7 @@ def broadcast(self: torch.Tensor, src: int, group: RANK_TYPES, tag: str = ""):
     return _maybe_wrap_tensor(tensor)
 
 
-def all_reduce(self: torch.Tensor, reduceOp: str, group: RANK_TYPES, tag: str = ""):
+def all_reduce(self: torch.TensorBase, reduceOp: str, group: RANK_TYPES, tag: str = ""):
     """
     Reduces the tensor data across all machines in such a way that all get
     the final result.
@@ -201,7 +201,7 @@ def all_reduce(self: torch.Tensor, reduceOp: str, group: RANK_TYPES, tag: str = 
 
 
 def all_gather_tensor(
-    self: torch.Tensor,
+    self: torch.TensorBase,
     gather_dim: int,
     group: RANK_TYPES,
     tag: str = "",
@@ -249,7 +249,7 @@ def all_gather_tensor(
 
 
 def reduce_scatter_tensor(
-    self: torch.Tensor,
+    self: torch.TensorBase,
     reduceOp: str,
     scatter_dim: int,
     group: RANK_TYPES,
@@ -303,8 +303,8 @@ def reduce_scatter_tensor(
 
 
 def all_reduce_coalesced(
-    self: List[torch.Tensor], reduceOp: str, group: RANK_TYPES, tag: str = ""
-) -> List[torch.Tensor]:
+    self: List[torch.TensorBase], reduceOp: str, group: RANK_TYPES, tag: str = ""
+) -> List[torch.TensorBase]:
     """
     Reduces a list of tensors across all machines in such a way that all get
     the final result.
@@ -341,8 +341,8 @@ def all_reduce_coalesced(
 
 
 def all_gather_into_tensor_coalesced(
-    self: List[torch.Tensor], group: RANK_TYPES, tag: str = ""
-) -> List[torch.Tensor]:
+    self: List[torch.TensorBase], group: RANK_TYPES, tag: str = ""
+) -> List[torch.TensorBase]:
     """
     Gather a list of tensors across from all machines.
 
@@ -379,12 +379,12 @@ def all_gather_into_tensor_coalesced(
 
 
 def reduce_scatter_tensor_coalesced(
-    inputs: List[torch.Tensor],
+    inputs: List[torch.TensorBase],
     reduceOp: str,
     scatter_dim: List[int],
     group: RANK_TYPES,
     tag: str = "",
-) -> List[torch.Tensor]:
+) -> List[torch.TensorBase]:
     """
     Reduces a list of tensors across all machines in such a way that all get
     the final result, then scatter the results to corresponding ranks.
@@ -446,12 +446,12 @@ def _is_view_op(tgt):
 
 
 def all_to_all_single(
-    self: torch.Tensor,
+    self: torch.TensorBase,
     output_split_sizes: Optional[List[int]],
     input_split_sizes: Optional[List[int]],
     group: RANK_TYPES,
     tag: str = "",
-) -> torch.Tensor:
+) -> torch.TensorBase:
     """
     Each process splits input tensor and then scatters the split list
     to all processes in a group. Then concatenate the received tensors from all
@@ -505,11 +505,11 @@ def all_to_all_single(
 
 
 def permute_tensor(
-    self: torch.Tensor,
+    self: torch.TensorBase,
     src_dst: List[int],
     group: RANK_TYPES,
     tag: str = "",
-) -> torch.Tensor:
+) -> torch.TensorBase:
     """
     Permutes the elements of the tensor according to the given source/destination pairs. `src_dst` should
     be defined such that src_dst[m] == n means m sends to n.
@@ -535,7 +535,7 @@ def permute_tensor(
     return all_to_all_single(self, output_split_sizes, input_split_sizes, group, tag)
 
 
-class AsyncCollectiveTensor(torch.Tensor):
+class AsyncCollectiveTensor(torch.TensorBase):
     r"""
     A Tensor wrapper subclass that is used to trigger a call to wait
     prior to first use of the underlying tensor.
@@ -545,14 +545,15 @@ class AsyncCollectiveTensor(torch.Tensor):
         tensor = torch.ops.c10d_functional.{collective}(self, tag, rankset, group_size)
         return _maybe_wrap_tensor(tensor)
     """
-    elem: torch.Tensor
+
+    elem: torch.TensorBase
     completed: bool
 
     __slots__ = ["elem", "completed"]
 
     @staticmethod
-    def __new__(cls, elem: torch.Tensor):
-        r = torch.Tensor._make_wrapper_subclass(  # type: ignore[attr-defined]
+    def __new__(cls, elem: torch.TensorBase):
+        r = torch.TensorBase._make_wrapper_subclass(  # type: ignore[attr-defined]
             cls,
             elem.size(),
             strides=elem.stride(),
@@ -589,7 +590,7 @@ class AsyncCollectiveTensor(torch.Tensor):
             self.completed = True
         return self.elem
 
-    def wait(self) -> torch.Tensor:
+    def wait(self) -> torch.TensorBase:
         wait_tensor(self.elem)
         return self.elem
 
@@ -615,7 +616,7 @@ class AsyncCollectiveTensor(torch.Tensor):
                 e.trigger_wait()
             return e.elem
 
-        def wrap(e: torch.Tensor):
+        def wrap(e: torch.TensorBase):
             # wait_tensor is idepotent and will do stream sync only once
             assert not isinstance(e, AsyncCollectiveTensor)
             res = AsyncCollectiveTensor(e)
@@ -630,7 +631,7 @@ class AsyncCollectiveTensor(torch.Tensor):
 
         # View ops dont require a sync, so we should re-wrap the outputs.
         if is_view_op:
-            out = tree_map_only(torch.Tensor, wrap, out)
+            out = tree_map_only(torch.TensorBase, wrap, out)
 
         return out
 
@@ -773,12 +774,12 @@ def _are_we_tracing() -> bool:
     return mode.tracer is not None
 
 
-def _maybe_wrap_tensor(self) -> torch.Tensor:
+def _maybe_wrap_tensor(self) -> torch.TensorBase:
     if _are_we_tracing():
         return wait_tensor(self)
     res = AsyncCollectiveTensor(self)
     _register_tensor_wrapper(res)
-    return cast(torch.Tensor, res)
+    return cast(torch.TensorBase, res)
 
 
 def _all_gather_into_tensor_coalesced_meta(self, tag, rankset, group_size):
@@ -962,8 +963,8 @@ These schemas intentionally match torch.distributed.distributed_c10d.* ops that 
 
 
 def all_gather_tensor_inplace(
-    output_tensor: torch.Tensor,
-    input_tensor: torch.Tensor,
+    output_tensor: torch.TensorBase,
+    input_tensor: torch.TensorBase,
     group,  # TODO add a type,
     async_op: bool = False,
     tag: str = "",
@@ -976,8 +977,8 @@ def all_gather_tensor_inplace(
 
 
 def reduce_scatter_tensor_inplace(
-    output: torch.Tensor,
-    input: torch.Tensor,
+    output: torch.TensorBase,
+    input: torch.TensorBase,
     op: str = "sum",  # TODO type is actually c10d ReduceOp. is this ok?
     group=None,  # TODO add a type
     async_op: bool = False,
@@ -1003,7 +1004,7 @@ REDUCE_OP_TO_STR = {
 
 
 def all_reduce_inplace(
-    tensor: torch.Tensor,
+    tensor: torch.TensorBase,
     op: str = "sum",
     group=None,
     async_op: bool = False,
@@ -1017,8 +1018,8 @@ def all_reduce_inplace(
 
 
 def all_to_all_inplace(
-    output: torch.Tensor,
-    input: torch.Tensor,
+    output: torch.TensorBase,
+    input: torch.TensorBase,
     output_split_sizes=None,
     input_split_sizes=None,
     group=None,
@@ -1034,8 +1035,8 @@ def all_to_all_inplace(
 
 
 def all_gather_inplace(
-    tensor_list: List[torch.Tensor],
-    tensor: torch.Tensor,
+    tensor_list: List[torch.TensorBase],
+    tensor: torch.TensorBase,
     group=None,
     async_op=False,
     tag: str = "",

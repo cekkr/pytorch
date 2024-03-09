@@ -107,9 +107,9 @@ class FSDPParam:
     padded_sharded_param_size: torch.Size  # ND
     sharded_post_forward_size: torch.Size  # ND
     contiguous_sharded_post_forward_stride: Tuple[int, ...]
-    _sharded_param_data: torch.Tensor  # 1D
+    _sharded_param_data: torch.TensorBase  # 1D
     sharded_param: nn.Parameter  # ND
-    _sharded_post_forward_param_data: Optional[torch.Tensor]  # 1D
+    _sharded_post_forward_param_data: Optional[torch.TensorBase]  # 1D
     _sharded_post_forward_param: Optional[nn.Parameter]  # ND
     _unsharded_param: nn.Parameter  # ND
     _global_placements: Tuple[Placement, ...]
@@ -211,7 +211,9 @@ class FSDPParam:
         self._setattr_on_modules(self.sharded_param)
         self.sharded_state = ShardedState.SHARDED
 
-    def _init_sharded_post_forward_param_metadata(self, param: torch.Tensor) -> None:
+    def _init_sharded_post_forward_param_metadata(
+        self, param: torch.TensorBase
+    ) -> None:
         mesh_info = self.post_forward_mesh_info
         assert mesh_info is not None  # mypy
         param_data = param._local_tensor if isinstance(param, DTensor) else param
@@ -327,7 +329,7 @@ class FSDPParam:
         ):
             unsafe_setattr_param(shared_module, shared_param_name, param)
 
-    def to_sharded_dtensor(self, tensor: torch.Tensor) -> DTensor:
+    def to_sharded_dtensor(self, tensor: torch.TensorBase) -> DTensor:
         """
         Converts a local tensor representing either the sharded parameter or
         sharded gradient to DTensor.
@@ -344,7 +346,7 @@ class FSDPParam:
             self._global_stride,
         )
 
-    def to_sharded_post_forward_dtensor(self, tensor: torch.Tensor) -> DTensor:
+    def to_sharded_post_forward_dtensor(self, tensor: torch.TensorBase) -> DTensor:
         if tensor.shape != self.sharded_post_forward_size:
             _raise_assert_with_print(
                 f"Expects size {self.sharded_post_forward_size} but got {tensor.shape}"
@@ -367,13 +369,13 @@ class FSDPParam:
         unsafe_free_storage(self.all_gather_output)
 
     @property
-    def all_gather_input(self) -> torch.Tensor:  # 1D
+    def all_gather_input(self) -> torch.TensorBase:  # 1D
         self._assert_in_states(ShardedState.SHARDED, ShardedState.SHARDED_POST_FORWARD)
         if self.sharded_state == ShardedState.SHARDED:
             return _to_dtype_if_needed(self._sharded_param_data, self.param_dtype)
         elif self.sharded_state == ShardedState.SHARDED_POST_FORWARD:
             return _to_dtype_if_needed(
-                cast(torch.Tensor, self._sharded_post_forward_param_data),
+                cast(torch.TensorBase, self._sharded_post_forward_param_data),
                 self.param_dtype,
             )
         return torch.empty(0)  # mypy
@@ -384,12 +386,12 @@ class FSDPParam:
         return self._unsharded_param
 
     @property
-    def unsharded_grad_data(self) -> torch.Tensor:
+    def unsharded_grad_data(self) -> torch.TensorBase:
         grad = self.unsharded_param.grad
         assert grad is not None, "Expects unsharded_param.grad to not be None"
         return self._get_grad_inner_tensor(grad)
 
-    def _get_grad_inner_tensor(self, grad: torch.Tensor) -> torch.Tensor:
+    def _get_grad_inner_tensor(self, grad: torch.TensorBase) -> torch.TensorBase:
         if self.is_dtensor:
             if isinstance(grad, AsyncCollectiveTensor):
                 grad = grad.wait()
@@ -406,13 +408,13 @@ class FSDPParam:
 # NOTE: Unsafe here refers to not checking whether the storage is already
 # allocated or freed, respectively. We should be safe to use them since we
 # explicitly manage the state transition.
-def unsafe_alloc_storage(tensor: torch.Tensor) -> None:
+def unsafe_alloc_storage(tensor: torch.TensorBase) -> None:
     # Skip the already-allocated check and assume that `tensor` is the base
     # tensor to save CPU overhead
     tensor.untyped_storage().resize_(tensor.numel() * tensor.itemsize)
 
 
-def unsafe_free_storage(tensor: torch.Tensor) -> None:
+def unsafe_free_storage(tensor: torch.TensorBase) -> None:
     # Skip the already-freed check to save CPU overhead
     tensor.untyped_storage().resize_(0)
 
@@ -430,7 +432,7 @@ def unsafe_setattr_param(
 
 
 def set_requires_grad_if_needed(
-    src_tensor: torch.Tensor, dst_tensor: torch.Tensor
+    src_tensor: torch.TensorBase, dst_tensor: torch.TensorBase
 ) -> None:
     # Only call `requires_grad_` if needed to avoid the Python <> C++ context
     # switch overhead

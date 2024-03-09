@@ -357,7 +357,7 @@ def backwards_not_supported(prim):
     def _autograd_impl(*args, **kwargs):
         flat_args, args_spec = tree_flatten((args, kwargs))
         if torch.is_grad_enabled() and any(
-            a.requires_grad for a in flat_args if isinstance(a, torch.Tensor)
+            a.requires_grad for a in flat_args if isinstance(a, torch.TensorBase)
         ):
             # TODO: There is a subtle bug here: prims like copy_to
             # return their input argument after mutating it; and custom
@@ -392,7 +392,7 @@ def elementwise_unary_scalar_wrapper(fn: Callable) -> Callable:
             args_ = list(args)
             args_[0] = torch.tensor(args[0], dtype=dtype)
             result = fn(*args_, **kwargs)
-            assert isinstance(result, torch.Tensor)
+            assert isinstance(result, torch.TensorBase)
             return result.item()
 
         return fn(*args, **kwargs)

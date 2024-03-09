@@ -31,41 +31,41 @@ def torch_to_refs_map():
         (torch.linalg, torch._refs.linalg),
     ]
     r: Dict[Any, Any] = {
-        torch.Tensor.__invert__: torch._refs.bitwise_not,
-        torch.Tensor.__xor__: torch._refs.bitwise_xor,
-        torch.Tensor.__and__: torch._refs.bitwise_and,
-        torch.Tensor.__or__: torch._refs.bitwise_or,
-        torch.Tensor.__eq__: torch._refs.eq,
-        torch.Tensor.__rsub__: torch._refs.rsub,
-        torch.Tensor.__rtruediv__: torch._refs.rtruediv,
-        torch.Tensor.__floordiv__: torch._refs.floor_divide,
-        torch.Tensor.__rfloordiv__: torch._refs.rfloordiv,
-        torch.Tensor.__pow__: torch._refs.pow,
-        torch.Tensor.__rpow__: torch._refs.rpow,
-        torch.Tensor.new_empty: torch._refs.new_empty,
-        torch.Tensor.new_full: torch._refs.new_full,
-        torch.Tensor.new_zeros: torch._refs.new_zeros,
-        torch.Tensor.new_ones: torch._refs.new_ones,
-        torch.Tensor.fill_: torch._refs.fill_,
-        torch.Tensor.zero_: torch._refs.zero_,
-        torch.Tensor.to: torch._refs.to,
-        torch.Tensor.sum_to_size: torch._refs.sum_to_size,
+        torch.TensorBase.__invert__: torch._refs.bitwise_not,
+        torch.TensorBase.__xor__: torch._refs.bitwise_xor,
+        torch.TensorBase.__and__: torch._refs.bitwise_and,
+        torch.TensorBase.__or__: torch._refs.bitwise_or,
+        torch.TensorBase.__eq__: torch._refs.eq,
+        torch.TensorBase.__rsub__: torch._refs.rsub,
+        torch.TensorBase.__rtruediv__: torch._refs.rtruediv,
+        torch.TensorBase.__floordiv__: torch._refs.floor_divide,
+        torch.TensorBase.__rfloordiv__: torch._refs.rfloordiv,
+        torch.TensorBase.__pow__: torch._refs.pow,
+        torch.TensorBase.__rpow__: torch._refs.rpow,
+        torch.TensorBase.new_empty: torch._refs.new_empty,
+        torch.TensorBase.new_full: torch._refs.new_full,
+        torch.TensorBase.new_zeros: torch._refs.new_zeros,
+        torch.TensorBase.new_ones: torch._refs.new_ones,
+        torch.TensorBase.fill_: torch._refs.fill_,
+        torch.TensorBase.zero_: torch._refs.zero_,
+        torch.TensorBase.to: torch._refs.to,
+        torch.TensorBase.sum_to_size: torch._refs.sum_to_size,
         # TODO: Should these methods be mapped some other way?
-        torch.Tensor.copy_: torch._prims.copy_to,
-        torch.Tensor.resize: torch._prims.resize,
+        torch.TensorBase.copy_: torch._prims.copy_to,
+        torch.TensorBase.resize: torch._prims.resize,
     }
     for mod_torch, mod_refs in modules:
         for s in mod_refs.__all__:  # type: ignore[attr-defined]
             r[mod_torch.__dict__.get(s)] = mod_refs.__dict__.get(s)
 
     # Support remapping torch.Tensor.foo to _refs.foo
-    for s in dir(torch.Tensor):
+    for s in dir(torch.TensorBase):
         if s in torch._refs.__all__:
-            r[getattr(torch.Tensor, s)] = torch._refs.__dict__.get(s)
+            r[getattr(torch.TensorBase, s)] = torch._refs.__dict__.get(s)
 
     # Support conversions
     for s in torch._refs._conversions.__all__:
-        tensor_attr = getattr(torch.Tensor, s, None) or getattr(torch, s)
+        tensor_attr = getattr(torch.TensorBase, s, None) or getattr(torch, s)
         r[tensor_attr] = torch._refs._conversions.__dict__.get(s)
 
     return r

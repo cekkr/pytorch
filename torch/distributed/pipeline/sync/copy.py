@@ -9,17 +9,24 @@
 It is used to overlap copy and computation on the same GPU.
 """
 from collections import deque
-from typing import Deque, List, Optional, Tuple, Sequence
+from typing import Deque, List, Optional, Sequence, Tuple
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 
-from .stream import AbstractStream, current_stream, get_device, record_stream, use_stream, wait_stream
+from .stream import (
+    AbstractStream,
+    current_stream,
+    get_device,
+    record_stream,
+    use_stream,
+    wait_stream,
+)
 
 __all__: List[str] = ["Context", "Copy", "Wait"]
 
 
-Tensors = Sequence[Tensor]
+Tensors = Sequence[TensorBase]
 
 
 # Common interface between :class:`Copy` and :class:`Wait`.
@@ -33,7 +40,12 @@ class Copy(torch.autograd.Function):
 
     @staticmethod
     # type: ignore[override]
-    def forward(ctx: Context, prev_stream: AbstractStream, next_stream: AbstractStream, *input,) -> Tensors:
+    def forward(
+        ctx: Context,
+        prev_stream: AbstractStream,
+        next_stream: AbstractStream,
+        *input,
+    ) -> Tensors:
         ctx.prev_stream = prev_stream
         ctx.next_stream = next_stream
 
@@ -57,11 +69,14 @@ class Copy(torch.autograd.Function):
         return tuple(output)
 
     @staticmethod
-    def backward(ctx: Context, *grad_output: Tensor,) -> Tuple[Optional[Tensor], ...]:
+    def backward(
+        ctx: Context,
+        *grad_output: TensorBase,
+    ) -> Tuple[Optional[TensorBase], ...]:
         prev_stream = ctx.prev_stream
         next_stream = ctx.next_stream
 
-        grad_input: Deque[Tensor] = deque(maxlen=len(grad_output))
+        grad_input: Deque[TensorBase] = deque(maxlen=len(grad_output))
         input_stream = current_stream(get_device(prev_stream))
 
         with use_stream(prev_stream), use_stream(next_stream):
@@ -75,7 +90,7 @@ class Copy(torch.autograd.Function):
                 # It might be used on the current stream captured as 'input_stream'.
                 record_stream(y, input_stream)
 
-        grad_streams: Tuple[Optional[Tensor], ...] = (None, None)
+        grad_streams: Tuple[Optional[TensorBase], ...] = (None, None)
         return grad_streams + tuple(grad_input)
 
 
@@ -89,7 +104,9 @@ class Wait(torch.autograd.Function):
 
     @staticmethod
     # type: ignore[override]
-    def forward(ctx: Context, prev_stream: AbstractStream, next_stream: AbstractStream, *input) -> Tensors:
+    def forward(
+        ctx: Context, prev_stream: AbstractStream, next_stream: AbstractStream, *input
+    ) -> Tensors:
         ctx.prev_stream = prev_stream
         ctx.next_stream = next_stream
 
@@ -98,11 +115,14 @@ class Wait(torch.autograd.Function):
         return tuple(x.detach() if torch.is_tensor(x) else x for x in input)
 
     @staticmethod
-    def backward(ctx: Context, *grad_input: Tensor,) -> Tuple[Optional[Tensor], ...]:
+    def backward(
+        ctx: Context,
+        *grad_input: TensorBase,
+    ) -> Tuple[Optional[TensorBase], ...]:
         prev_stream = ctx.prev_stream
         next_stream = ctx.next_stream
 
         wait_stream(prev_stream, next_stream)
 
-        grad_streams: Tuple[Optional[Tensor], ...] = (None, None)
+        grad_streams: Tuple[Optional[TensorBase], ...] = (None, None)
         return grad_streams + grad_input

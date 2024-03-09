@@ -508,10 +508,10 @@ def __interpolate(
 def _slice(
     g: jit_utils.GraphContext,
     input: torch._C.Value,
-    axes: Union[List, torch.Tensor, torch._C.Value],
-    starts: Union[List, torch.Tensor, torch._C.Value],
-    ends: Union[List, torch.Tensor, torch._C.Value],
-    steps: Optional[Union[List, torch.Tensor, torch._C.Value]] = None,
+    axes: Union[List, torch.TensorBase, torch._C.Value],
+    starts: Union[List, torch.TensorBase, torch._C.Value],
+    ends: Union[List, torch.TensorBase, torch._C.Value],
+    steps: Optional[Union[List, torch.TensorBase, torch._C.Value]] = None,
 ):
     def is_none_value(value):
         if value is None:
@@ -527,7 +527,7 @@ def _slice(
         if is_none_value(list_or_value) and default_value is not None:
             list_or_value = [default_value]
 
-        if isinstance(list_or_value, (list, torch.Tensor)):
+        if isinstance(list_or_value, (list, torch.TensorBase)):
             return g.op("Constant", value_t=torch.tensor(list_or_value))
 
         rank = symbolic_helper._get_tensor_rank(list_or_value)
@@ -540,7 +540,7 @@ def _slice(
         )
 
     def get_const_value(list_or_value):
-        if isinstance(list_or_value, (list, torch.Tensor)):
+        if isinstance(list_or_value, (list, torch.TensorBase)):
             if len(list_or_value) == 1:
                 return list_or_value[0]
             return None

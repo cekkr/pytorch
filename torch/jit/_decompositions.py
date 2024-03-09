@@ -1,5 +1,5 @@
 import torch
-from torch import Tensor
+from torch import TensorBase
 
 aten = torch.ops.aten
 import inspect
@@ -88,11 +88,11 @@ def register_decomposition(aten_op, registry=None):
 
 @register_decomposition(aten.var.correction)
 def var_decomposition(
-    input: Tensor,
+    input: TensorBase,
     dim: Optional[List[int]] = None,
     correction: Optional[Number] = None,
     keepdim: bool = False,
-) -> Tensor:
+) -> TensorBase:
     if dim is None:
         dim_i: List[int] = []
         dim = dim_i
@@ -123,5 +123,5 @@ def var_decomposition(
 
 
 @register_decomposition(aten.var.default)
-def var(input: Tensor, unbiased: bool = True) -> Tensor:
+def var(input: TensorBase, unbiased: bool = True) -> TensorBase:
     return var_decomposition(input, correction=(1 if unbiased else 0))

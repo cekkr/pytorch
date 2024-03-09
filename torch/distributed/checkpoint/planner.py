@@ -239,7 +239,9 @@ class SavePlanner(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def resolve_data(self, write_item: WriteItem) -> Union[torch.Tensor, io.BytesIO]:
+    def resolve_data(
+        self, write_item: WriteItem
+    ) -> Union[torch.TensorBase, io.BytesIO]:
         """
         Transform and prepare ``write_item`` from ``state_dict`` for storage, ensuring idempotency and thread-safety.
 
@@ -379,7 +381,7 @@ class LoadPlanner:
         pass
 
     @abc.abstractmethod
-    def resolve_tensor(self, read_item: ReadItem) -> torch.Tensor:
+    def resolve_tensor(self, read_item: ReadItem) -> torch.TensorBase:
         """
         Return the tensor described by ``read_item`` to be used by the StorageReader to load `read_item`.
 
@@ -390,7 +392,7 @@ class LoadPlanner:
         pass
 
     @abc.abstractmethod
-    def commit_tensor(self, read_item: ReadItem, tensor: torch.Tensor) -> None:
+    def commit_tensor(self, read_item: ReadItem, tensor: torch.TensorBase) -> None:
         """
         Call once the StorageReader finished loading data into ``tensor``.
 

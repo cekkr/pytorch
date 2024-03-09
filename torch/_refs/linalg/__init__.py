@@ -9,7 +9,7 @@ import torch._prims as prims
 import torch._prims_common as utils
 import torch._refs as refs
 import torch._refs.linalg as linalg
-from torch import Tensor
+from torch import TensorBase
 from torch._prims_common import (
     check_fp_or_complex,
     check_is_matrix,
@@ -71,7 +71,7 @@ from torch._decomp.decompositions import pw_cast_for_opmath
 @register_decomposition(torch._ops.ops.aten.linalg_cross)
 @out_wrapper()
 @pw_cast_for_opmath
-def cross(a: Tensor, b: Tensor, dim: int = -1):
+def cross(a: TensorBase, b: TensorBase, dim: int = -1):
     torch._check(
         a.ndim == b.ndim,
         lambda: "linalg.cross: inputs must have the same number of dimensions.",
@@ -107,7 +107,7 @@ def vector_norm(
     keepdim: bool = False,
     *,
     dtype: Optional[torch.dtype] = None,
-) -> Tensor:
+) -> TensorBase:
     # Checks
     check_fp_or_complex(x.dtype, "linalg.vector_norm")
 
@@ -287,13 +287,15 @@ def norm(
 
 # CompositeImplicitAutograd
 @out_wrapper("U", "S", "Vh", exact_dtype=True)
-def svd(A: TensorLikeType, full_matrices: bool = True) -> Tuple[Tensor, Tensor, Tensor]:
+def svd(
+    A: TensorLikeType, full_matrices: bool = True
+) -> Tuple[TensorBase, TensorBase, TensorBase]:
     return prims.svd(A, full_matrices=full_matrices)
 
 
 # CompositeImplicitAutograd
 @out_wrapper(exact_dtype=True)
-def svdvals(A: TensorLikeType) -> Tensor:
+def svdvals(A: TensorLikeType) -> TensorBase:
     return svd(A, full_matrices=False)[1]
 
 
@@ -303,6 +305,6 @@ def svdvals(A: TensorLikeType) -> Tensor:
     type_promoting_args=("x", "y"),
     type_promotion_kind=ELEMENTWISE_TYPE_PROMOTION_KIND.DEFAULT,
 )
-def vecdot(x: Tensor, y: Tensor, dim: int = -1) -> Tensor:
+def vecdot(x: TensorBase, y: TensorBase, dim: int = -1) -> TensorBase:
     check_fp_or_complex(x.dtype, "linalg.vecdot")
     return (x.conj() * y).sum(dim=dim)

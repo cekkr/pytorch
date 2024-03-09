@@ -18,11 +18,11 @@ Usage::
     pipe = Pipe(model, balance, chunks=8)
 
 """
-from typing import Any, List, Union, Sequence
+from typing import Any, List, Sequence, Union
 
 import torch
-from torch import Tensor
 import torch.nn as nn
+from torch import TensorBase
 
 from . import blockpartition
 from .profile import profile_sizes, profile_times
@@ -32,8 +32,8 @@ __all__ = ["balance_by_time", "balance_by_size"]
 
 Device = Union[torch.device, int, str]
 
-Tensors = Sequence[Tensor]
-TensorOrTensors = Union[Tensor, Tensors]
+Tensors = Sequence[TensorBase]
+TensorOrTensors = Union[TensorBase, Tensors]
 
 
 def balance_cost(cost: List[int], partitions: int) -> List[int]:
@@ -44,7 +44,7 @@ def balance_cost(cost: List[int], partitions: int) -> List[int]:
 def balance_by_time(
     partitions: int,
     module: nn.Sequential,
-    sample: Union[List[Any], Tensor],
+    sample: Union[List[Any], TensorBase],
     *,
     timeout: float = 1.0,
     device: Device = torch.device("cuda"),
@@ -87,7 +87,7 @@ def balance_by_time(
 def balance_by_size(
     partitions: int,
     module: nn.Sequential,
-    input: Union[List[Any], Tensor],
+    input: Union[List[Any], TensorBase],
     *,
     chunks: int = 1,
     param_scale: float = 2.0,

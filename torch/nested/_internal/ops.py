@@ -74,7 +74,8 @@ def check_schema(schema_str: str, func, *args, **kwargs) -> None:
             )
 
     arg_type_check_fns = {
-        "t": lambda x: isinstance(x, torch.Tensor) and not isinstance(x, NestedTensor),
+        "t": lambda x: isinstance(x, torch.TensorBase)
+        and not isinstance(x, NestedTensor),
         "jt": lambda x: isinstance(x, NestedTensor)
         and x._lengths is None
         and x._ragged_idx == 1,  # ops with "jt" require contiguous JT only
@@ -192,7 +193,7 @@ def lookup_jagged(func, *args, **kwargs) -> Optional[Callable]:
     # Handle pointwise fallbacks
     if torch.Tag.pointwise in func.tags:
         # Assume there aren't additional tensors that aren't the "unary/binary" args
-        num_tensor_args = sum([isinstance(x, torch.Tensor) for x in args])
+        num_tensor_args = sum([isinstance(x, torch.TensorBase) for x in args])
         if num_tensor_args == 1:
             check_schema("self: jt_all, ...", func, *args, **kwargs)
             return functools.partial(jagged_unary_pointwise, func)

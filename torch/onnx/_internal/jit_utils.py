@@ -1,4 +1,5 @@
 """Utilities for manipulating the torch.Graph object and the torchscript."""
+
 from __future__ import annotations
 
 # TODO(justinchuby): Move more of the symbolic helper functions here and expose
@@ -52,7 +53,7 @@ class GraphContext:
     def op(
         self,
         opname: str,
-        *raw_args: Union[torch.Tensor, _C.Value],
+        *raw_args: Union[torch.TensorBase, _C.Value],
         outputs: int = 1,
         **kwargs,
     ):
@@ -108,7 +109,7 @@ class GraphContext:
     def onnxscript_op(
         self,
         onnx_fn,
-        *raw_args: Union[torch.Tensor, _C.Value],
+        *raw_args: Union[torch.TensorBase, _C.Value],
         outputs: int = 1,
         **kwargs,
     ):
@@ -200,7 +201,7 @@ def add_op_with_blocks(
 def _add_op(
     graph_context: GraphContext,
     opname: str,
-    *args: Union[torch.Tensor, _C.Value],
+    *args: Union[torch.TensorBase, _C.Value],
     outputs: int = 1,
     **kwargs,
 ):
@@ -311,12 +312,12 @@ def _create_node(
 @_beartype.beartype
 def _is_onnx_list(value):
     return isinstance(value, Iterable) and not isinstance(
-        value, (str, bytes, torch.Tensor)
+        value, (str, bytes, torch.TensorBase)
     )
 
 
 @_beartype.beartype
-def _scalar(x: torch.Tensor):
+def _scalar(x: torch.TensorBase):
     """Convert a scalar tensor into a Python value."""
     assert x.numel() == 1
     return x[0]
@@ -344,7 +345,7 @@ def _add_attribute(node: _C.Node, key: str, value: Any, aten: bool):
         kind += "s"
 
     if aten and _is_caffe2_aten_fallback():
-        if isinstance(value, torch.Tensor):
+        if isinstance(value, torch.TensorBase):
             # Caffe2 proto does not support tensor attribute.
             if value.numel() > 1:
                 raise ValueError("Should not pass tensor attribute")

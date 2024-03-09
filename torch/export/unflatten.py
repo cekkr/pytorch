@@ -32,7 +32,7 @@ class _AttrKind(Enum):
 # Assign attribute 'from_obj' to the qualified name 'target' on 'to_module
 # This installs empty Modules where none exist yet if they are subpaths of target
 def _assign_attr(
-    from_obj: Union[torch.Tensor, torch.ScriptObject],
+    from_obj: Union[torch.TensorBase, torch.ScriptObject],
     to_module: torch.nn.Module,
     target: str,
     attr_kind: _AttrKind,
@@ -51,10 +51,10 @@ def _assign_attr(
         assert isinstance(from_obj, torch.nn.Parameter)
         to_module.register_parameter(field, from_obj)
     elif attr_kind == _AttrKind.BUFFER:
-        assert isinstance(from_obj, torch.Tensor)
+        assert isinstance(from_obj, torch.TensorBase)
         to_module.register_buffer(field, from_obj, persistent=persistent)
     elif attr_kind == _AttrKind.CONSTANT:
-        assert isinstance(from_obj, (torch.Tensor, torch.ScriptObject))
+        assert isinstance(from_obj, (torch.TensorBase, torch.ScriptObject))
         setattr(to_module, field, from_obj)
 
 
@@ -191,7 +191,7 @@ class UnflattenedModule(torch.nn.Module):
             self.graph_signature.lifted_custom_objs,
         ):
             constant = export_module.constants[fqn]
-            if isinstance(constant, torch.Tensor):
+            if isinstance(constant, torch.TensorBase):
                 constant = constant.clone()
             _assign_attr(
                 constant,
@@ -507,9 +507,11 @@ class _ModuleFrame:
             _add_submodule(
                 parent.module,
                 accessor,
-                self.module
-                if self.cached_graph_module is None
-                else self.cached_graph_module,
+                (
+                    self.module
+                    if self.cached_graph_module is None
+                    else self.cached_graph_module
+                ),
             )
             self.parent_call_module = parent.graph.call_module(accessor)
 
@@ -538,9 +540,11 @@ class _ModuleFrame:
                         op="call_function",
                         target=operator.getitem,
                         args=(flat_args, idx),
-                        name=arg.name
-                        if not isinstance(arg, ConstantArgument)
-                        else f"_constant_{idx}",
+                        name=(
+                            arg.name
+                            if not isinstance(arg, ConstantArgument)
+                            else f"_constant_{idx}"
+                        ),
                     )
                     if isinstance(arg, ConstantArgument):
                         continue
@@ -841,7 +845,7 @@ def _sink_params(
                 continue
             attr_path = state_name[len(scope) :]
             state_attr = _recursive_getattr(module, attr_path)
-            assert isinstance(state_attr, (torch.Tensor, torch.ScriptObject))
+            assert isinstance(state_attr, (torch.TensorBase, torch.ScriptObject))
 
             # Make sure the newly created get_attr node is placed after the last placeholder node
             with graph.inserting_after(the_last_input):

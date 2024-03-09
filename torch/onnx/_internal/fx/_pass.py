@@ -230,12 +230,12 @@ class Transform(abc.ABC):
         # NB: This should hit the cache if tensors were fakefied before.
         # E.g., when the fx graph is produced by Dynamo.
         return tuple(
-            fake_mode.from_tensor(t) if isinstance(t, torch.Tensor) else t for t in args
+            fake_mode.from_tensor(t) if isinstance(t, torch.TensorBase) else t
+            for t in args
         )
 
     @abc.abstractmethod
-    def _run(self, *args, **kwargs) -> torch.fx.GraphModule:
-        ...
+    def _run(self, *args, **kwargs) -> torch.fx.GraphModule: ...
 
     @diagnostics.diagnose_call(
         diagnostics.rules.fx_pass,
@@ -321,5 +321,4 @@ class Analysis(abc.ABC):
         self.onnxfunction_dispatcher = onnxfunction_dispatcher
 
     @abc.abstractmethod
-    def analyze(self, diagnostic_level: diagnostics.infra.Level) -> AnalysisResult:
-        ...
+    def analyze(self, diagnostic_level: diagnostics.infra.Level) -> AnalysisResult: ...

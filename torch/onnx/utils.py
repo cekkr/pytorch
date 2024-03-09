@@ -3,6 +3,7 @@
 These models can be loaded with the ONNX library and then
 converted to models which run on other deep learning frameworks.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -189,7 +190,7 @@ def exporter_context(model, mode: _C_onnx.TrainingMode, verbose: bool):
 @_beartype.beartype
 def export(
     model: Union[torch.nn.Module, torch.jit.ScriptModule, torch.jit.ScriptFunction],
-    args: Union[Tuple[Any, ...], torch.Tensor],
+    args: Union[Tuple[Any, ...], torch.TensorBase],
     f: Union[str, io.BytesIO],
     export_params: bool = True,
     verbose: bool = False,
@@ -882,7 +883,7 @@ def _decide_input_format(model, args):
 @_beartype.beartype
 def _trace(func, args, operator_export_type, return_outs=False):
     # Special case for common case of passing a single Tensor
-    if isinstance(args, torch.Tensor):
+    if isinstance(args, torch.TensorBase):
         args = (args,)
 
     trace_graph, torch_out, inputs_states = torch.jit._get_trace_graph(
@@ -1056,7 +1057,7 @@ _qtype_vtype_map = {
 
 @_beartype.beartype
 def unpack_quantized_tensor(value, cast_onnx_accepted=True):
-    if isinstance(value, torch.Tensor) and value.dtype in _qtype_vtype_map:
+    if isinstance(value, torch.TensorBase) and value.dtype in _qtype_vtype_map:
         q_value_dequantize = value.dequantize()
         q_scale = (
             torch.tensor(value.q_scale(), dtype=torch.double)
@@ -1104,13 +1105,13 @@ def _model_to_graph(
     dynamic_axes=None,
 ) -> Tuple[
     _C.Graph,
-    Dict[str, torch.Tensor],
+    Dict[str, torch.TensorBase],
     Optional[
         Union[
-            torch.Tensor,
-            Tuple[torch.Tensor, ...],
-            List[torch.Tensor],
-            Dict[str, torch.Tensor],
+            torch.TensorBase,
+            Tuple[torch.TensorBase, ...],
+            List[torch.TensorBase],
+            Dict[str, torch.TensorBase],
             Any,  # Can be nested tuples etc.
         ]
     ],
@@ -1127,7 +1128,7 @@ def _model_to_graph(
     # TODO: can we simplify this to always return a tuple of Tensor or None?
 
     # Special case for common case of passing a single Tensor
-    if isinstance(args, (torch.Tensor, int, float, bool)):
+    if isinstance(args, (torch.TensorBase, int, float, bool)):
         args = (args,)
 
     model = _pre_trace_quant_model(model, args)
@@ -1966,9 +1967,11 @@ def _run_symbolic_function(
         raise errors.UnsupportedOperatorError(
             symbolic_function_name,
             opset_version,
-            symbolic_function_group.get_min_supported()
-            if symbolic_function_group
-            else None,
+            (
+                symbolic_function_group.get_min_supported()
+                if symbolic_function_group
+                else None
+            ),
         )
 
     except RuntimeError:

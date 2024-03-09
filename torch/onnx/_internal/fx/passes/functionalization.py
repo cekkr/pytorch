@@ -79,7 +79,7 @@ class Functionalize(_pass.Transform):
         # Ref: https://github.com/pytorch/pytorch/issues/99774#issuecomment-1527949391
         def wrapped(*inputs):
             inputs_functional = pytree.tree_map_only(
-                torch.Tensor, torch._to_functional_tensor, inputs
+                torch.TensorBase, torch._to_functional_tensor, inputs
             )
             torch._enable_functionalization(reapply_views=True)
             try:
@@ -89,7 +89,7 @@ class Functionalize(_pass.Transform):
             flat_inputs = pytree.tree_leaves(inputs)
             flat_inputs_functional = pytree.tree_leaves(inputs_functional)
             for inpt, input_functional in zip(flat_inputs, flat_inputs_functional):
-                if isinstance(input_functional, torch.Tensor):
+                if isinstance(input_functional, torch.TensorBase):
                     torch._sync(input_functional)
                     inpt_new = torch._from_functional_tensor(input_functional)
             pytree.tree_map(torch._sync, out)

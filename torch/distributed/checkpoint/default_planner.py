@@ -122,7 +122,9 @@ class DefaultSavePlanner(SavePlanner):
         self.plan = new_plan
         return new_plan
 
-    def resolve_data(self, write_item: WriteItem) -> Union[torch.Tensor, io.BytesIO]:
+    def resolve_data(
+        self, write_item: WriteItem
+    ) -> Union[torch.TensorBase, io.BytesIO]:
         object = self.lookup_object(write_item.index)
         return self.transform_object(write_item, object)
 
@@ -204,14 +206,14 @@ class DefaultLoadPlanner(LoadPlanner):
         tensor = self.lookup_tensor(read_item.dest_index)
         return self.transform_tensor(read_item, tensor)
 
-    def commit_tensor(self, read_item: ReadItem, tensor: torch.Tensor) -> None:
+    def commit_tensor(self, read_item: ReadItem, tensor: torch.TensorBase) -> None:
         pass
 
-    def lookup_tensor(self, index: MetadataIndex) -> torch.Tensor:
+    def lookup_tensor(self, index: MetadataIndex) -> torch.TensorBase:
         """Extension from the planner interface to make it easy to extend the default planner."""
         return find_state_dict_object(self.state_dict, index)
 
-    def transform_tensor(self, read_item: ReadItem, tensor: torch.Tensor):
+    def transform_tensor(self, read_item: ReadItem, tensor: torch.TensorBase):
         """Extension from the planner interface to make it easy to extend the default planner."""
         return narrow_tensor_by_index(tensor, read_item.dest_offsets, read_item.lengths)
 
@@ -274,7 +276,7 @@ def create_default_local_save_plan(
         if isinstance(obj, DTensor):
             if obj.device_mesh.get_coordinate() is not None:
                 requests += _create_write_items(fqn, obj)
-        elif isinstance(obj, (torch.Tensor)) or is_coordinator:
+        elif isinstance(obj, (torch.TensorBase)) or is_coordinator:
             requests += _create_write_items(fqn, obj)
 
     return SavePlan(requests)

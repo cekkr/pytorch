@@ -55,7 +55,7 @@ class autocast(torch.amp.autocast_mode.autocast):
 # Casts Tensors and containers of Tensors.  Special-cases passthroughs for strings and np.ndarrays, which
 # may be falsely detected as "Iterables."
 def _cast(value, dtype):
-    if isinstance(value, torch.Tensor):
+    if isinstance(value, torch.TensorBase):
         is_eligible = (
             value.is_floating_point()
             and value.is_cuda

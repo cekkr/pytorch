@@ -257,7 +257,7 @@ class DType:
         # a pytorch object?
         if isinstance(arg, torch.dtype):
             sctype = _torch_dtypes[arg]
-        elif isinstance(arg, torch.Tensor):
+        elif isinstance(arg, torch.TensorBase):
             sctype = _torch_dtypes[arg.dtype]
         # a scalar type?
         elif issubclass_(arg, generic):

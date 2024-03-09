@@ -66,7 +66,7 @@ class Override(ABC):
     def transform(
         self,
         gm: fx.GraphModule,
-        flat_state: List[torch.Tensor],
+        flat_state: List[torch.TensorBase],
     ) -> fx.GraphModule:
         r"""
         Given a DTensor-expanded graph and sharding schema for every node,
@@ -131,7 +131,7 @@ def _to_caller_flattened_graph_module(gm: torch.fx.GraphModule) -> torch.fx.Grap
 dtensor_expand_mode = DTensorExpandMode()
 
 
-def _override_placements(t: torch.Tensor, placements: List[Placement]):
+def _override_placements(t: torch.TensorBase, placements: List[Placement]):
     global dtensor_expand_mode
     dtensor_expand_mode._placements_override[id(t)] = placements
 
@@ -327,7 +327,7 @@ class _CompiledResult:
     gm: fx.GraphModule
     mod: nn.Module
     opt: Optional[torch.optim.Optimizer]
-    flat_state: List[torch.Tensor]
+    flat_state: List[torch.TensorBase]
 
 
 def _compile(
@@ -390,11 +390,11 @@ def _compile(
     # Lift states and parameters as function arguments so that make_fx
     # can trace operations applied to them.
     def stateless_func(func, params, buffers, named_states, args, kwargs):
-        with stateless._reparametrize_module(
-            mod, {**params, **buffers}
-        ), _rematerialize_optimizer(
-            opt, named_states, params
-        ) if opt else nullcontext():
+        with stateless._reparametrize_module(mod, {**params, **buffers}), (
+            _rematerialize_optimizer(opt, named_states, params)
+            if opt
+            else nullcontext()
+        ):
             # For DataParallel mode, install hooks first to tag the gradients
             with gradients_tagging(params) if is_data_parallel_mode else nullcontext():
                 ret = func(*args, **kwargs)
@@ -412,7 +412,7 @@ def _compile(
         fake_mode = FakeTensorMode()
         data_parallel_mode = cast(DataParallel, parallel_mode)
 
-        def _get_full_batch_arg(arg: torch.Tensor) -> torch.Tensor:
+        def _get_full_batch_arg(arg: torch.TensorBase) -> torch.TensorBase:
             # since compilation happens in the first iteration and we
             # receives mini-batch input, convert them to full batch
             # fake tensor input first for data parallel sharding
@@ -424,12 +424,12 @@ def _compile(
             return fake_arg.repeat(arg_dims)
 
         args = pytree.tree_map_only(
-            torch.Tensor,
+            torch.TensorBase,
             _get_full_batch_arg,
             args,
         )
         kwargs = pytree.tree_map_only(
-            torch.Tensor,
+            torch.TensorBase,
             _get_full_batch_arg,
             kwargs,
         )
@@ -446,7 +446,7 @@ def _compile(
             _allow_non_fake_inputs=False,
         )(params, buffers, named_states, args, kwargs)
 
-    params_and_buffers: Dict[str, Union[torch.Tensor, nn.Parameter]] = {
+    params_and_buffers: Dict[str, Union[torch.TensorBase, nn.Parameter]] = {
         **params,
         **buffers,
     }

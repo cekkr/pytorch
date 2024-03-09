@@ -58,7 +58,7 @@ FQNS_T = Set[str]
 _patched_state_dict: Set[Callable] = set()
 
 
-PrimitiveType = Union[DTensor, ShardedTensor, torch.Tensor, int, float, str]
+PrimitiveType = Union[DTensor, ShardedTensor, torch.TensorBase, int, float, str]
 ValueType = Union[
     PrimitiveType, List[PrimitiveType], Tuple[PrimitiveType], Dict[str, "ValueType"]
 ]
@@ -122,7 +122,7 @@ class StateDictOptions:
 @dataclass
 class _StateDictInfo(StateDictOptions):
     fqn_param_mapping: Dict[
-        Union[str, torch.Tensor], Union[FQNS_T, torch.Tensor]
+        Union[str, torch.TensorBase], Union[FQNS_T, torch.TensorBase]
     ] = field(default_factory=dict)
     all_fqns: Set[str] = field(default_factory=set)
     submodule_prefixes: Set[str] = field(default_factory=set)
@@ -208,7 +208,7 @@ def _verify_options(
     options = options or StateDictOptions()
 
     fqn_param_mapping: Dict[
-        Union[str, torch.Tensor], Union[Set[str], torch.Tensor]
+        Union[str, torch.TensorBase], Union[Set[str], torch.TensorBase]
     ] = {}
     all_fqns = set()
     for name, param in chain(model.named_parameters(), model.named_buffers()):

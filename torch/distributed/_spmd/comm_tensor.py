@@ -20,7 +20,7 @@ from torch.utils._pytree import tree_flatten, tree_map, tree_map_only
 @dataclass
 class _CommResult:
     # a custom type wrapping both inplace output tensor and work handle
-    _tensor: torch.Tensor
+    _tensor: torch.TensorBase
     _work: torch.distributed._Work
 
 
@@ -33,7 +33,7 @@ def _wait_comm(comm_result: _CommResult):
 
 def _wrap_comm_result(result: Tuple[Any, Any]) -> Tuple[Any, Any]:
     def wrap(work, e):
-        assert isinstance(e, torch.Tensor), (
+        assert isinstance(e, torch.TensorBase), (
             "Excepting collection of tensors as the first element in the "
             "return value of communication operations."
         )
@@ -54,7 +54,7 @@ def _get_tracer() -> Optional[torch.fx.Tracer]:
     return mode.tracer
 
 
-class CommTensor(torch.Tensor):
+class CommTensor(torch.TensorBase):
     r"""
     A Tensor subclass to wrap input tensors for collective communications.
 
@@ -93,18 +93,18 @@ class CommTensor(torch.Tensor):
         "scatter_",
     ]
 
-    _tensor: torch.Tensor
+    _tensor: torch.TensorBase
     _work: Optional[torch.distributed._Work]
 
     @staticmethod
-    def __new__(cls, tensor: torch.Tensor):
+    def __new__(cls, tensor: torch.TensorBase):
         t = tensor._tensor if isinstance(tensor, CommTensor) else tensor
         if get_innermost_proxy_mode() is None:
             # noop for eager mode
             return tensor
 
         # Use non-CommTensor to avoid nested CommTensor Wrapping
-        r = torch.Tensor._make_subclass(cls, t, require_grad=t.requires_grad)
+        r = torch.TensorBase._make_subclass(cls, t, require_grad=t.requires_grad)
         # The tensor object wrapped by this CommTensor
         # NB: THIS CAN BE A CommTensor; see test_nested_comm_tensor_wrapping
         r._tensor = tensor  # type: ignore[attr-defined]
@@ -170,12 +170,12 @@ class CommTensor(torch.Tensor):
                 return e
 
         def wrap(e: Any):
-            return CommTensor(e) if isinstance(e, torch.Tensor) else e
+            return CommTensor(e) if isinstance(e, torch.TensorBase) else e
 
         def set_work(work: torch.distributed._Work, e: Any):
             if isinstance(e, CommTensor):
                 e._work = work  # type: ignore[attr-defined]
-            elif isinstance(e, torch.Tensor):
+            elif isinstance(e, torch.TensorBase):
                 raise RuntimeError(
                     "Type of output tensors from collective communication during "
                     "tracing should always be CommTensor instead of torch.Tensor"
@@ -192,7 +192,7 @@ class CommTensor(torch.Tensor):
                     _ProxyTensor,
                     lambda e: e.proxy,
                     tree_map_only(
-                        torch.Tensor,
+                        torch.TensorBase,
                         fetch_object_proxy(tracer),
                         (unwrapped_args, unwrapped_kwargs),
                     ),

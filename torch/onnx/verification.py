@@ -44,9 +44,9 @@ from torch.types import Number
 
 _ORT_PROVIDERS = ("CPUExecutionProvider",)
 
-_NumericType = Union[Number, torch.Tensor, np.ndarray]
+_NumericType = Union[Number, torch.TensorBase, np.ndarray]
 _ModelType = Union[torch.nn.Module, torch.jit.ScriptModule]
-_InputArgsType = Union[torch.Tensor, Tuple[Any, ...]]
+_InputArgsType = Union[torch.TensorBase, Tuple[Any, ...]]
 _InputKwargsType = Mapping[str, Any]
 _OutputsType = Union[Sequence[_NumericType], Sequence]
 
@@ -111,7 +111,7 @@ def _flatten_tuples(elem):
 
 # TODO(justinchuby): Add type checking by narrowing down the return type when input is None
 def _to_numpy(elem) -> Union[list, np.ndarray]:
-    if isinstance(elem, torch.Tensor):
+    if isinstance(elem, torch.TensorBase):
         if elem.requires_grad:
             return elem.detach().cpu().numpy()
         else:
@@ -131,9 +131,11 @@ def _to_numpy(elem) -> Union[list, np.ndarray]:
 @_beartype.beartype
 def _inline_flatten_list(inputs, res_list) -> list:
     for i in inputs:
-        res_list.append(i) if not isinstance(
-            i, (list, tuple)
-        ) else _inline_flatten_list(i, res_list)
+        (
+            res_list.append(i)
+            if not isinstance(i, (list, tuple))
+            else _inline_flatten_list(i, res_list)
+        )
     return res_list
 
 
@@ -324,7 +326,7 @@ def _prepare_input_for_pytorch(args, kwargs):
         args: positional arguments for PyTorch model forward method.
         kwargs: keyword arguments for PyTorch model forward method.
     """
-    if isinstance(args, (torch.Tensor, dict)):
+    if isinstance(args, (torch.TensorBase, dict)):
         args = (args,)
     # In-place operators will update input tensor data as well.
     # Thus inputs are replicated before every forward call.
@@ -1602,8 +1604,8 @@ class GraphInfo:
         self,
         graph: torch.Graph,
         bridge_kwargs: Mapping[str, Union[_NumericType, Sequence[_NumericType]]],
-        full_kwargs: Mapping[str, torch.Tensor],
-        full_params: Mapping[str, torch.Tensor],
+        full_kwargs: Mapping[str, torch.TensorBase],
+        full_params: Mapping[str, torch.TensorBase],
     ):
         input_names = [input.debugName() for input in graph.inputs()]
         args = tuple(bridge_kwargs[k] for k in input_names if k in bridge_kwargs)

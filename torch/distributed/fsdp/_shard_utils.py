@@ -24,7 +24,7 @@ def _get_remote_device_str(rank, device_type, num_devices_per_node):
 
 
 def _create_chunk_sharded_tensor(
-    tensor: torch.Tensor,
+    tensor: torch.TensorBase,
     rank: int,
     world_size: int,
     num_devices_per_node: int,
@@ -82,7 +82,7 @@ def _create_chunk_sharded_tensor(
 
 
 def _create_chunk_dtensor(
-    tensor: torch.Tensor,
+    tensor: torch.TensorBase,
     rank: int,
     device_mesh: DeviceMesh,
 ) -> DTensor:
@@ -109,7 +109,7 @@ def _create_chunk_dtensor(
 def _all_gather_dtensor(
     tensor: DTensor,
     parent_mesh: Optional[DeviceMesh],
-) -> torch.Tensor:
+) -> torch.TensorBase:
     """
     All gather a DTensor in its sharded dimension and return the local tensor.
     """

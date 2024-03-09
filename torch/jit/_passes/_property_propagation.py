@@ -35,12 +35,12 @@ def apply_input_props_using_example(graph: Graph, example_input: List[Any]):
         if example_i is None:
             continue  # Skip the type check
 
-        if isinstance(example_i, torch.Tensor) != isinstance(
+        if isinstance(example_i, torch.TensorBase) != isinstance(
             graph_i.type(), TensorType
         ):
             raise RuntimeError(
                 f"Input {i} does not match type of example", graph_i, example_i
             )
 
-        if isinstance(example_i, torch.Tensor):
+        if isinstance(example_i, torch.TensorBase):
             graph_i.setType(TensorType.create_from_tensor(example_i))  # type: ignore[arg-type]

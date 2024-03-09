@@ -107,10 +107,10 @@ def cond(pred, true_fn, false_fn, operands):
         return cond_op(pred, true_fn, false_fn, operands)
 
     def _validate_input(pred, true_fn, false_fn, operands):
-        if not isinstance(pred, (bool, torch.Tensor, torch.SymBool)):
+        if not isinstance(pred, (bool, torch.TensorBase, torch.SymBool)):
             raise RuntimeError(f"Expected pred to be bool or tensor, but got {pred}.")
 
-        if isinstance(pred, torch.Tensor) and pred.numel() != 1:
+        if isinstance(pred, torch.TensorBase) and pred.numel() != 1:
             raise RuntimeError(
                 f"Expected pred to be bool or single-element tensor, but got {pred}."
             )
@@ -119,7 +119,7 @@ def cond(pred, true_fn, false_fn, operands):
             raise RuntimeError("Expect both branches to be callbale.")
 
         if not isinstance(operands, (tuple, list)) or pytree.tree_any(
-            lambda t: not isinstance(t, torch.Tensor), operands
+            lambda t: not isinstance(t, torch.TensorBase), operands
         ):
             raise RuntimeError(
                 "Expect operands to be a tuple of possibly nested dict/list/tuple that only"
@@ -150,7 +150,7 @@ def trace_cond(proxy_mode, func_overload, pred, true_fn, false_fn, operands):
         operands, (list, tuple)
     ), "Cond operands must be a list or tuple of tensors"
     assert all(
-        isinstance(o, torch.Tensor) for o in operands
+        isinstance(o, torch.TensorBase) for o in operands
     ), "Cond operands must be a list of tensors"
 
     pre_dispatch = getattr(proxy_mode, "pre_dispatch", False)
@@ -308,7 +308,7 @@ def cond_batch_rule(interpreter, pred, true_fn, false_fn, inputs):
         inputs, (list, tuple)
     ), "Cond inputs must be a list or tuple of tensors"
     assert all(
-        isinstance(i, torch.Tensor) for i in inputs
+        isinstance(i, torch.TensorBase) for i in inputs
     ), "Cond inputs must be a list of tensors"
 
     pred_ = get_unwrapped(pred) if is_batchedtensor(pred) else pred

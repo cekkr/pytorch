@@ -15,10 +15,9 @@ The metaphor is inspired by Portal™ from Valve.
 from typing import List, Optional, Tuple
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 
-from ..copy import Context as CopyContext
-from ..copy import Copy
+from ..copy import Context as CopyContext, Copy
 from ..phony import get_phony
 from ..stream import AbstractStream, get_device
 
@@ -28,11 +27,11 @@ __all__: List[str] = []
 class Portal:
     """A portal for a tensor."""
 
-    def __init__(self, tensor: Optional[Tensor], tensor_life: int) -> None:
+    def __init__(self, tensor: Optional[TensorBase], tensor_life: int) -> None:
         self.put_tensor(tensor, tensor_life)
-        self.grad: Optional[Tensor] = None
+        self.grad: Optional[TensorBase] = None
 
-    def blue(self) -> Tensor:
+    def blue(self) -> TensorBase:
         """Creates a :class:`PortalBlue` which hides the underlying tensor from
         the autograd engine.
 
@@ -51,7 +50,7 @@ class Portal:
 
         return PortalBlue.apply(self, tensor)
 
-    def orange(self, phony: Tensor) -> Optional[Tensor]:
+    def orange(self, phony: TensorBase) -> Optional[TensorBase]:
         """Creates a :class:`PortalOrange` which retrieves the hidden tensor
         without losing ability of backpropagation.
 
@@ -69,7 +68,12 @@ class Portal:
 
         return PortalOrange.apply(self, phony)
 
-    def copy(self, prev_stream: AbstractStream, next_stream: AbstractStream, phony: Tensor,) -> Tensor:
+    def copy(
+        self,
+        prev_stream: AbstractStream,
+        next_stream: AbstractStream,
+        phony: TensorBase,
+    ) -> TensorBase:
         """Copies the hidden tensor by a :class:`PortalCopy`.
 
         Give a phony and use the returning phony to keep backpropagation::
@@ -88,7 +92,7 @@ class Portal:
         if self.tensor_life <= 0:
             raise RuntimeError("tensor in portal has been removed")
 
-    def put_tensor(self, tensor: Optional[Tensor], tensor_life: int) -> None:
+    def put_tensor(self, tensor: Optional[TensorBase], tensor_life: int) -> None:
         """Stores a tensor into this portal."""
         # [Life of Tensor through Portal]
         #
@@ -121,7 +125,7 @@ class Portal:
         else:
             self.tensor = None
 
-    def use_tensor(self) -> Optional[Tensor]:
+    def use_tensor(self) -> Optional[TensorBase]:
         """Retrieves the underlying tensor and decreases the tensor  life. When
         the life becomes 0, it the tensor will be removed.
         """
@@ -136,11 +140,11 @@ class Portal:
 
         return tensor
 
-    def put_grad(self, grad: Tensor) -> None:
+    def put_grad(self, grad: TensorBase) -> None:
         """Stores a gradient into this portal."""
         self.grad = grad
 
-    def use_grad(self) -> Tensor:
+    def use_grad(self) -> TensorBase:
         """Retrieves and removes the underlying gradient. The gradient is
         always ephemeral.
         """
@@ -167,8 +171,8 @@ class PortalBlue(torch.autograd.Function):
         ctx: Context,
         portal: Portal,
         # This tensor must be retrieved by portal.use_tensor().
-        tensor: Tensor,
-    ) -> Tensor:
+        tensor: TensorBase,
+    ) -> TensorBase:
         ctx.portal = portal
 
         phony = get_phony(tensor.device, requires_grad=False)
@@ -176,7 +180,10 @@ class PortalBlue(torch.autograd.Function):
 
     @staticmethod
     # type: ignore[override]
-    def backward(ctx: Context, grad_phony: Tensor,) -> Tuple[None, Tensor]:
+    def backward(
+        ctx: Context,
+        grad_phony: TensorBase,
+    ) -> Tuple[None, TensorBase]:
         # The paired PortalOrange should keep the gradient.
         grad = ctx.portal.use_grad()
         return None, grad
@@ -187,7 +194,7 @@ class PortalOrange(torch.autograd.Function):
 
     @staticmethod
     # type: ignore[override]
-    def forward(ctx: Context, portal: Portal, phony: Tensor) -> Tensor:
+    def forward(ctx: Context, portal: Portal, phony: TensorBase) -> TensorBase:
         ctx.portal = portal
 
         tensor = portal.use_tensor()
@@ -196,7 +203,7 @@ class PortalOrange(torch.autograd.Function):
         return tensor.detach()
 
     @staticmethod
-    def backward(ctx: Context, grad: Tensor) -> Tuple[None, None]:  # type: ignore[override]
+    def backward(ctx: Context, grad: TensorBase) -> Tuple[None, None]:  # type: ignore[override]
         # The paired PortalBlue will use the gradient.
         ctx.portal.put_grad(grad)
         return None, None
@@ -210,8 +217,12 @@ class PortalCopy(torch.autograd.Function):
     @staticmethod
     # type: ignore[override]
     def forward(
-        ctx: Context, portal: Portal, prev_stream: AbstractStream, next_stream: AbstractStream, phony: Tensor,
-    ) -> Tensor:
+        ctx: Context,
+        portal: Portal,
+        prev_stream: AbstractStream,
+        next_stream: AbstractStream,
+        phony: TensorBase,
+    ) -> TensorBase:
         ctx.portal = portal
 
         assert portal.tensor is not None
@@ -222,7 +233,10 @@ class PortalCopy(torch.autograd.Function):
 
     @staticmethod
     # type: ignore[override]
-    def backward(ctx: Context, grad_phony: Tensor,) -> Tuple[None, None, None, None]:
+    def backward(
+        ctx: Context,
+        grad_phony: TensorBase,
+    ) -> Tuple[None, None, None, None]:
         portal = ctx.portal
 
         assert portal.grad is not None

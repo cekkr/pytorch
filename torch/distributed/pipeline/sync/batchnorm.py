@@ -5,10 +5,10 @@
 # This source code is licensed under the BSD license found in the
 # LICENSE file in the root directory of this source tree.
 """Tracks the running statistics per mini-batch instead of micro-batch."""
-from typing import TypeVar, cast
+from typing import cast, TypeVar
 
 import torch
-from torch import Tensor, nn
+from torch import nn, TensorBase
 from torch.nn.functional import batch_norm
 from torch.nn.modules.batchnorm import _BatchNorm
 
@@ -23,11 +23,11 @@ TModule = TypeVar("TModule", bound=nn.Module)
 class DeferredBatchNorm(_BatchNorm):
     """A BatchNorm layer tracks multiple micro-batches to update running statistics per mini-batch."""
 
-    sum: Tensor
-    sum_squares: Tensor
-    running_mean: Tensor
-    running_var: Tensor
-    num_batches_tracked: Tensor
+    sum: TensorBase
+    sum_squares: TensorBase
+    running_mean: TensorBase
+    running_var: TensorBase
+    num_batches_tracked: TensorBase
 
     def __init__(
         self,
@@ -46,12 +46,12 @@ class DeferredBatchNorm(_BatchNorm):
         self.tracked = 0
         self.chunks = chunks
 
-    def _check_input_dim(self, input: Tensor) -> None:
+    def _check_input_dim(self, input: TensorBase) -> None:
         # It's the typical _check_input_dim() implementation in PyTorch.
         if input.dim() <= 2:
             raise ValueError("expected at least 3D input (got %dD input)" % input.dim())
 
-    def _track(self, input: Tensor) -> bool:
+    def _track(self, input: TensorBase) -> bool:
         """Tracks statistics of a micro-batch."""
         # Dimensions except channel. For example, (0, 2, 3) is for BatchNorm2d.
         dim = [0]
@@ -59,7 +59,7 @@ class DeferredBatchNorm(_BatchNorm):
 
         with torch.no_grad():
             self.sum += input.sum(dim)
-            self.sum_squares += (input ** 2).sum(dim)
+            self.sum_squares += (input**2).sum(dim)
 
         size = input.size().numel() // input.size(1)
         self.counter += size
@@ -77,7 +77,7 @@ class DeferredBatchNorm(_BatchNorm):
             exponential_average_factor = self.momentum
 
         mean = self.sum / self.counter
-        var = self.sum_squares / self.counter - mean ** 2
+        var = self.sum_squares / self.counter - mean**2
 
         # Calculate the exponential moving average here.
         m = exponential_average_factor
@@ -93,7 +93,7 @@ class DeferredBatchNorm(_BatchNorm):
         self.counter = 0
         self.tracked = 0
 
-    def forward(self, input: Tensor) -> Tensor:
+    def forward(self, input: TensorBase) -> TensorBase:
         if not self.training:
             # Don't train parameters on the evaluation mode.
             return batch_norm(
@@ -133,10 +133,10 @@ class DeferredBatchNorm(_BatchNorm):
     def convert_deferred_batch_norm(cls, module: TModule, chunks: int = 1) -> TModule:
         """Converts a :class:`nn.BatchNorm` or underlying :class:`nn.BatchNorm`s into :class:`DeferredBatchNorm`::
 
-            from torchvision.models.resnet import resnet101
-            from torchpipe.batchnorm import DeferredBatchNorm
-            model = resnet101()
-            model = DeferredBatchNorm.convert_deferred_batch_norm(model)
+        from torchvision.models.resnet import resnet101
+        from torchpipe.batchnorm import DeferredBatchNorm
+        model = resnet101()
+        model = DeferredBatchNorm.convert_deferred_batch_norm(model)
 
         """
         if isinstance(module, DeferredBatchNorm) and module.chunks is chunks:
@@ -145,15 +145,21 @@ class DeferredBatchNorm(_BatchNorm):
         module_output: nn.Module = module
 
         if isinstance(module, _BatchNorm) and module.track_running_stats:
-            module_output = DeferredBatchNorm(module.num_features, module.eps, module.momentum, module.affine, chunks)
+            module_output = DeferredBatchNorm(
+                module.num_features, module.eps, module.momentum, module.affine, chunks
+            )
             if module.affine:
                 module_output.register_parameter("weight", module.weight)
                 module_output.register_parameter("bias", module.bias)
             module_output.register_buffer("running_mean", module.running_mean)
             module_output.register_buffer("running_var", module.running_var)
-            module_output.register_buffer("num_batches_tracked", module.num_batches_tracked)
+            module_output.register_buffer(
+                "num_batches_tracked", module.num_batches_tracked
+            )
 
         for name, child in module.named_children():
-            module_output.add_module(name, cls.convert_deferred_batch_norm(child, chunks))
+            module_output.add_module(
+                name, cls.convert_deferred_batch_norm(child, chunks)
+            )
 
         return cast(TModule, module_output)

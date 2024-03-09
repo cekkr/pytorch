@@ -24,9 +24,9 @@ and :class:`Checkpoint` to delay only :class:`Checkpoint` until the gradient is
 copied entirely.
 
 """
+import threading
 from collections import deque
 from contextlib import contextmanager
-import threading
 from typing import (
     Any,
     Deque,
@@ -34,37 +34,48 @@ from typing import (
     List,
     Optional,
     Protocol,
-    Union,
     Sequence,
-    Tuple
+    Tuple,
+    Union,
 )
 
 import torch
-from torch import Tensor
 import torch.autograd
+from torch import TensorBase
 
 from .dependency import fork, join
 from .microbatch import Batch
 from .phony import get_phony
 
-__all__ = ["Function", "checkpoint", "Checkpointing", "ThreadLocal", "enable_checkpointing",
-           "enable_recomputing", "is_checkpointing", "is_recomputing", "Context", "save_rng_states",
-           "restore_rng_states", "Checkpoint", "Recompute"]
+__all__ = [
+    "Function",
+    "checkpoint",
+    "Checkpointing",
+    "ThreadLocal",
+    "enable_checkpointing",
+    "enable_recomputing",
+    "is_checkpointing",
+    "is_recomputing",
+    "Context",
+    "save_rng_states",
+    "restore_rng_states",
+    "Checkpoint",
+    "Recompute",
+]
 
 
-Tensors = Sequence[Tensor]
-TensorOrTensors = Union[Tensor, Tensors]
+Tensors = Sequence[TensorBase]
+TensorOrTensors = Union[TensorBase, Tensors]
 
 # Types for shared memory between Checkpoint and Recompute.
 Recomputed = Tuple[TensorOrTensors, Tensors]  # (output, input_leaf)
-RNGStates = Tuple[Tensor, Optional[Tensor]]  # (cpu_rng_state, gpu_rng_state)
+RNGStates = Tuple[TensorBase, Optional[TensorBase]]  # (cpu_rng_state, gpu_rng_state)
 
 
 # Protocol with __call__ instead of Callable can be used as an attribute type.
 # See: https://github.com/python/mypy/issues/708#issuecomment-561735949
 class Function(Protocol):
-    def __call__(self, input: TensorOrTensors) -> TensorOrTensors:
-        ...
+    def __call__(self, input: TensorOrTensors) -> TensorOrTensors: ...
 
 
 def checkpoint(function: Function, input):
@@ -103,11 +114,27 @@ class Checkpointing:
         # require grad.
         phony = get_phony(self.batch.get_device(), requires_grad=True)
 
-        output = Checkpoint.apply(phony, self.recomputed, self.rng_states, self.function, input_atomic, *inputs)
+        output = Checkpoint.apply(
+            phony,
+            self.recomputed,
+            self.rng_states,
+            self.function,
+            input_atomic,
+            *inputs,
+        )
 
         # Gradients are only supported for float Tensors.
         if isinstance(output, tuple):
-            output = tuple([x.detach() if torch.is_tensor(x) and not x.is_floating_point() else x for x in output])
+            output = tuple(
+                [
+                    (
+                        x.detach()
+                        if torch.is_tensor(x) and not x.is_floating_point()
+                        else x
+                    )
+                    for x in output
+                ]
+            )
 
         return Batch(output)
 
@@ -121,7 +148,14 @@ class Checkpointing:
         # batch[tensor_idx] is always requiring grad, because it has been passed
         # checkpoint with a phony requiring grad.
         batch[tensor_idx], phony = fork(batch[tensor_idx])
-        phony = Recompute.apply(phony, self.recomputed, self.rng_states, self.function, input_atomic, *inputs)
+        phony = Recompute.apply(
+            phony,
+            self.recomputed,
+            self.rng_states,
+            self.function,
+            input_atomic,
+            *inputs,
+        )
         batch[tensor_idx] = join(batch[tensor_idx], phony)
 
 
@@ -200,13 +234,16 @@ class Context:
     input_atomic: bool
     inputs: Sequence[Any]
 
-    saved_tensors: Tuple[Tensor, ...]
+    saved_tensors: Tuple[TensorBase, ...]
 
-    def save_for_backward(self, *tensors: Tensor) -> None:  # pragma: no cover
+    def save_for_backward(self, *tensors: TensorBase) -> None:  # pragma: no cover
         pass
 
 
-def save_rng_states(device: torch.device, rng_states: Deque[RNGStates],) -> None:
+def save_rng_states(
+    device: torch.device,
+    rng_states: Deque[RNGStates],
+) -> None:
     """:
     Capture the current random number generator states.
 
@@ -218,7 +255,7 @@ def save_rng_states(device: torch.device, rng_states: Deque[RNGStates],) -> None
     """
     cpu_rng_state = torch.get_rng_state()
 
-    gpu_rng_state: Optional[Tensor]
+    gpu_rng_state: Optional[TensorBase]
     if device.type == "cuda":
         gpu_rng_state = torch.cuda.get_rng_state(device)
     else:
@@ -228,7 +265,10 @@ def save_rng_states(device: torch.device, rng_states: Deque[RNGStates],) -> None
 
 
 @contextmanager
-def restore_rng_states(device: torch.device, rng_states: Deque[RNGStates],) -> Generator[None, None, None]:
+def restore_rng_states(
+    device: torch.device,
+    rng_states: Deque[RNGStates],
+) -> Generator[None, None, None]:
     """:
     Restore the random number generator state.
 
@@ -256,7 +296,7 @@ class Checkpoint(torch.autograd.Function):
     # type: ignore[override]
     def forward(
         ctx: Context,
-        phony: Tensor,
+        phony: TensorBase,
         recomputed: Deque[Recomputed],
         rng_states: Deque[RNGStates],
         function: Function,
@@ -289,7 +329,10 @@ class Checkpoint(torch.autograd.Function):
         return output
 
     @staticmethod
-    def backward(ctx: Context, *grad_output: Tensor,) -> Tuple[Optional[Tensor], ...]:  # pragma: no cover
+    def backward(
+        ctx: Context,
+        *grad_output: TensorBase,
+    ) -> Tuple[Optional[TensorBase], ...]:  # pragma: no cover
         output, input_leaf = ctx.recomputed.pop()
 
         if isinstance(output, tuple):
@@ -297,10 +340,12 @@ class Checkpoint(torch.autograd.Function):
         else:
             outputs = (output,)
         if any(torch.is_tensor(y) and y.requires_grad for y in outputs):
-            tensors = tuple([x for x in outputs if torch.is_tensor(x) and x.requires_grad])
+            tensors = tuple(
+                [x for x in outputs if torch.is_tensor(x) and x.requires_grad]
+            )
             torch.autograd.backward(tensors, grad_output)
 
-        grad_input: List[Optional[Tensor]] = [None, None, None, None, None]
+        grad_input: List[Optional[TensorBase]] = [None, None, None, None, None]
         grad_input.extend(x.grad if torch.is_tensor(x) else None for x in input_leaf)
         return tuple(grad_input)
 
@@ -310,13 +355,13 @@ class Recompute(torch.autograd.Function):
     # type: ignore[override]
     def forward(
         ctx: Context,
-        phony: Tensor,
+        phony: TensorBase,
         recomputed: Deque[Recomputed],
         rng_states: Deque[RNGStates],
         function: Function,
         input_atomic: bool,
         *inputs,
-    ) -> Tensor:
+    ) -> TensorBase:
         ctx.recomputed = recomputed
         ctx.rng_states = rng_states
 
@@ -335,9 +380,14 @@ class Recompute(torch.autograd.Function):
         return phony
 
     @staticmethod
-    def backward(ctx: Context, *grad_output: Tensor) -> Tuple[None, ...]:  # pragma: no cover
+    def backward(
+        ctx: Context, *grad_output: TensorBase
+    ) -> Tuple[None, ...]:  # pragma: no cover
         inputs = ctx.inputs
-        inputs_leaf = tuple(x.detach().requires_grad_(x.requires_grad) if torch.is_tensor(x) else x for x in inputs)
+        inputs_leaf = tuple(
+            x.detach().requires_grad_(x.requires_grad) if torch.is_tensor(x) else x
+            for x in inputs
+        )
 
         # Get the device for the inputs from a tensor
         device = None
@@ -347,7 +397,7 @@ class Recompute(torch.autograd.Function):
                 break
 
         if device is None:
-            raise RuntimeError(f'No tensors found in {inputs}')
+            raise RuntimeError(f"No tensors found in {inputs}")
 
         with restore_rng_states(device, ctx.rng_states):
             with torch.enable_grad(), enable_recomputing():

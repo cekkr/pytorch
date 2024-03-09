@@ -80,7 +80,7 @@ def _create_colwise_spec(
     )
 
 
-def _is_nested_tensor(val: torch.Tensor) -> bool:
+def _is_nested_tensor(val: torch.TensorBase) -> bool:
     if type(val) is ShardedTensor:
         if len(val.local_shards()) == 0:
             return False
@@ -97,7 +97,7 @@ def _is_nested_tensor(val: torch.Tensor) -> bool:
 
 def _alloc_tensor(
     props: TensorProperties, size: Sequence[int], device_type: str = "cuda"
-) -> torch.Tensor:
+) -> torch.TensorBase:
     return torch.empty(
         size=size,
         dtype=props.dtype,
@@ -199,7 +199,7 @@ class _ReaderWithOffset(DefaultLoadPlanner):
             requests += reqs
         return LoadPlan(requests)
 
-    def lookup_tensor(self, index: MetadataIndex) -> torch.Tensor:
+    def lookup_tensor(self, index: MetadataIndex) -> torch.TensorBase:
         return super().lookup_tensor(self.translation.get(index, index))
 
 

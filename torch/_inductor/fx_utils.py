@@ -92,7 +92,7 @@ class FakeTensorUpdater:
                 return all(
                     is_fake_tensor_same(new_i, old_i) for new_i, old_i in zip(new, old)
                 )
-            assert isinstance(new, torch.Tensor)
+            assert isinstance(new, torch.TensorBase)
             if not is_intlist_same(new.shape, old.shape) or new.layout != old.layout:
                 return False
             if new.layout == torch.strided and (
@@ -154,14 +154,14 @@ class FakeTensorUpdater:
                 self.processed_hashes.add(self.hash_node(updating_node))
 
 
-def get_storage(t: torch.Tensor) -> int:
+def get_storage(t: torch.TensorBase) -> int:
     return t.untyped_storage()._cdata
 
 
 def get_node_storage(node: torch.fx.Node) -> Optional[int]:
     if "val" not in node.meta:
         return None
-    if not isinstance(node.meta["val"], torch.Tensor):
+    if not isinstance(node.meta["val"], torch.TensorBase):
         return None
     if not torch._C._has_storage(node.meta["val"]):
         return None

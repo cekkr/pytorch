@@ -11,7 +11,9 @@ from .pre_grad import efficient_conv_bn_eval_pass
 
 
 def efficient_conv_bn_eval(
-    bn: nn.modules.batchnorm._BatchNorm, conv: nn.modules.conv._ConvNd, x: torch.Tensor
+    bn: nn.modules.batchnorm._BatchNorm,
+    conv: nn.modules.conv._ConvNd,
+    x: torch.TensorBase,
 ):
     """
     Implementation based on https://arxiv.org/abs/2305.11624

@@ -378,7 +378,7 @@ class _DerivedConstraint(_ConstraintTarget):
 Constraint = Union[_Constraint, _DerivedConstraint]
 
 
-def dynamic_dim(t: torch.Tensor, index: int, debug_name: Optional[str] = None):
+def dynamic_dim(t: torch.TensorBase, index: int, debug_name: Optional[str] = None):
     """
     .. warning::
         (This feature is DEPRECATED. See :func:`Dim` instead.)
@@ -449,7 +449,7 @@ def dynamic_dim(t: torch.Tensor, index: int, debug_name: Optional[str] = None):
     """
     from torch._dynamo.exc import UserError, UserErrorType
 
-    if not isinstance(t, torch.Tensor):
+    if not isinstance(t, torch.TensorBase):
         raise UserError(
             UserErrorType.DYNAMIC_DIM,
             f"Expected tensor as input to dynamic_dim but got {type(t)}",
@@ -592,7 +592,7 @@ def _process_dynamic_shapes(
                 SUPPORTED_NODES[type(combined_args)].flatten_fn(combined_args)[0],
                 dynamic_shapes,
             )
-        elif isinstance(combined_args, torch.Tensor):
+        elif isinstance(combined_args, torch.TensorBase):
             yield (combined_args, dynamic_shapes)
         else:
             if dynamic_shapes is not None:
@@ -780,7 +780,7 @@ def _process_constraints(
     fake_mode,
     graph_module: torch.fx.GraphModule,
     num_lifted_params_buffers: int,
-    example_inputs: List[torch.Tensor],
+    example_inputs: List[torch.TensorBase],
 ) -> Dict:
     """
     Process the constraints stored in the graph module to return something more readable.

@@ -187,22 +187,22 @@ else:
         """
 
         device_type: str
-        mesh: torch.Tensor
+        mesh: torch.TensorBase
         mesh_dim_names: Optional[Tuple[str, ...]]
 
         def __init__(
             self,
             device_type: str,
-            mesh: Union[torch.Tensor, "ArrayLike"],
+            mesh: Union[torch.TensorBase, "ArrayLike"],
             *,
             mesh_dim_names: Optional[Tuple[str, ...]] = None,
         ) -> None:
             self.device_type = device_type
-            if isinstance(mesh, torch.Tensor) and mesh.device.type != "cpu":
+            if isinstance(mesh, torch.TensorBase) and mesh.device.type != "cpu":
                 raise ValueError(f"`mesh` must be a CPU tensor, got {mesh}")
             self.mesh = (
                 mesh.detach().cpu()
-                if isinstance(mesh, torch.Tensor)
+                if isinstance(mesh, torch.TensorBase)
                 else torch.tensor(mesh, dtype=torch.int)
             )
             self.mesh_dim_names = mesh_dim_names

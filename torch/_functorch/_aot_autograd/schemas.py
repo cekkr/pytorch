@@ -155,7 +155,7 @@ class SubclassCreationMeta:
     # This is needed because we need the autograd metadata on the original subclass
     # (this is guaranteed to be a wrapper subclass that holds a fake tensor,
     #  so holding onto this at runtime shouldn't leak memory)
-    original_subclass: torch.Tensor
+    original_subclass: torch.TensorBase
     # meta and inner_keys are produced by the subclass's __tensor_flatten__.
     # We need to keep them around along with outer_size / outer_stride to plumb them
     # into __tensor_unflatten__.
@@ -270,7 +270,7 @@ class ViewAndMutationMeta:
     # Map of effect type (ex. _EffectType.ORDERED) to token.  If there are
     # side-effectful operators, FunctionalTensorMode will populate this
     # dictionary telling us how many tokens we will need during tracing.
-    tokens: Dict[Any, torch.Tensor] = field(default_factory=dict)
+    tokens: Dict[Any, torch.TensorBase] = field(default_factory=dict)
 
     def __post_init__(self):
         # pre-compute the indices of the inputs that are mutated.
@@ -379,7 +379,7 @@ class ViewAndMutationMeta:
         # Eventually, we should kill this and replace with real backward guards.
         # (we want to precompute the "runtime" types, so replace FakeTensor with torch.Tensor)
         self.output_types = [
-            torch.Tensor if isinstance(x, FakeTensor) else type(x)
+            torch.TensorBase if isinstance(x, FakeTensor) else type(x)
             for x in self.traced_tangents
         ]
 
@@ -487,7 +487,7 @@ class SubclassMeta:
 # does not know to treat them as tensors.
 @dataclass(frozen=True)
 class TensorAlias:
-    alias: torch.Tensor
+    alias: torch.TensorBase
 
 
 @dataclass

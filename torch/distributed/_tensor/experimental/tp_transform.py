@@ -79,14 +79,14 @@ class TensorParallelTransformPass(PassBase):
         rank: int,
         world_size: int,
         device_type: str,
-        state_dict: Dict[str, torch.Tensor],
+        state_dict: Dict[str, torch.TensorBase],
         graph_signature: ExportGraphSignature,
         parallel_strategies: Dict[str, ParallelStyle],
     ) -> None:
         super().__init__()
         self.rank = rank
         self.mesh = DeviceMesh(device_type, torch.arange(world_size))
-        self.state_dict: Dict[str, torch.Tensor] = state_dict
+        self.state_dict: Dict[str, torch.TensorBase] = state_dict
         self.graph_signature = graph_signature
         self.parallel_strategies = parallel_strategies
 
@@ -189,9 +189,9 @@ def _mark_sharding(
     """
     Mark the sharding strategy for each node in the graph module.
     """
-    placement_strategies: Dict[
-        Node, PlacementStrategy
-    ] = _mark_tensor_parallel_shardings(gm, graph_signature, mesh, parameter_placements)
+    placement_strategies: Dict[Node, PlacementStrategy] = (
+        _mark_tensor_parallel_shardings(gm, graph_signature, mesh, parameter_placements)
+    )
 
     for node in gm.graph.nodes:
         if node.op == "placeholder":
@@ -236,9 +236,11 @@ def _mark_sharding(
                     )
                 placement_strategies[node] = PlacementStrategy(
                     output_specs=_get_output_spec_from_output_sharding(output_sharding),
-                    input_specs=output_sharding.schema_suggestions[0].args_spec
-                    if output_sharding.schema_suggestions is not None
-                    else _get_input_node_specs(node, placement_strategies),
+                    input_specs=(
+                        output_sharding.schema_suggestions[0].args_spec
+                        if output_sharding.schema_suggestions is not None
+                        else _get_input_node_specs(node, placement_strategies)
+                    ),
                 )
                 node.meta["sharding"] = placement_strategies[node]
         elif node.op == "output":
@@ -408,7 +410,7 @@ def _partition_val(val: Any, spec: DTensorSpec) -> Any:
     """
     util function to convert a full tensor val to its local component
     """
-    if isinstance(val, torch.Tensor):
+    if isinstance(val, torch.TensorBase):
         local_shard = val
         if val.ndim == 0:
             # If it's already a scalar tensor, it is already local, we don't
@@ -447,7 +449,7 @@ def _insert_reshard_gm(
     input_arg_tensor = input_arg.meta["val"]
 
     # insert reshard operation
-    def reshard_fn(local_tensor: torch.Tensor) -> torch.Tensor:
+    def reshard_fn(local_tensor: torch.TensorBase) -> torch.TensorBase:
         return redistribute_local_tensor(
             local_tensor,
             input_arg_spec,
@@ -474,7 +476,7 @@ def _clean_up_graph_metadata(gm: torch.fx.GraphModule) -> None:
     for node in gm.graph.nodes:
         if "sharding" in node.meta:
             del node.meta["sharding"]
-        if "val" in node.meta and isinstance(node.meta["val"], torch.Tensor):
+        if "val" in node.meta and isinstance(node.meta["val"], torch.TensorBase):
             local_tensor_meta = _extract_tensor_metadata(node.meta["val"])
             node.meta["tensor_meta"] = local_tensor_meta
 
@@ -514,7 +516,7 @@ def _get_op_schema(
 
 
 def _shard_state_dict(
-    state_dict: Dict[str, torch.Tensor],
+    state_dict: Dict[str, torch.TensorBase],
     placement_strategies: Dict[Node, PlacementStrategy],
     graph_signature: ExportGraphSignature,
     mesh: DeviceMesh,

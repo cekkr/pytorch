@@ -5,7 +5,7 @@ from typing import Dict, Tuple
 import torch
 import torch.distributed.autograd as dist_autograd
 import torch.distributed.rpc as rpc
-from torch import Tensor
+from torch import TensorBase
 from torch.distributed.rpc import rpc_async
 from torch.testing import FileCheck
 from torch.testing._internal.dist_utils import dist_init, worker_name
@@ -36,7 +36,7 @@ class JitDistAutogradTest(RpcAgentTestFixture):
         dst_rank = self.rank
 
         @torch.jit.script
-        def dist_get_gradients(context_id: int) -> (Dict[Tensor, Tensor]):
+        def dist_get_gradients(context_id: int) -> Dict[TensorBase, TensorBase]:
             return dist_autograd.get_gradients(context_id)
 
         FileCheck().check("get_gradients").run(str(dist_get_gradients.graph))
@@ -60,7 +60,7 @@ class JitDistAutogradTest(RpcAgentTestFixture):
             return
 
         @torch.jit.script
-        def dist_backward_script(context_id: int, loss: torch.Tensor):
+        def dist_backward_script(context_id: int, loss: torch.TensorBase):
             dist_autograd.backward(context_id, [loss])
 
         FileCheck().check("dist_backward").run(str(dist_backward_script.graph))
@@ -93,8 +93,8 @@ class JitDistAutogradTest(RpcAgentTestFixture):
 
         @torch.jit.script
         def forward_script(
-            context_id: int, dst_worker_name: str, t1: Tensor, t2: Tensor
-        ) -> Tuple[Tensor, Tensor]:
+            context_id: int, dst_worker_name: str, t1: TensorBase, t2: TensorBase
+        ) -> Tuple[TensorBase, TensorBase]:
             res1_fut = rpc.rpc_async(dst_worker_name, local_add, (t1, t1))
             res1 = res1_fut.wait()  # After this, the script runs in a new JIT thread.
             loss1 = res1.sum()

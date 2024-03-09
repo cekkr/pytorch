@@ -490,7 +490,7 @@ class ArgumentHandler:
         name: Optional[str] = None,
         is_output: bool = False,
     ) -> None:
-        if isinstance(value, torch.Tensor) and value.is_cuda:
+        if isinstance(value, torch.TensorBase) and value.is_cuda:
             data_ptr = value.data_ptr()
             if is_write:
                 self.dataptrs_written.add(data_ptr)

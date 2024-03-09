@@ -28,7 +28,7 @@ __all__ = ["traverse_state_dict", "set_element", "get_element", "print_tensor"]
 
 
 def _keep_visiting_tensors(value: STATE_DICT_ITEM) -> bool:
-    return isinstance(value, torch.Tensor)
+    return isinstance(value, torch.TensorBase)
 
 
 # TODO: update docstring for traverse.py
@@ -147,7 +147,7 @@ def _print_nested(
             value._local_tensor,
             print_fun=print_fun,
         )
-    elif isinstance(value, torch.Tensor):
+    elif isinstance(value, torch.TensorBase):
         print_fun(f"{prefix} Tensor size: {value.size()}")
     else:
         print_fun(f"{prefix} Type: {type(value)}")

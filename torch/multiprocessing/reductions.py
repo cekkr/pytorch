@@ -590,5 +590,5 @@ def init_reductions():
         ForkingPickler.register(t, reduce_tensor)
 
     # TODO: Maybe this should be in tensor_classes? :)
-    ForkingPickler.register(torch.Tensor, reduce_tensor)
+    ForkingPickler.register(torch.TensorBase, reduce_tensor)
     ForkingPickler.register(torch.nn.parameter.Parameter, reduce_tensor)

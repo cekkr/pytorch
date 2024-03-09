@@ -44,7 +44,7 @@ def _get_allgather_out_list(all_gather_in_list, world_size):
 
 def quantization_pertensor_hook(
     process_group: dist.ProcessGroup, bucket: dist.GradBucket
-) -> torch.futures.Future[torch.Tensor]:
+) -> torch.futures.Future[torch.TensorBase]:
     """
     Apply ``torch.quantize_per_tensor`` logic to DDP using ``allgather`` protocol.
 
@@ -119,7 +119,7 @@ def quantization_pertensor_hook(
 
 def quantization_perchannel_hook(
     process_group: dist.ProcessGroup, bucket: dist.GradBucket, bucket_size=512
-) -> torch.futures.Future[torch.Tensor]:
+) -> torch.futures.Future[torch.TensorBase]:
     """
     Apply``torch.quantize_per_channel`` logic to DDP using ``allgather`` protocol.
 

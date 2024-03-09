@@ -152,7 +152,7 @@ def validate_op_between_ort_torch(
             flattened_torch_outputs, flattened_function_outputs
         ):
             if isinstance(
-                torch_output, torch.Tensor
+                torch_output, torch.TensorBase
             ) and fx_type_utils.is_torch_complex_dtype(torch_output.dtype):
                 torch_output = torch.view_as_real(torch_output.resolve_conj())
             try:
@@ -162,9 +162,11 @@ def validate_op_between_ort_torch(
                 # Use torch.testing as opposed to np.testing to ensure dtypes and shapes match
                 torch.testing.assert_close(
                     torch.tensor(function_output).cpu(),
-                    torch_output.cpu()
-                    if isinstance(torch_output, torch.Tensor)
-                    else torch.tensor(torch_output).cpu(),
+                    (
+                        torch_output.cpu()
+                        if isinstance(torch_output, torch.TensorBase)
+                        else torch.tensor(torch_output).cpu()
+                    ),
                     rtol=1e-4,
                     atol=1e-3,
                 )
@@ -253,7 +255,7 @@ def _fx_args_to_torch_args(
             # NOTE: Currently, we are aware of
             # FakeTensor/Tensor/SymInt/SymFloat/Symbool/int/float/bool could be in
             # arg.meta["val"]/get_attr.
-            if isinstance(fake_tensor, torch.Tensor):
+            if isinstance(fake_tensor, torch.TensorBase):
                 real_tensor = generate_random_tensors(
                     fake_tensor.shape, fake_tensor.dtype
                 )
@@ -304,7 +306,10 @@ def _convert_torch_args_to_onnxfunction_args(
     args: List[fx_type_utils.Argument],
     kwargs: Dict[str, fx_type_utils.Argument],
     allow_extra_kwargs: bool = False,
-) -> Tuple[List[Any], Dict[str, Any],]:
+) -> Tuple[
+    List[Any],
+    Dict[str, Any],
+]:
     """Convert Python args and kwargs to OnnxFunction acceptable with matching ONNX ParamSchema.
 
     NOTE: This is different from the param_schema separating in dispatcher, since at this point
@@ -366,7 +371,7 @@ def _convert_tensor_to_numpy(input: fx_type_utils.Argument) -> Any:
     except ImportError as exc:
         raise ImportError(f"{__name__} needs numpy, but it's not installed.") from exc
 
-    if isinstance(input, torch.Tensor):
+    if isinstance(input, torch.TensorBase):
         if torch.is_complex(input):
             # from complex to real representation
             input = torch.view_as_real(input.resolve_conj())
@@ -376,7 +381,7 @@ def _convert_tensor_to_numpy(input: fx_type_utils.Argument) -> Any:
     if isinstance(input, (tuple, list)):
         if len(input) == 0:
             return np.array((), dtype=np.int64)
-        if isinstance(input[0], torch.Tensor):
+        if isinstance(input[0], torch.TensorBase):
             return [_convert_tensor_to_numpy(x) for x in input]
         if isinstance(input[0], bool):
             return np.array(input, dtype=np.bool_)

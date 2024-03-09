@@ -81,18 +81,20 @@ ALIGNMENT = 16
 # we can select one element from that dimension and write to it
 # to achieve writing to all values of that dimension of the input tensor
 def get_expanded_dims(t):
-    if not isinstance(t, torch.Tensor):
+    if not isinstance(t, torch.TensorBase):
         return None
     return [i for i in range(t.ndim) if t.stride(i) == 0 and t.size(i) != 1]
 
 
-def index_expanded_dims(t: torch.Tensor, expanded_dims: List[int]) -> torch.Tensor:
+def index_expanded_dims(
+    t: torch.TensorBase, expanded_dims: List[int]
+) -> torch.TensorBase:
     for expanded_dim in expanded_dims:
         t = torch.ops.aten.slice(t, expanded_dim, 0, 1)
     return t
 
 
-def complex_memory_overlap(t: torch.Tensor) -> bool:
+def complex_memory_overlap(t: torch.TensorBase) -> bool:
     # if torch._debug_has_internal_overlap thinks this tensor potentially has
     # memory overlap internally, let's dig deeper to find out whether it's true.
     t = index_expanded_dims(t, get_expanded_dims(t))
@@ -283,7 +285,7 @@ def is_tf32_warning_applicable(gm: torch.fx.GraphModule):
         if (
             node.op == "call_function"
             and node.target in tf32_ops
-            and isinstance(node.meta.get("val", None), torch.Tensor)
+            and isinstance(node.meta.get("val", None), torch.TensorBase)
             and node.meta["val"].dtype == torch.float32
             and node.meta["val"].device.type == "cuda"
         ):
@@ -294,7 +296,7 @@ def is_tf32_warning_applicable(gm: torch.fx.GraphModule):
 @DebugContext.wrap
 def count_bytes_inner(
     gm: torch.fx.GraphModule,
-    example_inputs: List[torch.Tensor],
+    example_inputs: List[torch.TensorBase],
     num_fixed: int = 0,
     **kwargs,
 ):
@@ -316,7 +318,7 @@ def count_bytes_inner(
 
 def fake_tensor_prop(
     gm: torch.fx.GraphModule,
-    example_inputs: List[torch.Tensor],
+    example_inputs: List[torch.TensorBase],
     force_allow_non_fake_inputs: bool = False,
 ):
     """
@@ -362,7 +364,7 @@ def get_patched_config_dict(config_patches=None) -> Dict[str, Any]:
 @dynamo_utils.dynamo_timed(phase_name="inductor_compile")
 def compile_fx_inner(
     gm: torch.fx.GraphModule,
-    example_inputs: List[torch.Tensor],
+    example_inputs: List[torch.TensorBase],
     cudagraphs: Optional[BoxedBool] = None,
     num_fixed: int = 0,
     is_backward: bool = False,
@@ -469,7 +471,7 @@ def compile_fx_inner(
         complex_memory_overlap_inputs = any(
             complex_memory_overlap(t)
             for t in example_inputs
-            if isinstance(t, torch.Tensor)
+            if isinstance(t, torch.TensorBase)
         )
 
         from torch._inductor.cudagraph_utils import check_for_mutation
@@ -486,7 +488,8 @@ def compile_fx_inner(
             (not complex_memory_overlap_inputs, "complex memory overlap"),
             (
                 all(
-                    isinstance(t, (torch.Tensor, torch.SymInt)) for t in example_inputs
+                    isinstance(t, (torch.TensorBase, torch.SymInt))
+                    for t in example_inputs
                 ),
                 "non-Tensor inputs",
             ),
@@ -572,7 +575,7 @@ def compile_fx_inner(
 
 def fx_codegen_and_compile(
     gm: torch.fx.GraphModule,
-    example_inputs: List[torch.Tensor],
+    example_inputs: List[torch.TensorBase],
     cudagraphs: Optional[BoxedBool] = None,
     num_fixed: int = 0,
     is_backward: bool = False,
@@ -736,7 +739,7 @@ def fx_codegen_and_compile(
     return compiled_graph
 
 
-def clone_preserve_strides(x: torch.Tensor):
+def clone_preserve_strides(x: torch.TensorBase):
     needed_size = (
         sum((shape - 1) * stride for shape, stride in zip(x.size(), x.stride())) + 1
     )
@@ -745,7 +748,7 @@ def clone_preserve_strides(x: torch.Tensor):
 
 
 def copy_misaligned_inputs(
-    new_inputs: List[torch.Tensor], check_inputs_idxs: Sequence[int]
+    new_inputs: List[torch.TensorBase], check_inputs_idxs: Sequence[int]
 ) -> None:
     for i in check_inputs_idxs:
         if new_inputs[i].data_ptr() % ALIGNMENT:
@@ -753,7 +756,7 @@ def copy_misaligned_inputs(
 
 
 def get_input_idxs_to_check(
-    inputs: Union[List[torch.Tensor], Sequence[int]],
+    inputs: Union[List[torch.TensorBase], Sequence[int]],
     static_input_idxs: Sequence[int],
 ) -> Sequence[int]:
     def is_aligned(storage_offset, dtype):
@@ -762,7 +765,7 @@ def get_input_idxs_to_check(
     ids_to_check = []
     for i, input in enumerate(inputs):
         if (
-            isinstance(input, torch.Tensor)
+            isinstance(input, torch.TensorBase)
             and (
                 i not in static_input_idxs
                 or not is_aligned(input.storage_offset(), input.dtype)
@@ -774,7 +777,7 @@ def get_input_idxs_to_check(
 
 
 def align_inputs_from_check_idxs(
-    model: Callable[[List[torch.Tensor]], Any], inputs_to_check: Sequence[int]
+    model: Callable[[List[torch.TensorBase]], Any], inputs_to_check: Sequence[int]
 ):
     if len(inputs_to_check) == 0:
         return model
@@ -787,8 +790,8 @@ def align_inputs_from_check_idxs(
 
 
 def align_inputs(
-    model: Callable[[List[torch.Tensor]], Any],
-    inputs: List[torch.Tensor],
+    model: Callable[[List[torch.TensorBase]], Any],
+    inputs: List[torch.TensorBase],
     static_input_idxs: Sequence[int] = (),
 ):
     inputs_to_check = get_input_idxs_to_check(inputs, static_input_idxs)
@@ -798,14 +801,14 @@ def align_inputs(
 @dynamo_utils.dynamo_timed
 def cudagraphify(
     model: torch.fx.GraphModule,
-    inputs: List[torch.Tensor],
+    inputs: List[torch.TensorBase],
     static_input_idxs: Sequence[int] = (),
     *,
     device_index: int,
     stack_traces: List[Optional[str]],
     is_backward: bool,
     is_inference: bool,
-    constants: Tuple[torch.Tensor, ...] = (),
+    constants: Tuple[torch.TensorBase, ...] = (),
 ):
     from torch._inductor.cudagraph_trees import (
         cudagraphify_impl as new_cudagraphify_impl,
@@ -841,7 +844,7 @@ def cudagraphify(
 
 
 def remove_unaligned_input_idxs(
-    inputs: Union[List[torch.Tensor], Sequence[int]],
+    inputs: Union[List[torch.TensorBase], Sequence[int]],
     static_input_idxs: Sequence[int],
 ):
     """
@@ -850,14 +853,14 @@ def remove_unaligned_input_idxs(
     """
     aligned_static_input_idxs = []
     for idx, input in zip(static_input_idxs, inputs):
-        if isinstance(input, torch.Tensor) and (input.data_ptr() % ALIGNMENT) == 0:
+        if isinstance(input, torch.TensorBase) and (input.data_ptr() % ALIGNMENT) == 0:
             aligned_static_input_idxs.append(idx)
     if len(aligned_static_input_idxs) != len(static_input_idxs):
         return aligned_static_input_idxs
     return static_input_idxs
 
 
-def static_input(x: torch.Tensor):
+def static_input(x: torch.TensorBase):
     """
     Copy and input while preserving strides
     """
@@ -871,8 +874,8 @@ def static_input(x: torch.Tensor):
 
 
 def index_expanded_dims_and_copy_(
-    dst: torch.Tensor,
-    src: torch.Tensor,
+    dst: torch.TensorBase,
+    src: torch.TensorBase,
     expanded_dims: List[int],
 ):
     "Index into expanded dimensions of both dst and src then copy_"
@@ -883,7 +886,7 @@ def index_expanded_dims_and_copy_(
 
 def cudagraphify_impl(
     model: torch.fx.GraphModule,
-    inputs: List[torch.Tensor],
+    inputs: List[torch.TensorBase],
     static_input_idxs: Sequence[int] = (),
 ):
     """
@@ -902,17 +905,17 @@ def cudagraphify_impl(
 
     # allocate static tensor inputs
     static_inputs = [
-        x
-        if not isinstance(x, torch.Tensor)
-        else static_input(x)
-        if idx not in static_input_idxs
-        else x.detach()
+        (
+            x
+            if not isinstance(x, torch.TensorBase)
+            else static_input(x) if idx not in static_input_idxs else x.detach()
+        )
         for idx, x in enumerate(inputs)
     ]
 
     # copy over input values for fresh allocations
     for idx, (x, expanded_dims) in enumerate(zip(inputs, inps_expanded_dims)):
-        if isinstance(x, torch.Tensor) and idx not in static_input_idxs:
+        if isinstance(x, torch.TensorBase) and idx not in static_input_idxs:
             index_expanded_dims_and_copy_(static_inputs[idx], x, expanded_dims)
 
     # warmup
@@ -940,7 +943,7 @@ def cudagraphify_impl(
             for idx, (dst, src, expanded_dims) in enumerate(
                 zip(static_inputs, new_inputs, inps_expanded_dims)
             ):
-                if not isinstance(dst, torch.Tensor):
+                if not isinstance(dst, torch.TensorBase):
                     pass
                 elif idx in static_input_idxs:
                     assert dst.data_ptr() == src.data_ptr()
@@ -973,7 +976,7 @@ def cudagraphify_impl(
 
 def compile_fx_aot(
     model_: torch.fx.GraphModule,
-    example_inputs_: List[torch.Tensor],
+    example_inputs_: List[torch.TensorBase],
     inner_compile: Callable[..., Any] = compile_fx_inner,
     config_patches: Optional[Dict[str, Any]] = None,
 ):
@@ -1014,7 +1017,7 @@ _graph_counter = count(0)
 
 def fw_compiler_freezing(
     aot_autograd_model: torch.fx.GraphModule,
-    aot_example_inputs: List[torch.Tensor],
+    aot_example_inputs: List[torch.TensorBase],
     dynamo_model: torch.fx.GraphModule,
     num_example_inputs: int,
     inner_compile: Callable[..., Any],
@@ -1091,7 +1094,7 @@ def fw_compiler_freezing(
 @_use_lazy_graph_module(dynamo_config.use_lazy_graph_module)
 def compile_fx(
     model_: torch.fx.GraphModule,
-    example_inputs_: List[torch.Tensor],
+    example_inputs_: List[torch.TensorBase],
     inner_compile: Callable[..., Any] = compile_fx_inner,
     config_patches: Optional[Dict[str, Any]] = None,
     decompositions: Optional[Dict[OpOverload, Callable[..., Any]]] = None,
@@ -1191,7 +1194,7 @@ def compile_fx(
     @dynamo_utils.dynamo_timed
     def fw_compiler_base(
         model: torch.fx.GraphModule,
-        example_inputs: List[torch.Tensor],
+        example_inputs: List[torch.TensorBase],
         is_inference: bool,
     ):
         if is_inference:
@@ -1288,7 +1291,9 @@ def compile_fx(
 
     @dynamo_utils.dynamo_timed
     @dynamo_utils.maybe_cprofile
-    def bw_compiler(model: torch.fx.GraphModule, example_inputs: List[torch.Tensor]):
+    def bw_compiler(
+        model: torch.fx.GraphModule, example_inputs: List[torch.TensorBase]
+    ):
         fixed = count_tangents(model)
         return inner_compile(
             model,
@@ -1337,7 +1342,7 @@ def compile_fx(
         )(model_, example_inputs_)
 
 
-def _shape_env_from_inputs(inputs: List[torch.Tensor]):
+def _shape_env_from_inputs(inputs: List[torch.TensorBase]):
     shape_env = None
     fake_mode = detect_fake_mode(inputs)
 
@@ -1378,7 +1383,7 @@ def graph_returns_tuple(gm: torch.fx.GraphModule):
 
 def make_graph_return_tuple(
     gm: torch.fx.GraphModule,
-    inputs: List[torch.Tensor],
+    inputs: List[torch.TensorBase],
     compile_gm: Callable[..., Any],
 ):
     """
@@ -1431,7 +1436,7 @@ def flatten_graph_inputs(gm: torch.fx.GraphModule, inputs, compile_gm):
 
 def handle_dynamo_export_graph(
     gm: torch.fx.GraphModule,
-    inputs: List[torch.Tensor],
+    inputs: List[torch.TensorBase],
     compile_gm: Callable[..., Any],
 ):
     """

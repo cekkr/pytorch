@@ -415,7 +415,7 @@ def foreach_run_and_map_input_device(fake_mode, func, *args, **kwargs):
         if (
             isinstance(arg, (list, tuple))
             and len(arg)
-            and isinstance(arg[0], torch.Tensor)
+            and isinstance(arg[0], torch.TensorBase)
         ):
             tensor_lists.append(arg)
 
@@ -931,7 +931,7 @@ def make_fast_binary_impl(slow_ref):
         has_tensors = False
         final_shape = None
         for op in operands:
-            shape = op.shape if isinstance(op, torch.Tensor) else ()
+            shape = op.shape if isinstance(op, torch.TensorBase) else ()
             if len(shape) == 0:
                 has_scalars = True
             else:
@@ -948,7 +948,7 @@ def make_fast_binary_impl(slow_ref):
         # stride is obvious
         for op in operands:
             if (
-                isinstance(op, torch.Tensor)
+                isinstance(op, torch.TensorBase)
                 and len(op.shape) == len(final_shape)
                 and op.shape == final_shape
             ):
@@ -963,7 +963,7 @@ def make_fast_binary_impl(slow_ref):
         output_dtype = None
         has_different_input_dtypes = False
         for op in operands:
-            if not isinstance(op, torch.Tensor):
+            if not isinstance(op, torch.TensorBase):
                 # Use elementwise_dtypes for the tricky case
                 has_different_input_dtypes = True
                 continue
@@ -987,7 +987,7 @@ def make_fast_binary_impl(slow_ref):
         current_cpu_scalars_on_non_cpu = 0
         max_cpu_scalars_on_non_cpu = 1  # hard coded atm
         for op in operands:
-            if not isinstance(op, torch.Tensor):
+            if not isinstance(op, torch.TensorBase):
                 continue
             if common_device != cpu and op.dim() == 0 and op.device == cpu:
                 if current_cpu_scalars_on_non_cpu >= max_cpu_scalars_on_non_cpu:
@@ -1004,7 +1004,7 @@ def make_fast_binary_impl(slow_ref):
 
         if is_noncontiguous_supported(common_device):
             for op in operands:
-                if not isinstance(op, torch.Tensor):
+                if not isinstance(op, torch.TensorBase):
                     continue
                 is_contiguous = is_contiguous and op.is_contiguous(
                     memory_format=torch.contiguous_format

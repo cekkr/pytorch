@@ -1,15 +1,13 @@
-
 import warnings
 
 # A workaround to support both TorchScript and MyPy:
 from typing import Any, List, Optional, Tuple, TYPE_CHECKING, Union
 
 import torch
-from torch import Tensor
+from torch import sym_float, TensorBase
+from torch._prims_common import corresponding_real_dtype
 from torch.masked import as_masked_tensor, is_masked_tensor, MaskedTensor
 from . import _docs
-from torch._prims_common import corresponding_real_dtype
-from torch import sym_float
 
 if TYPE_CHECKING:
     from torch.types import _dtype as DType
@@ -397,7 +395,7 @@ defined as ``prod(x[:i])``.""",
     return doc_template.format_map(templates)
 
 
-def _reduction_identity(op_name: str, input: Tensor, *args):
+def _reduction_identity(op_name: str, input: TensorBase, *args):
     """Return identity value as scalar tensor of a reduction operation on
     given input, or None, if the identity value cannot be uniquely
     defined for the given input.
@@ -475,7 +473,7 @@ def _canonical_dim(dim: DimOrDims, ndim: int) -> Tuple[int, ...]:
     return tuple(sorted(dims))
 
 
-def _sparse_coo_flatten_indices(indices: Tensor, shape: tuple):
+def _sparse_coo_flatten_indices(indices: TensorBase, shape: tuple):
     # Flatted N-D indices to 1-D indices
     flat_indices = indices.new_zeros(indices.size(1))
     for d, sz in enumerate(shape):
@@ -484,7 +482,7 @@ def _sparse_coo_flatten_indices(indices: Tensor, shape: tuple):
     return flat_indices
 
 
-def _any(input: Tensor, dim: tuple, keepdim: bool):
+def _any(input: TensorBase, dim: tuple, keepdim: bool):
     # Support torch.any with tuple dim argument.
     # Workaround of https://github.com/pytorch/pytorch/issues/56586
     r = input
@@ -493,7 +491,9 @@ def _any(input: Tensor, dim: tuple, keepdim: bool):
     return r
 
 
-def _sparse_coo_where(mask: Tensor, input: Tensor, fill_value: Tensor) -> Tensor:
+def _sparse_coo_where(
+    mask: TensorBase, input: TensorBase, fill_value: TensorBase
+) -> TensorBase:
     """Sparse variant of torch.where. Supports sparse COO and hybrid sparse COO tensors.
 
     _sparse_coo_where implements the following invariant:
@@ -607,11 +607,11 @@ def _sparse_coo_where(mask: Tensor, input: Tensor, fill_value: Tensor) -> Tensor
 
 def _sparse_coo_scatter_reduction_helper(
     op,
-    mask_input: Tensor,
+    mask_input: TensorBase,
     dims: Tuple[int, ...],
     keepdim: bool,
     dtype: Optional[DType] = None,
-) -> Tensor:
+) -> TensorBase:
     reduce = op.__name__
     valid_reductions = ["sum", "prod", "amax", "amin"]
     if reduce not in valid_reductions:
@@ -727,11 +727,11 @@ def _sparse_coo_scatter_reduction_helper(
 
 def _sparse_csr_segment_reduction_helper(
     op,
-    mask_input: Tensor,
+    mask_input: TensorBase,
     dims: Tuple[int, ...],
     keepdim: bool,
     dtype: Optional[DType] = None,
-) -> Tensor:
+) -> TensorBase:
     # Currently, while sparse CSR is always 2D with no dense dimensions keepdim must be True
     # FIXME: when dense dimensions are implemented for CSR tensors
     assert (
@@ -811,7 +811,9 @@ def _sparse_csr_segment_reduction_helper(
     )
 
 
-def _sparse_csr_where(mask: Tensor, input: Tensor, fill_value: Tensor) -> Tensor:
+def _sparse_csr_where(
+    mask: TensorBase, input: TensorBase, fill_value: TensorBase
+) -> TensorBase:
     """Sparse variant of torch.where. Supports sparse CSR tensors."""
     # TODO: implement sparse CSR specific where operator for efficiency
     return _sparse_coo_where(
@@ -819,7 +821,7 @@ def _sparse_csr_where(mask: Tensor, input: Tensor, fill_value: Tensor) -> Tensor
     ).to_sparse_csr()
 
 
-def _where(mask: Tensor, input: Tensor, fill_value: Tensor) -> Tensor:
+def _where(mask: TensorBase, input: TensorBase, fill_value: TensorBase) -> TensorBase:
     """torch.where with sparse inputs support.
 
     _where implements the following invariant:
@@ -855,7 +857,7 @@ def _where(mask: Tensor, input: Tensor, fill_value: Tensor) -> Tensor:
         )
 
 
-def _input_mask(input: Union[Tensor, MaskedTensor], *args, **kwargs) -> Tensor:
+def _input_mask(input: Union[TensorBase, MaskedTensor], *args, **kwargs) -> TensorBase:
     """Return canonical input mask.
 
     A canonical input mask is defined as a boolean mask tensor that
@@ -940,7 +942,7 @@ def _input_mask(input: Union[Tensor, MaskedTensor], *args, **kwargs) -> Tensor:
     return mask
 
 
-def _output_mask(op, input: Tensor, *args, **kwargs) -> Tensor:
+def _output_mask(op, input: TensorBase, *args, **kwargs) -> TensorBase:
     """Return output mask of masked operation applied to given arguments."""
     if callable(op):
         is_reduction = op.__name__ in {
@@ -987,8 +989,8 @@ def _output_mask(op, input: Tensor, *args, **kwargs) -> Tensor:
 
 
 def _combine_input_and_mask(
-    op, input: Union[MaskedTensor, Tensor], mask, *args
-) -> Tensor:
+    op, input: Union[MaskedTensor, TensorBase], mask, *args
+) -> TensorBase:
     def helper(input, mask):
         if mask is None:
             return input
@@ -1030,13 +1032,13 @@ def _combine_input_and_mask(
 
 @_apply_docstring_templates
 def sum(
-    input: Union[Tensor, MaskedTensor],
+    input: Union[TensorBase, MaskedTensor],
     dim: DimOrDims = None,
     *,
     keepdim: Optional[bool] = False,
     dtype: Optional[DType] = None,
-    mask: Optional[Tensor] = None,
-) -> Tensor:
+    mask: Optional[TensorBase] = None,
+) -> TensorBase:
     # __doc__ is generated by _apply_docstring_templates decorator
     if dtype is None:
         # promote integer types to int64 when output dtype is not specified
@@ -1083,13 +1085,13 @@ def sum(
 
 @_apply_docstring_templates
 def prod(
-    input: Union[Tensor, MaskedTensor],
+    input: Union[TensorBase, MaskedTensor],
     dim: DimOrDims = None,
     *,
     keepdim: Optional[bool] = False,
     dtype: Optional[DType] = None,
-    mask: Optional[Tensor] = None,
-) -> Tensor:
+    mask: Optional[TensorBase] = None,
+) -> TensorBase:
     # __doc__ is generated by _apply_docstring_templates decorator
     if dtype is None:
         # promote integer types to int64 when output dtype is not specified
@@ -1160,12 +1162,12 @@ def prod(
 
 @_apply_docstring_templates
 def cumsum(
-    input: Tensor,
+    input: TensorBase,
     dim: int,
     *,
     dtype: Optional[DType] = None,
-    mask: Optional[Tensor] = None,
-) -> Tensor:
+    mask: Optional[TensorBase] = None,
+) -> TensorBase:
     if dtype is None:
         dtype = input.dtype
     dim_ = _canonical_dim(dim, input.ndim)[0]
@@ -1180,12 +1182,12 @@ def cumsum(
 
 @_apply_docstring_templates
 def cumprod(
-    input: Tensor,
+    input: TensorBase,
     dim: int,
     *,
     dtype: Optional[DType] = None,
-    mask: Optional[Tensor] = None,
-) -> Tensor:
+    mask: Optional[TensorBase] = None,
+) -> TensorBase:
     if dtype is None:
         dtype = input.dtype
     dim_ = _canonical_dim(dim, input.ndim)[0]
@@ -1200,13 +1202,13 @@ def cumprod(
 
 @_apply_docstring_templates
 def amax(
-    input: Union[Tensor, MaskedTensor],
+    input: Union[TensorBase, MaskedTensor],
     dim: DimOrDims = None,
     *,
     keepdim: Optional[bool] = False,
     dtype: Optional[DType] = None,
-    mask: Optional[Tensor] = None,
-) -> Tensor:
+    mask: Optional[TensorBase] = None,
+) -> TensorBase:
     """\
 {reduction_signature}
 
@@ -1250,13 +1252,13 @@ def amax(
 
 @_apply_docstring_templates
 def amin(
-    input: Union[Tensor, MaskedTensor],
+    input: Union[TensorBase, MaskedTensor],
     dim: DimOrDims = None,
     *,
     keepdim: Optional[bool] = False,
     dtype: Optional[DType] = None,
-    mask: Optional[Tensor] = None,
-) -> Tensor:
+    mask: Optional[TensorBase] = None,
+) -> TensorBase:
     """\
 {reduction_signature}
 
@@ -1300,13 +1302,13 @@ def amin(
 
 @_apply_docstring_templates
 def argmax(
-    input: Union[Tensor, MaskedTensor],
+    input: Union[TensorBase, MaskedTensor],
     dim: Optional[int] = None,
     *,
     keepdim: Optional[bool] = False,
     dtype: Optional[DType] = None,
-    mask: Optional[Tensor] = None,
-) -> Tensor:
+    mask: Optional[TensorBase] = None,
+) -> TensorBase:
     """\
 {reduction_signature}
 {reduction_descr}
@@ -1326,13 +1328,13 @@ def argmax(
 
 @_apply_docstring_templates
 def argmin(
-    input: Union[Tensor, MaskedTensor],
+    input: Union[TensorBase, MaskedTensor],
     dim: Optional[int] = None,
     *,
     keepdim: Optional[bool] = False,
     dtype: Optional[DType] = None,
-    mask: Optional[Tensor] = None,
-) -> Tensor:
+    mask: Optional[TensorBase] = None,
+) -> TensorBase:
     """\
 {reduction_signature}
 {reduction_descr}
@@ -1352,13 +1354,13 @@ def argmin(
 
 @_apply_docstring_templates
 def mean(
-    input: Union[Tensor, MaskedTensor],
+    input: Union[TensorBase, MaskedTensor],
     dim: DimOrDims = None,
     *,
     keepdim: Optional[bool] = False,
     dtype: Optional[DType] = None,
-    mask: Optional[Tensor] = None,
-) -> Tensor:
+    mask: Optional[TensorBase] = None,
+) -> TensorBase:
     """\
 {reduction_signature}
 
@@ -1413,14 +1415,13 @@ elements, have ``nan`` values.
 
 @_apply_docstring_templates
 def median(
-    input: Union[Tensor, MaskedTensor],
+    input: Union[TensorBase, MaskedTensor],
     dim: int = -1,
     *,
     keepdim: bool = False,
     dtype: Optional[DType] = None,
-    mask: Optional[Tensor] = None,
-) -> Tensor:
-
+    mask: Optional[TensorBase] = None,
+) -> TensorBase:
     """\
 {reduction_signature}
 {reduction_descr}
@@ -1457,13 +1458,13 @@ elements, have ``nan`` values.
 
 @_apply_docstring_templates
 def logsumexp(
-    input: Tensor,
+    input: TensorBase,
     dim: DimOrDims = None,
     *,
     keepdim: bool = False,
     dtype: Optional[DType] = None,
-    mask: Optional[Tensor] = None,
-) -> Tensor:
+    mask: Optional[TensorBase] = None,
+) -> TensorBase:
     if dtype is None:
         dtype = input.dtype
     dim_ = _canonical_dim(dim, input.ndim)
@@ -1478,55 +1479,55 @@ def logsumexp(
 
 # Cannot use _apply_docstring_templates as it is only set up for reductions and normalizations
 def logaddexp(
-    input: Union[Tensor, MaskedTensor],
-    other: Union[Tensor, MaskedTensor],
+    input: Union[TensorBase, MaskedTensor],
+    other: Union[TensorBase, MaskedTensor],
     *,
     dtype: Optional[DType] = None,
-    input_mask: Optional[Tensor] = None,
-    other_mask: Optional[Tensor] = None,
-) -> Tensor:
+    input_mask: Optional[TensorBase] = None,
+    other_mask: Optional[TensorBase] = None,
+) -> TensorBase:
     """logaddexp(input, other, *, dtype=None, input_mask=None, other_mask=None) -> Tensor
 
-Returns logaddexp of all the elements in the :attr:`input` and the :attr:`other`
-tensor. The :attr:`input` elements are masked out according to the boolean tensor
-:attr:`input_mask` and the attr:`other` elements are masked out according to the boolean tensor
-:attr:`other_mask`.
+    Returns logaddexp of all the elements in the :attr:`input` and the :attr:`other`
+    tensor. The :attr:`input` elements are masked out according to the boolean tensor
+    :attr:`input_mask` and the attr:`other` elements are masked out according to the boolean tensor
+    :attr:`other_mask`.
 
-The shapes of a mask tensor and the tensor to be masked
-don't need to match, but they must be :ref:`broadcastable
-<broadcasting-semantics>` and the dimensionality of the mask
-tensor must not be greater than of the tensor to be masked.
+    The shapes of a mask tensor and the tensor to be masked
+    don't need to match, but they must be :ref:`broadcastable
+    <broadcasting-semantics>` and the dimensionality of the mask
+    tensor must not be greater than of the tensor to be masked.
 
-Args:
-    input (Tensor): the input tensor
-    other (Tensor): the second input tensor
+    Args:
+        input (Tensor): the input tensor
+        other (Tensor): the second input tensor
 
-Keyword args:
-    dtype (:class:`torch.dtype`, optional): the desired data type
-      of returned tensor.  If specified, the output tensor is
-      casted to :attr:`dtype` after the operation is
-      performed. Default: None.
-    input_mask (:class:`torch.Tensor`, optional): the boolean tensor
-      containing the binary mask of validity of :attr:`input` tensor elements.
-      Default: None that is equivalent to ``torch.ones(input.shape, dtype=torch.bool)``.
-    other_mask (:class:`torch.Tensor`, optional): the boolean tensor
-      containing the binary mask of validity of :attr:`other` tensor elements.
-      Default: None that is equivalent to ``torch.ones(other.shape, dtype=torch.bool)``.
+    Keyword args:
+        dtype (:class:`torch.dtype`, optional): the desired data type
+          of returned tensor.  If specified, the output tensor is
+          casted to :attr:`dtype` after the operation is
+          performed. Default: None.
+        input_mask (:class:`torch.Tensor`, optional): the boolean tensor
+          containing the binary mask of validity of :attr:`input` tensor elements.
+          Default: None that is equivalent to ``torch.ones(input.shape, dtype=torch.bool)``.
+        other_mask (:class:`torch.Tensor`, optional): the boolean tensor
+          containing the binary mask of validity of :attr:`other` tensor elements.
+          Default: None that is equivalent to ``torch.ones(other.shape, dtype=torch.bool)``.
 
-Example::
+    Example::
 
-    >>> input = torch.tensor([-100.0, -200, -300])
-    >>> input
-    tensor([-100., -200., -300.])
-    >>> other = torch.tensor([-1.0, -2, -3])
-    >>> other
-    tensor([-1., -2., -3.])
-    >>> mask = torch.tensor([True, False, True])
-    >>> mask
-    tensor([ True, False,  True])
-    >>> torch.masked._ops.logaddexp(input, other, input_mask=mask, other_mask=mask)
-    tensor([-1., -inf, -3.])
-"""
+        >>> input = torch.tensor([-100.0, -200, -300])
+        >>> input
+        tensor([-100., -200., -300.])
+        >>> other = torch.tensor([-1.0, -2, -3])
+        >>> other
+        tensor([-1., -2., -3.])
+        >>> mask = torch.tensor([True, False, True])
+        >>> mask
+        tensor([ True, False,  True])
+        >>> torch.masked._ops.logaddexp(input, other, input_mask=mask, other_mask=mask)
+        tensor([-1., -inf, -3.])
+    """
     if dtype is None:
         dtype = input.dtype
     if input.layout == torch.strided and other.layout == torch.strided:
@@ -1541,14 +1542,14 @@ Example::
 
 @_apply_docstring_templates
 def norm(
-    input: Union[Tensor, MaskedTensor],
+    input: Union[TensorBase, MaskedTensor],
     ord: Optional[float] = 2.0,
     dim: DimOrDims = None,
     *,
     keepdim: Optional[bool] = False,
     dtype: Optional[DType] = None,
-    mask: Optional[Tensor] = None,
-) -> Tensor:
+    mask: Optional[TensorBase] = None,
+) -> TensorBase:
     """\
 {reduction_signature}
 
@@ -1576,17 +1577,19 @@ reduction, is ``{identity_float32}``, except for ``ord=-inf`` it is
 
 
 def _std_var(
-    input: Union[Tensor, MaskedTensor],
+    input: Union[TensorBase, MaskedTensor],
     dim: DimOrDims,
     unbiased: Optional[bool],
     *,
     correction_opt: Optional[Union[int, float]],
     keepdim: Optional[bool],
     dtype: Optional[DType],
-    mask: Optional[Tensor],
+    mask: Optional[TensorBase],
     take_sqrt: Optional[bool],
-) -> Tensor:
-    assert (unbiased is None or correction_opt is None), "Only one of unbiased and correction may be given"
+) -> TensorBase:
+    assert (
+        unbiased is None or correction_opt is None
+    ), "Only one of unbiased and correction may be given"
     correction = 1.0
     if unbiased is not None:
         correction = 1.0 if unbiased else 0.0
@@ -1632,8 +1635,11 @@ def _std_var(
         if not keepdim:
             count = count.reshape(total.shape)
         if correction != 0:
-            real_dtype = (corresponding_real_dtype(compute_dtype)
-                          if compute_dtype.is_complex else compute_dtype)
+            real_dtype = (
+                corresponding_real_dtype(compute_dtype)
+                if compute_dtype.is_complex
+                else compute_dtype
+            )
             count = count.to(real_dtype)
             count = torch.subtract(count, correction)
             count = torch.maximum(count, count.new_zeros([]))
@@ -1649,15 +1655,15 @@ def _std_var(
 
 @_apply_docstring_templates
 def var(
-    input: Union[Tensor, MaskedTensor],
+    input: Union[TensorBase, MaskedTensor],
     dim: DimOrDims = None,
     unbiased: Optional[bool] = None,
     *,
     correction: Optional[Union[int, float]] = None,
     keepdim: Optional[bool] = False,
     dtype: Optional[DType] = None,
-    mask: Optional[Tensor] = None,
-) -> Tensor:
+    mask: Optional[TensorBase] = None,
+) -> TensorBase:
     """\
 {reduction_signature}
 {reduction_descr}
@@ -1680,15 +1686,15 @@ fully masked-out elements, have ``nan`` values.
 
 @_apply_docstring_templates
 def std(
-    input: Union[Tensor, MaskedTensor],
+    input: Union[TensorBase, MaskedTensor],
     dim: DimOrDims = None,
     unbiased: Optional[bool] = None,
     *,
     correction: Optional[int] = None,
     keepdim: Optional[bool] = False,
     dtype: Optional[DType] = None,
-    mask: Optional[Tensor] = None,
-) -> Tensor:
+    mask: Optional[TensorBase] = None,
+) -> TensorBase:
     """\
 {reduction_signature}
 {reduction_descr}
@@ -1711,12 +1717,12 @@ fully masked-out elements, have ``nan`` values.
 
 @_apply_docstring_templates
 def softmax(
-    input: Union[Tensor, MaskedTensor],
+    input: Union[TensorBase, MaskedTensor],
     dim: int,
     *,
     dtype: Optional[DType] = None,
-    mask: Optional[Tensor] = None,
-) -> Tensor:
+    mask: Optional[TensorBase] = None,
+) -> TensorBase:
     if dtype is None:
         dtype = input.dtype
     dim_ = _canonical_dim(dim, input.ndim)[0]
@@ -1731,12 +1737,12 @@ def softmax(
 
 @_apply_docstring_templates
 def log_softmax(
-    input: Union[Tensor, MaskedTensor],
+    input: Union[TensorBase, MaskedTensor],
     dim: int,
     *,
     dtype: Optional[DType] = None,
-    mask: Optional[Tensor] = None,
-) -> Tensor:
+    mask: Optional[TensorBase] = None,
+) -> TensorBase:
     if dtype is None:
         dtype = input.dtype
     dim_ = _canonical_dim(dim, input.ndim)[0]
@@ -1751,12 +1757,12 @@ def log_softmax(
 
 @_apply_docstring_templates
 def softmin(
-    input: Union[Tensor, MaskedTensor],
+    input: Union[TensorBase, MaskedTensor],
     dim: int,
     *,
     dtype: Optional[DType] = None,
-    mask: Optional[Tensor] = None,
-) -> Tensor:
+    mask: Optional[TensorBase] = None,
+) -> TensorBase:
     if dtype is None:
         dtype = input.dtype
     dim_ = _canonical_dim(dim, input.ndim)[0]
@@ -1771,14 +1777,14 @@ def softmin(
 
 @_apply_docstring_templates
 def normalize(
-    input: Union[Tensor, MaskedTensor],
+    input: Union[TensorBase, MaskedTensor],
     ord: float,
     dim: int,
     *,
     eps: float = 1e-12,
     dtype: Optional[DType] = None,
-    mask: Optional[Tensor] = None,
-) -> Tensor:
+    mask: Optional[TensorBase] = None,
+) -> TensorBase:
     if dtype is None:
         dtype = input.dtype
     dim_ = _canonical_dim(dim, input.ndim)[0]

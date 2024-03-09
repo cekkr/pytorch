@@ -122,9 +122,9 @@ class OnnxRegistry:
         # NOTE: _registry is the registry maps OpNameto a list of ONNXFunctions. It is important
         # not to directly modify this variable. Instead, access to it should be done through
         # the public methods: register_custom_op, get_ops, and is_registered_op.
-        self._registry: Dict[
-            registration.OpName, List[registration.ONNXFunction]
-        ] = defaultdict(list)
+        self._registry: Dict[registration.OpName, List[registration.ONNXFunction]] = (
+            defaultdict(list)
+        )
         # FIXME: Avoid importing onnxscript into torch
         from onnxscript.function_libs.torch_lib import (  # type: ignore[import]  # noqa: F401
             registration,
@@ -343,7 +343,9 @@ class ResolvedExportOptions(ExportOptions):
     decomposition_table: Dict[torch._ops.OpOverload, Callable]
     """A dictionary that maps operators to their decomposition functions."""
 
-    onnxfunction_dispatcher: torch.onnx._internal.fx.onnxfunction_dispatcher.OnnxFunctionDispatcher
+    onnxfunction_dispatcher: (
+        torch.onnx._internal.fx.onnxfunction_dispatcher.OnnxFunctionDispatcher
+    )
     """The ONNX dispatcher used to dispatch ATen operators to ONNX functions."""
 
     fx_tracer: FXGraphExtractor
@@ -613,9 +615,9 @@ class ONNXRuntimeOptions:
     session_options: Optional[Sequence["onnxruntime.SessionOptions"]] = None
     """ONNX Runtime session options."""
 
-    execution_providers: Optional[
-        Sequence[Union[str, Tuple[str, Dict[Any, Any]]]]
-    ] = None
+    execution_providers: Optional[Sequence[Union[str, Tuple[str, Dict[Any, Any]]]]] = (
+        None
+    )
     """ONNX Runtime execution providers to use during model execution."""
 
     execution_provider_options: Optional[Sequence[Dict[Any, Any]]] = None
@@ -833,7 +835,7 @@ class ONNXProgram:
             Union[torch.nn.Module, Callable, torch_export.ExportedProgram]
         ] = None,
         **model_kwargs,
-    ) -> Sequence[Union[torch.Tensor, int, float, bool]]:
+    ) -> Sequence[Union[torch.TensorBase, int, float, bool]]:
         """Converts the PyTorch model inputs to exported ONNX model inputs format.
 
         Due to design differences, input/output format between PyTorch model and exported
@@ -905,7 +907,7 @@ class ONNXProgram:
         model_with_state_dict: Optional[
             Union[torch.nn.Module, Callable, torch_export.ExportedProgram]
         ] = None,
-    ) -> Sequence[Union[torch.Tensor, int, float, bool]]:
+    ) -> Sequence[Union[torch.TensorBase, int, float, bool]]:
         """Converts the PyTorch model outputs to exported ONNX model outputs format.
 
         Due to design differences, input/output format between PyTorch model and exported
@@ -1188,7 +1190,7 @@ class Exporter:
             # not valid.
             # Concrete data is expected to be filled for those initializers later during `ONNXProgram.save`.
             if self.options.fake_context is not None:
-                initializers_with_real_tensors: Dict[str, torch.Tensor] = {}
+                initializers_with_real_tensors: Dict[str, torch.TensorBase] = {}
                 for (
                     initializer_name,
                     initializer,
@@ -1236,14 +1238,14 @@ class Exporter:
             )
         # Case 2: Model with non fake inputs/weights and enabled fake mode
         has_any_non_fake_tensors = pytree.tree_any(
-            lambda x: isinstance(x, torch.Tensor)
+            lambda x: isinstance(x, torch.TensorBase)
             and not isinstance(x, torch._subclasses.FakeTensor),
             (self.model_args, self.model_kwargs),
         )
         has_any_non_fake_param_or_buffer = False
         if isinstance(self.model, torch.nn.Module):
             has_any_non_fake_param_or_buffer = pytree.tree_any(
-                lambda x: isinstance(x, torch.Tensor)
+                lambda x: isinstance(x, torch.TensorBase)
                 and not isinstance(x, torch._subclasses.FakeTensor),
                 (self.model.parameters(), self.model.buffers()),
             )

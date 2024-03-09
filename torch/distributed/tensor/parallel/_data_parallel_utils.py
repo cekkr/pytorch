@@ -20,8 +20,8 @@ def sync_grad_hook(grad, *, device_handle=None, compute_stream=None):
 
 
 def _flatten_tensor(
-    tensor: torch.Tensor,
-) -> Tuple[torch.Tensor, Optional[DTensorSpec]]:
+    tensor: torch.TensorBase,
+) -> Tuple[torch.TensorBase, Optional[DTensorSpec]]:
     if isinstance(tensor, DTensor):
         tensor._local_tensor.requires_grad_()
         return tensor._local_tensor, tensor._spec

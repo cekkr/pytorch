@@ -8,7 +8,7 @@ __all__ = ["compile", "list_mode_options", "list_options", "cudagraph_mark_step_
 
 def compile(
     gm: torch.fx.GraphModule,
-    example_inputs: List[torch.Tensor],
+    example_inputs: List[torch.TensorBase],
     options: Optional[Dict[str, Any]] = None,
 ):
     """
@@ -30,7 +30,7 @@ def compile(
 
 def aot_compile(
     gm: torch.fx.GraphModule,
-    example_inputs: List[torch.Tensor],
+    example_inputs: List[torch.TensorBase],
     options: Optional[Dict[str, Any]] = None,
 ) -> str:
     """

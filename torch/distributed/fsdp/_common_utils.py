@@ -1,6 +1,7 @@
 """
 This file includes private common utilities for FSDP.
 """
+
 import logging
 import traceback
 import warnings
@@ -242,7 +243,7 @@ def clean_tensor_name(tensor_name: str) -> str:
     return tensor_name
 
 
-def _set_fsdp_flattened(tensor: torch.Tensor) -> None:
+def _set_fsdp_flattened(tensor: torch.TensorBase) -> None:
     """
     Sets an attribute on ``tensor`` to mark it as flattened by FSDP. This is to
     avoid re-flattening it during nested construction.
@@ -250,7 +251,7 @@ def _set_fsdp_flattened(tensor: torch.Tensor) -> None:
     setattr(tensor, FSDP_FLATTENED, True)
 
 
-def _is_fsdp_flattened(tensor: torch.Tensor) -> bool:
+def _is_fsdp_flattened(tensor: torch.TensorBase) -> bool:
     """Returns if ``tensor`` has been marked as flattened by FSDP."""
     return getattr(tensor, FSDP_FLATTENED, False)
 
@@ -516,8 +517,8 @@ def _override_module_mixed_precision(
             # cast. We should revisit this design.
 
             def cast_fn(
-                dtype: torch.dtype, module: nn.Module, x: torch.Tensor
-            ) -> torch.Tensor:
+                dtype: torch.dtype, module: nn.Module, x: torch.TensorBase
+            ) -> torch.TensorBase:
                 if not torch.is_floating_point(x) or x.dtype == dtype:
                     return x
                 _MODULE_TO_INP_DTYPE[module] = x.dtype
@@ -543,7 +544,7 @@ def _override_module_mixed_precision(
     return overridden_module_classes
 
 
-def _no_dispatch_record_stream(tensor: torch.Tensor, stream: torch.Stream) -> None:
+def _no_dispatch_record_stream(tensor: torch.TensorBase, stream: torch.Stream) -> None:
     # FIXME record_stream doesn't work with non-cuda tensors
     if tensor.device.type not in ["cuda", torch._C._get_privateuse1_backend_name()]:
         return

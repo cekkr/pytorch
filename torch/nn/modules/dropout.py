@@ -1,24 +1,33 @@
-from .module import Module
+from torch import TensorBase
 from .. import functional as F
+from .module import Module
 
-from torch import Tensor
+__all__ = [
+    "Dropout",
+    "Dropout1d",
+    "Dropout2d",
+    "Dropout3d",
+    "AlphaDropout",
+    "FeatureAlphaDropout",
+]
 
-__all__ = ['Dropout', 'Dropout1d', 'Dropout2d', 'Dropout3d', 'AlphaDropout', 'FeatureAlphaDropout']
 
 class _DropoutNd(Module):
-    __constants__ = ['p', 'inplace']
+    __constants__ = ["p", "inplace"]
     p: float
     inplace: bool
 
     def __init__(self, p: float = 0.5, inplace: bool = False) -> None:
         super().__init__()
         if p < 0 or p > 1:
-            raise ValueError(f"dropout probability has to be between 0 and 1, but got {p}")
+            raise ValueError(
+                f"dropout probability has to be between 0 and 1, but got {p}"
+            )
         self.p = p
         self.inplace = inplace
 
     def extra_repr(self) -> str:
-        return f'p={self.p}, inplace={self.inplace}'
+        return f"p={self.p}, inplace={self.inplace}"
 
 
 class Dropout(_DropoutNd):
@@ -55,7 +64,7 @@ class Dropout(_DropoutNd):
         detectors: https://arxiv.org/abs/1207.0580
     """
 
-    def forward(self, input: Tensor) -> Tensor:
+    def forward(self, input: TensorBase) -> TensorBase:
         return F.dropout(input, self.p, self.training, self.inplace)
 
 
@@ -100,7 +109,7 @@ class Dropout1d(_DropoutNd):
        https://arxiv.org/abs/1411.4280
     """
 
-    def forward(self, input: Tensor) -> Tensor:
+    def forward(self, input: TensorBase) -> TensorBase:
         return F.dropout1d(input, self.p, self.training, self.inplace)
 
 
@@ -152,7 +161,7 @@ class Dropout2d(_DropoutNd):
        https://arxiv.org/abs/1411.4280
     """
 
-    def forward(self, input: Tensor) -> Tensor:
+    def forward(self, input: TensorBase) -> TensorBase:
         return F.dropout2d(input, self.p, self.training, self.inplace)
 
 
@@ -197,7 +206,7 @@ class Dropout3d(_DropoutNd):
        https://arxiv.org/abs/1411.4280
     """
 
-    def forward(self, input: Tensor) -> Tensor:
+    def forward(self, input: TensorBase) -> TensorBase:
         return F.dropout3d(input, self.p, self.training, self.inplace)
 
 
@@ -239,7 +248,7 @@ class AlphaDropout(_DropoutNd):
     .. _Self-Normalizing Neural Networks: https://arxiv.org/abs/1706.02515
     """
 
-    def forward(self, input: Tensor) -> Tensor:
+    def forward(self, input: TensorBase) -> TensorBase:
         return F.alpha_dropout(input, self.p, self.training)
 
 
@@ -290,5 +299,5 @@ class FeatureAlphaDropout(_DropoutNd):
        https://arxiv.org/abs/1411.4280
     """
 
-    def forward(self, input: Tensor) -> Tensor:
+    def forward(self, input: TensorBase) -> TensorBase:
         return F.feature_alpha_dropout(input, self.p, self.training)

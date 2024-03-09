@@ -477,7 +477,7 @@ class CachingAutotuner(KernelInterface):
         cloned_args = []
         for i, arg in enumerate(args):
             if self.fn.arg_names[i] in self.mutated_arg_names:
-                assert isinstance(arg, torch.Tensor)
+                assert isinstance(arg, torch.TensorBase)
                 cloned_args.append(clone_preserve_strides(arg))
             else:
                 cloned_args.append(arg)
@@ -485,7 +485,7 @@ class CachingAutotuner(KernelInterface):
         cloned_kwargs: Dict[str, Any] = {}
         for name, arg in kwargs.items():
             if name in self.mutated_arg_names:
-                assert isinstance(arg, torch.Tensor)
+                assert isinstance(arg, torch.TensorBase)
                 cloned_kwargs[name] = clone_preserve_strides(arg)
             else:
                 cloned_kwargs[name] = arg
@@ -532,21 +532,27 @@ class CachingAutotuner(KernelInterface):
         key = self.inductor_meta.get("kernel_name", None)  # unique kernel name
         assert key is not None, "kernel_name can not be None"
         params = {
-            "mangled_name": launcher.bin.metadata.name
-            if hasattr(launcher.bin.metadata, "name")
-            else launcher.bin.metadata["name"],
+            "mangled_name": (
+                launcher.bin.metadata.name
+                if hasattr(launcher.bin.metadata, "name")
+                else launcher.bin.metadata["name"]
+            ),
             "grid_x": grid_x,
             "grid_y": grid_y,
             "grid_z": grid_z,
             "x_block": launcher.config.kwargs.get("XBLOCK", 1),
             "y_block": launcher.config.kwargs.get("YBLOCK", None),
             "z_block": launcher.config.kwargs.get("ZBLOCK", None),
-            "num_warps": launcher.bin.num_warps
-            if hasattr(launcher.bin, "num_warps")
-            else launcher.bin.metadata.num_warps,
-            "shared_mem": launcher.bin.shared
-            if hasattr(launcher.bin, "shared")
-            else launcher.bin.metadata.shared,
+            "num_warps": (
+                launcher.bin.num_warps
+                if hasattr(launcher.bin, "num_warps")
+                else launcher.bin.metadata.num_warps
+            ),
+            "shared_mem": (
+                launcher.bin.shared
+                if hasattr(launcher.bin, "shared")
+                else launcher.bin.metadata.shared
+            ),
             "stream": stream,
             # User defined triton kernels will have arbitrary kwarg names
             "meta": launcher.config.kwargs,

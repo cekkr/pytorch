@@ -952,9 +952,7 @@ class Reduction(Loops):
                 return (
                     bool(val)
                     if dst_dtype == torch.bool
-                    else float(val)
-                    if dst_dtype.is_floating_point
-                    else int(val)
+                    else float(val) if dst_dtype.is_floating_point else int(val)
                 )
 
             rtypes_to_inits = {
@@ -3155,9 +3153,11 @@ class ComputedBuffer(Buffer):
             )
             reads = self.get_read_writes().reads
             reads_bufs = [
-                V.graph.name_to_buffer[r.name]
-                if r.name in V.graph.name_to_buffer.keys()
-                else None
+                (
+                    V.graph.name_to_buffer[r.name]
+                    if r.name in V.graph.name_to_buffer.keys()
+                    else None
+                )
                 for r in reads
             ]
             # only consider reads to buffer of same size
@@ -3269,9 +3269,11 @@ class ComputedBuffer(Buffer):
             index_formulas += extra_indexing_expr
 
         reads_bufs = [
-            V.graph.name_to_buffer[reads_name]
-            if reads_name in V.graph.name_to_buffer.keys()
-            else None
+            (
+                V.graph.name_to_buffer[reads_name]
+                if reads_name in V.graph.name_to_buffer.keys()
+                else None
+            )
             for reads_name in body.reads_name2expr.keys()
         ]
         memory_addrs = [
@@ -3820,7 +3822,7 @@ class ExternKernel(InputsKernel):
             else example_output
         )
         for t in example_out_li:
-            if isinstance(t, torch.Tensor) and t.is_sparse:
+            if isinstance(t, torch.TensorBase) and t.is_sparse:
                 msg = "sparsity not handled. Please file issue for sparse inference weights."
                 if stack_trace := V.graph.current_node.meta.get("stack_trace", None):
                     msg = f"{msg} Found from : \n {stack_trace}"
@@ -4990,7 +4992,7 @@ class FallbackKernel(ExternKernelAlloc):
     def find_device(tensor_args, example_output):
         if tensor_args:
             return tensor_args[0].get_device()
-        if isinstance(example_output, torch.Tensor):
+        if isinstance(example_output, torch.TensorBase):
             return example_output.device
         if isinstance(example_output, (list, tuple)):
             devices = {FallbackKernel.find_device(None, x) for x in example_output}
@@ -5174,7 +5176,7 @@ class FallbackKernel(ExternKernelAlloc):
                 self.codegen_size_asserts(wrapper)
 
     @staticmethod
-    def tensor_to_layout(output: torch.Tensor):
+    def tensor_to_layout(output: torch.TensorBase):
         return FixedLayout(
             output.device,
             output.dtype,
@@ -5218,7 +5220,7 @@ class FallbackKernel(ExternKernelAlloc):
                     key: generate_output(val, indices + [(type(output), key)])
                     for key, val in output.items()
                 }
-            elif isinstance(output, torch.Tensor):
+            elif isinstance(output, torch.TensorBase):
                 return MultiOutput(
                     cls.tensor_to_layout(output),
                     packed,
@@ -7991,7 +7993,7 @@ def maybe_free_unbacked_symbols(s):
         for t in s:
             r |= maybe_free_unbacked_symbols(t)
         return r
-    elif isinstance(s, torch.Tensor):
+    elif isinstance(s, torch.TensorBase):
         # This branch is impossible in constant-args position
         return free_unbacked_symbols(s)
     else:

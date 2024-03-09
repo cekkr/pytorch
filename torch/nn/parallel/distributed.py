@@ -147,7 +147,7 @@ def _find_tensors(obj):
         # TODO: Expand to remote RRefs.
         if obj.is_owner():
             return _find_tensors(obj.local_value())
-    if isinstance(obj, torch.Tensor):
+    if isinstance(obj, torch.TensorBase):
         return [obj]
     if isinstance(obj, (list, tuple)):
         return itertools.chain.from_iterable(map(_find_tensors, obj))
@@ -243,7 +243,7 @@ class _DDPSink(Function):
         ctx.set_materialize_grads(False)
         ctx.ddp_weakref = ddp_weakref
         ret = tuple(
-            inp.clone() if isinstance(inp, torch.Tensor) else inp for inp in inputs
+            inp.clone() if isinstance(inp, torch.TensorBase) else inp for inp in inputs
         )
         return ret
 
@@ -781,7 +781,7 @@ class DistributedDataParallel(Module, Joinable):
 
         # Initialize gradient buffers and register all reduce hook
         self._delay_grad_buffer = None
-        self._delay_grad_views: List[torch.Tensor] = []
+        self._delay_grad_views: List[torch.TensorBase] = []
         self._delay_all_reduce_all_params = False
         if len(self._delay_all_reduce_params) != 0:
             self._register_delay_all_reduce_hook(
@@ -2179,7 +2179,7 @@ class DistributedDataParallel(Module, Joinable):
 
         if (
             sig.return_annotation != inspect._empty
-            and sig.return_annotation != torch.futures.Future[torch.Tensor]
+            and sig.return_annotation != torch.futures.Future[torch.TensorBase]
         ):
             self._log_and_throw(
                 ValueError,

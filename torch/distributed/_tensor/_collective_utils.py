@@ -27,8 +27,8 @@ logger = logging.getLogger(__name__)
 
 
 def mesh_scatter(
-    output: torch.Tensor,
-    scatter_list: List[torch.Tensor],
+    output: torch.TensorBase,
+    scatter_list: List[torch.TensorBase],
     mesh: DeviceMesh,
     mesh_dim: int = 0,
     async_op: bool = False,
@@ -85,7 +85,7 @@ def mesh_scatter(
 
 
 def mesh_broadcast(
-    tensor: torch.Tensor,
+    tensor: torch.TensorBase,
     mesh: DeviceMesh,
     mesh_dim: int = 0,
     async_op: bool = False,
@@ -124,8 +124,8 @@ def mesh_broadcast(
 
 # TODO: test uneven split on GLOO and NCCL
 def mesh_all_to_all(
-    output_tensor_list: List[torch.Tensor],
-    input_tensor_list: List[torch.Tensor],
+    output_tensor_list: List[torch.TensorBase],
+    input_tensor_list: List[torch.TensorBase],
     mesh: DeviceMesh,
     mesh_dim: int = 0,
     async_op: bool = False,

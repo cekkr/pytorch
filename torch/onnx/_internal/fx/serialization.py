@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 
 @_beartype.beartype
 def _create_tensor_proto_with_external_data(
-    tensor: torch.Tensor, name: str, location: str, basepath: str
+    tensor: torch.TensorBase, name: str, location: str, basepath: str
 ) -> onnx.TensorProto:  # type: ignore[name-defined]
     """Create a TensorProto with external data from a PyTorch tensor.
     The external data is saved to os.path.join(basepath, location).

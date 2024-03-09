@@ -106,11 +106,11 @@ def _ignore_backend_decomps():
 
 def _convert_input_to_fake(gm, args, kwargs):
     params_buffers = _get_params_buffers(gm)
-    fake_inps: List[torch.Tensor] = []
+    fake_inps: List[torch.TensorBase] = []
     for node in gm.graph.nodes:
         if node.op == "placeholder" and "val" in node.meta:
             fake_val = node.meta["val"]
-            if fake_val is not None and isinstance(fake_val, torch.Tensor):
+            if fake_val is not None and isinstance(fake_val, torch.TensorBase):
                 fake_inps.append(fake_val)
 
     if detected_fake_mode := detect_fake_mode(fake_inps):
@@ -129,11 +129,11 @@ def _convert_input_to_fake(gm, args, kwargs):
         count += 1
         return val
 
-    fake_args = pytree.tree_map_only(torch.Tensor, convert_to_fake, args)
+    fake_args = pytree.tree_map_only(torch.TensorBase, convert_to_fake, args)
     # TODO properly use the cached fake tensor
-    fake_kwargs = pytree.tree_map_only(torch.Tensor, fake_mode.from_tensor, kwargs)
+    fake_kwargs = pytree.tree_map_only(torch.TensorBase, fake_mode.from_tensor, kwargs)
     fake_params_buffers = pytree.tree_map_only(
-        torch.Tensor,
+        torch.TensorBase,
         functools.partial(fake_mode.from_tensor, static_shapes=True),
         params_buffers,
     )
@@ -253,7 +253,7 @@ def _get_param_buffer_mapping(
 def _remap_constants(
     orig_constant_attrs: ConstantAttrMap,
     graph_signature: ExportGraphSignature,
-    constants: Dict[str, Union[torch.Tensor, torch.ScriptObject]],
+    constants: Dict[str, Union[torch.TensorBase, torch.ScriptObject]],
 ) -> None:
     """Rewrite the graph signature and constants table to use the FQN from the original module."""
     remap_table: Dict[str, str] = {}
@@ -295,7 +295,9 @@ def _restore_state_dict(
             continue
 
         attr = getattr(traced_module, name)
-        if isinstance(attr, torch.Tensor) and not isinstance(attr, torch.nn.Parameter):
+        if isinstance(attr, torch.TensorBase) and not isinstance(
+            attr, torch.nn.Parameter
+        ):
             traced_module.register_buffer(fqn, attr)
         else:
             setattr(traced_module, fqn, attr)
@@ -384,7 +386,7 @@ def _gather_constant_attrs(m: torch.nn.Module) -> ConstantAttrMap:
 
     def inner(m: torch.nn.Module, prefix_atoms: List[str], constants):
         for k, v in m.__dict__.items():
-            if isinstance(v, (torch.Tensor, torch.ScriptObject)):
+            if isinstance(v, (torch.TensorBase, torch.ScriptObject)):
                 if v in buffers_parameters:
                     # filter out buffers and parameters, leaving only constants
                     continue
@@ -469,7 +471,7 @@ def _export_non_strict(
         if node.op == "placeholder":
             if index >= total_non_user_inputs:
                 user_arg = flat_args[index - total_non_user_inputs]
-                if not isinstance(user_arg, torch.Tensor):
+                if not isinstance(user_arg, torch.TensorBase):
                     node.meta["val"] = user_arg
             index += 1
 
@@ -530,7 +532,7 @@ def _export_non_strict(
     class _ExportedProgramNonStrict:
         gm: torch.fx.GraphModule
         sig: ExportGraphSignature
-        constants: Dict[str, Union[torch.Tensor, torch._C.ScriptObject]]
+        constants: Dict[str, Union[torch.TensorBase, torch._C.ScriptObject]]
 
     return _ExportedProgramNonStrict(
         gm,
@@ -539,8 +541,8 @@ def _export_non_strict(
     )
 
 
-def _get_params_buffers(mod: torch.nn.Module) -> Dict[str, torch.Tensor]:
-    params_buffers: Dict[str, torch.Tensor] = {}
+def _get_params_buffers(mod: torch.nn.Module) -> Dict[str, torch.TensorBase]:
+    params_buffers: Dict[str, torch.TensorBase] = {}
     for name, param in mod.named_parameters(remove_duplicate=False):
         params_buffers[name] = param
 
@@ -550,10 +552,10 @@ def _get_params_buffers(mod: torch.nn.Module) -> Dict[str, torch.Tensor]:
 
 
 def _rewrite_dynamo_tensor_constants(
-    orig_mod_buffers: Set[torch.Tensor],
-    traced_mod_buffers: Dict[str, torch.Tensor],
+    orig_mod_buffers: Set[torch.TensorBase],
+    traced_mod_buffers: Dict[str, torch.TensorBase],
     graph_signature: ExportGraphSignature,
-    constants: Dict[str, Union[torch.Tensor, torch.ScriptObject]],
+    constants: Dict[str, Union[torch.TensorBase, torch.ScriptObject]],
 ):
     """Dynamo erroneously marks tensor attributes on modules as a buffers.
 
@@ -574,7 +576,7 @@ def _rewrite_dynamo_tensor_constants(
 def _rewrite_non_persistent_buffers(
     orig_mod: torch.nn.Module,
     graph_signature: ExportGraphSignature,
-    constants: Dict[str, Union[torch.Tensor, torch.ScriptObject]],
+    constants: Dict[str, Union[torch.TensorBase, torch.ScriptObject]],
 ):
     """Dynamo erroneously drops the persistent flag on buffers.
 

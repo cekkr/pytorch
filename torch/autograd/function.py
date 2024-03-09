@@ -30,7 +30,7 @@ AUTOGRAD_FUNCTION_COUNTER = itertools.count()
 
 # Formerly known as: _ContextMethodMixin
 class FunctionCtx:
-    def save_for_backward(self, *tensors: torch.Tensor):
+    def save_for_backward(self, *tensors: torch.TensorBase):
         r"""Save given tensors for a future call to :func:`~Function.backward`.
 
         ``save_for_backward`` should be called at most once, only from inside the
@@ -89,7 +89,7 @@ class FunctionCtx:
         """
         self.to_save = tensors
 
-    def save_for_forward(self, *tensors: torch.Tensor):
+    def save_for_forward(self, *tensors: torch.TensorBase):
         r"""Save given tensors for a future call to :func:`~Function.jvp`.
 
         ``save_for_forward`` should be only called once, from inside the :func:`forward`
@@ -135,14 +135,14 @@ class FunctionCtx:
 
         """
         for tensor in tensors:
-            assert isinstance(tensor, torch.Tensor) or tensor is None, (
+            assert isinstance(tensor, torch.TensorBase) or tensor is None, (
                 "save_for_forward expects all arguments to be tensors; you should "
                 "save non-tensors as attributes on ctx."
             )
 
         self.saved_for_forward = tensors
 
-    def mark_dirty(self, *args: torch.Tensor):
+    def mark_dirty(self, *args: torch.TensorBase):
         r"""Mark given tensors as modified in an in-place operation.
 
         **This should be called at most once, only from inside the**
@@ -186,7 +186,7 @@ class FunctionCtx:
             "that calls to `set_()` are not tracked"
         )
 
-    def mark_non_differentiable(self, *args: torch.Tensor):
+    def mark_non_differentiable(self, *args: torch.TensorBase):
         r"""Mark outputs as non-differentiable.
 
         **This should be called at most once, only from inside the**
@@ -631,7 +631,7 @@ def once_differentiable(fn):
         # require computing gradients"), but I don't have a better idea.
         # These functions would raise an error in backward anyway.
         requires_grad = any(
-            isinstance(arg, torch.Tensor) and arg.requires_grad for arg in args
+            isinstance(arg, torch.TensorBase) and arg.requires_grad for arg in args
         )
         if not requires_grad:
             return outputs
@@ -761,7 +761,7 @@ def _unflatten(input, proto):
     # unflatten a list or tuple input into a nested list/tuple structure
     # specified by proto
     def unflatten_helper(input, proto):
-        res: List[Optional[torch.Tensor]] = []
+        res: List[Optional[torch.TensorBase]] = []
         if hasattr(proto, "_jit_wrap"):
             return proto._jit_wrap(input)
         if not isinstance(proto, (list, tuple)):
@@ -782,20 +782,21 @@ _iter_jit_values = _iter_filter(
     condition_msg="jit's Values or None",
 )
 _iter_tensors = _iter_filter(
-    lambda x: isinstance(x, torch.Tensor),
+    lambda x: isinstance(x, torch.TensorBase),
     condition_msg="Tensors",
     conversion=_jit_unwrap_structured,
 )
 _iter_tensors_permissive = _iter_filter(
-    lambda x: isinstance(x, torch.Tensor),
+    lambda x: isinstance(x, torch.TensorBase),
     allow_unknown=True,
     condition_msg="Tensors (permissive)",
 )
 _iter_None_tensors = _iter_filter(
-    lambda o: o is None or isinstance(o, torch.Tensor), condition_msg="Tensors or None"
+    lambda o: o is None or isinstance(o, torch.TensorBase),
+    condition_msg="Tensors or None",
 )
 _map_tensor_data = _nested_map(
-    lambda x: isinstance(x, torch.Tensor), lambda o: o.data, condition_msg="Tensors"
+    lambda x: isinstance(x, torch.TensorBase), lambda o: o.data, condition_msg="Tensors"
 )
 
 
@@ -804,6 +805,7 @@ class NestedIOFunction(Function):
     This class is here only for backward compatibility reasons.
     Use :class:`Function` instead of this for any new use case.
     """
+
     # The 'type: ignore' statements are needed here because these functions are declared as '@staticmethod' in the
     # superclass (Function) but are instance methods here, which mypy reports as incompatible.
 

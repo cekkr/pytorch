@@ -2,13 +2,15 @@
 Collection of conversion functions for linear / conv2d structured pruning
 Also contains utilities for bias propagation
 """
-from typing import cast, List, Optional, Callable, Tuple
+
+from typing import Callable, cast, List, Optional, Tuple
 
 import torch
-from torch import nn, Tensor
+from torch import nn, TensorBase
 from torch.nn.utils import parametrize
 from torch.nn.utils.parametrize import ParametrizationList
-from .parametrization import FakeStructuredSparsity, BiasHook
+from .parametrization import BiasHook, FakeStructuredSparsity
+
 
 # BIAS PROPAGATION
 def _remove_bias_handles(module: nn.Module) -> None:
@@ -23,7 +25,7 @@ def _remove_bias_handles(module: nn.Module) -> None:
 
 
 def _get_adjusted_next_layer_bias(
-    next_layer: nn.Module, pruned_biases: Tensor, mask: Tensor
+    next_layer: nn.Module, pruned_biases: TensorBase, mask: TensorBase
 ) -> nn.Parameter:
     r"""Returns new adjusted bias for the second supported module"""
     if parametrize.is_parametrized(next_layer):
@@ -34,7 +36,7 @@ def _get_adjusted_next_layer_bias(
         )
         next_weight = weight_parameterizations.original
     else:
-        next_weight = cast(Tensor, next_layer.weight)
+        next_weight = cast(TensorBase, next_layer.weight)
 
     scaling_weight = next_weight[:, ~mask]
     if isinstance(next_layer, nn.Conv2d):  # checking for Conv2d
@@ -72,10 +74,10 @@ def _get_adjusted_next_layer_bias(
     return adjusted_bias
 
 
-def _prune_module_bias(module: nn.Module, mask: Tensor) -> None:
+def _prune_module_bias(module: nn.Module, mask: TensorBase) -> None:
     r"""Applies mask to given modules bias"""
     # prune bias along with weights, discard pruned indices of bias
-    original_bias = cast(Tensor, getattr(module, "_bias", module.bias))
+    original_bias = cast(TensorBase, getattr(module, "_bias", module.bias))
     if original_bias is not None:
         module.bias = nn.Parameter(original_bias[mask])
 
@@ -84,19 +86,19 @@ def _prune_module_bias(module: nn.Module, mask: Tensor) -> None:
         delattr(module, "_bias")
 
 
-def _propogate_module_bias(module: nn.Module, mask: Tensor) -> Optional[Tensor]:
+def _propogate_module_bias(module: nn.Module, mask: TensorBase) -> Optional[TensorBase]:
     r"""
     In the case that we need to propagate biases, this function will return the biases we need
     """
     # set current module bias
     if module.bias is not None:
-        module.bias = nn.Parameter(cast(Tensor, module.bias)[mask])
+        module.bias = nn.Parameter(cast(TensorBase, module.bias)[mask])
     elif getattr(module, "_bias", None) is not None:
-        module.bias = nn.Parameter(cast(Tensor, module._bias)[mask])
+        module.bias = nn.Parameter(cast(TensorBase, module._bias)[mask])
 
     # get pruned biases to propagate to subsequent layer
     if getattr(module, "_bias", None) is not None:
-        pruned_biases = cast(Tensor, module._bias)[~mask]
+        pruned_biases = cast(TensorBase, module._bias)[~mask]
     else:
         pruned_biases = None
 
@@ -107,13 +109,13 @@ def _propogate_module_bias(module: nn.Module, mask: Tensor) -> Optional[Tensor]:
 
 
 # LINEAR
-def _prune_linear_helper(linear: nn.Linear) -> Tensor:
+def _prune_linear_helper(linear: nn.Linear) -> TensorBase:
     # expects linear to be a parameterized linear module
     parametrization_dict = cast(nn.ModuleDict, linear.parametrizations)
     weight_parameterizations = cast(ParametrizationList, parametrization_dict.weight)
     for p in weight_parameterizations:
         if isinstance(p, FakeStructuredSparsity):
-            mask = cast(Tensor, p.mask)
+            mask = cast(TensorBase, p.mask)
 
     with torch.no_grad():
         parametrize.remove_parametrizations(linear, "weight", leave_parametrized=True)
@@ -136,7 +138,7 @@ def prune_linear_linear(linear1: nn.Linear, linear2: nn.Linear) -> None:
 
 def prune_linear_activation_linear(
     linear1: nn.Linear,
-    activation: Optional[Callable[[Tensor], Tensor]],
+    activation: Optional[Callable[[TensorBase], TensorBase]],
     linear2: nn.Linear,
 ):
     mask = _prune_linear_helper(linear1)
@@ -166,12 +168,12 @@ def prune_linear_activation_linear(
 
 
 # CONV2D
-def _prune_conv2d_helper(conv2d: nn.Conv2d) -> Tensor:
+def _prune_conv2d_helper(conv2d: nn.Conv2d) -> TensorBase:
     parametrization_dict = cast(nn.ModuleDict, conv2d.parametrizations)
     weight_parameterizations = cast(ParametrizationList, parametrization_dict.weight)
     for p in weight_parameterizations:
         if isinstance(p, FakeStructuredSparsity):
-            mask = cast(Tensor, p.mask)
+            mask = cast(TensorBase, p.mask)
 
     with torch.no_grad():
         parametrize.remove_parametrizations(conv2d, "weight", leave_parametrized=True)
@@ -187,7 +189,7 @@ def prune_conv2d_padded(conv2d_1: nn.Conv2d) -> None:
     weight_parameterizations = cast(ParametrizationList, parametrization_dict.weight)
     for p in weight_parameterizations:
         if isinstance(p, FakeStructuredSparsity):
-            mask = cast(Tensor, p.mask)
+            mask = cast(TensorBase, p.mask)
 
     with torch.no_grad():
         parametrize.remove_parametrizations(conv2d_1, "weight", leave_parametrized=True)
@@ -199,11 +201,11 @@ def prune_conv2d_padded(conv2d_1: nn.Conv2d) -> None:
             new_bias = torch.zeros(conv2d_1.bias.shape)
             new_bias[mask] = conv2d_1.bias[mask]  # type: ignore[possibly-undefined]
             # adjusted bias that to keep in conv2d_1
-            new_bias[~mask] = cast(Tensor, conv2d_1._bias)[~mask]
+            new_bias[~mask] = cast(TensorBase, conv2d_1._bias)[~mask]
             # pruned biases that are kept instead of propagated
             conv2d_1.bias = nn.Parameter(new_bias)
         else:  # conv2d_1 has only original bias
-            conv2d_1.bias = nn.Parameter(cast(Tensor, conv2d_1._bias))
+            conv2d_1.bias = nn.Parameter(cast(TensorBase, conv2d_1._bias))
     else:
         # no original bias, only propagated bias
         if (
@@ -227,7 +229,7 @@ def prune_conv2d_conv2d(conv2d_1: nn.Conv2d, conv2d_2: nn.Conv2d) -> None:
 
 def prune_conv2d_activation_conv2d(
     conv2d_1: nn.Conv2d,
-    activation: Optional[Callable[[Tensor], Tensor]],
+    activation: Optional[Callable[[TensorBase], TensorBase]],
     conv2d_2: nn.Conv2d,
 ):
     r"""
@@ -237,7 +239,7 @@ def prune_conv2d_activation_conv2d(
     weight_parameterizations = cast(ParametrizationList, parametrization_dict.weight)
     for p in weight_parameterizations:
         if isinstance(p, FakeStructuredSparsity):
-            mask = cast(Tensor, p.mask)
+            mask = cast(TensorBase, p.mask)
 
     prune_bias = getattr(conv2d_1, "prune_bias", False)
     if (
@@ -286,7 +288,7 @@ def prune_conv2d_activation_conv2d(
 def prune_conv2d_pool_activation_conv2d(
     c1: nn.Conv2d,
     pool: nn.Module,
-    activation: Optional[Callable[[Tensor], Tensor]],
+    activation: Optional[Callable[[TensorBase], TensorBase]],
     c2: nn.Conv2d,
 ) -> None:
     prune_conv2d_activation_conv2d(c1, activation, c2)
@@ -294,7 +296,7 @@ def prune_conv2d_pool_activation_conv2d(
 
 def prune_conv2d_activation_pool_conv2d(
     c1: nn.Conv2d,
-    activation: Optional[Callable[[Tensor], Tensor]],
+    activation: Optional[Callable[[TensorBase], TensorBase]],
     pool: nn.Module,
     c2: nn.Conv2d,
 ) -> None:
@@ -304,7 +306,7 @@ def prune_conv2d_activation_pool_conv2d(
 def prune_conv2d_pool_flatten_linear(
     conv2d: nn.Conv2d,
     pool: nn.Module,
-    flatten: Optional[Callable[[Tensor], Tensor]],
+    flatten: Optional[Callable[[TensorBase], TensorBase]],
     linear: nn.Linear,
 ) -> None:
     mask = _prune_conv2d_helper(conv2d)
@@ -335,7 +337,7 @@ def prune_conv2d_pool_flatten_linear(
     if getattr(conv2d, "prune_bias", False):
         _prune_module_bias(conv2d, mask)
     else:
-        pruned_biases = cast(Tensor, _propogate_module_bias(conv2d, mask))
+        pruned_biases = cast(TensorBase, _propogate_module_bias(conv2d, mask))
         flattened_pruned_biases = torch.tensor(
             [[bias] * flatten_scale for bias in pruned_biases], device=mask.device
         ).flatten()

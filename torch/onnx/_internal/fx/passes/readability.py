@@ -76,7 +76,9 @@ class RestoreParameterAndBufferNames(_pass.Transform):
         ), "RestoreParameterAndBufferNames does not take any kwargs"
         # state_to_readable_name[parameter/buffer] returns the original readable name of
         # the parameter/buffer. E.g., "self.linear.weight".
-        state_to_readable_name: Dict[Union[torch.nn.Parameter, torch.Tensor], str] = {}
+        state_to_readable_name: Dict[
+            Union[torch.nn.Parameter, torch.TensorBase], str
+        ] = {}
         state_to_readable_name.update(
             {v: k for k, v in self.original_nn_module.named_parameters()}
         )
@@ -107,7 +109,7 @@ class RestoreParameterAndBufferNames(_pass.Transform):
                     continue
                 attr_value = getattr(self.module, node.target)
                 if (
-                    isinstance(attr_value, (torch.nn.Parameter, torch.Tensor))
+                    isinstance(attr_value, (torch.nn.Parameter, torch.TensorBase))
                     and attr_value in state_to_readable_name
                 ):
                     readable_name = state_to_readable_name[attr_value]

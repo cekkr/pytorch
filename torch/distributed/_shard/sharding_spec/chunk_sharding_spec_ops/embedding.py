@@ -1,4 +1,3 @@
-
 import torch
 import torch.distributed as dist
 from torch.distributed._shard.sharded_tensor import ShardedTensor
@@ -146,7 +145,7 @@ def _validate_embedding_param(args, kwargs):
     sparse = kwargs.get("sparse")
 
     # Validate types
-    if not isinstance(input, torch.Tensor):
+    if not isinstance(input, torch.TensorBase):
         raise TypeError("input need to be torch.Tensor")
     if not isinstance(weight, ShardedTensor):
         raise TypeError("weight needs to be ShardedTensor")

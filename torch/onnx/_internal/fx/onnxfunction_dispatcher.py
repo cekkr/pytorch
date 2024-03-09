@@ -856,7 +856,7 @@ def _is_arg_with_complex_dtype(arg: fx_type_utils.Argument) -> bool:
     if (
         isinstance(arg, torch.fx.Node)
         and "val" in arg.meta
-        and isinstance(arg.meta["val"], torch.Tensor)
+        and isinstance(arg.meta["val"], torch.TensorBase)
         and torch.is_complex(arg.meta["val"])
     ):
         return True

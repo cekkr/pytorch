@@ -131,16 +131,16 @@ class ExportedProgram:
         root: Union[torch.nn.Module, Dict[str, Any]],
         graph: torch.fx.Graph,
         graph_signature: ExportGraphSignature,
-        state_dict: Dict[str, Union[torch.Tensor, torch.nn.Parameter]],
+        state_dict: Dict[str, Union[torch.TensorBase, torch.nn.Parameter]],
         range_constraints: "Dict[sympy.Symbol, Any]",
         module_call_graph: List[ModuleCallEntry],
         example_inputs: Optional[Tuple[Tuple[Any, ...], Dict[str, Any]]] = None,
         verifier: Optional[Type[Any]] = None,  # TODO Change typing hint to Verifier.
         tensor_constants: Optional[
-            Dict[str, torch.Tensor]
+            Dict[str, torch.TensorBase]
         ] = None,  # TODO: deprecate this
         constants: Optional[
-            Dict[str, Union[torch.Tensor, torch._C.ScriptObject]]
+            Dict[str, Union[torch.TensorBase, torch._C.ScriptObject]]
         ] = None,
     ):
         # Remove codegen related things from the graph. It should just be a flat graph.
@@ -206,7 +206,7 @@ class ExportedProgram:
             yield param_name, self.state_dict[param_name]
 
     @compatibility(is_backward_compatible=False)
-    def buffers(self) -> Iterator[torch.Tensor]:
+    def buffers(self) -> Iterator[torch.TensorBase]:
         """
         Returns an iterator over original module buffers.
         """
@@ -214,7 +214,7 @@ class ExportedProgram:
             yield buf
 
     @compatibility(is_backward_compatible=False)
-    def named_buffers(self) -> Iterator[Tuple[str, torch.Tensor]]:
+    def named_buffers(self) -> Iterator[Tuple[str, torch.TensorBase]]:
         """
         Returns an iterator over original module buffers, yielding
         both the name of the buffer as well as the buffer itself.
@@ -530,7 +530,7 @@ class ExportedProgram:
         # the original values.
         # Also, set the param/buffer metadata back to the placeholders.
         for old_node, new_node in zip(old_placeholders, new_placeholders):
-            if not isinstance(old_node.meta["val"], torch.Tensor):
+            if not isinstance(old_node.meta["val"], torch.TensorBase):
                 new_node.meta["val"] = old_node.meta["val"]
 
             if (

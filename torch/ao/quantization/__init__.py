@@ -1,8 +1,7 @@
 # flake8: noqa: F403
 
 from .fake_quantize import *  # noqa: F403
-from .fuse_modules import fuse_modules  # noqa: F403
-from .fuse_modules import fuse_modules_qat  # noqa: F403
+from .fuse_modules import fuse_modules, fuse_modules_qat  # noqa: F403  # noqa: F403
 from .fuser_method_mappings import *  # noqa: F403
 from .observer import *  # noqa: F403
 from .qconfig import *  # noqa: F403
@@ -12,13 +11,18 @@ from .quantization_mappings import *  # type: ignore[no-redef]
 from .quantize import *  # noqa: F403
 from .quantize_jit import *  # noqa: F403
 from .stubs import *  # noqa: F403
-from .pt2e.export_utils import _move_exported_model_to_eval as move_exported_model_to_eval
-from .pt2e.export_utils import _move_exported_model_to_train as move_exported_model_to_train
-from .pt2e.export_utils import _allow_exported_model_train_eval as allow_exported_model_train_eval
-from .pt2e.generate_numeric_debug_handle import generate_numeric_debug_handle  # noqa: F401
-from typing import Union, List, Callable, Tuple, Optional
-from torch import Tensor
+from typing import Callable, List, Optional, Tuple, Union
+
 import torch
+from torch import TensorBase
+from .pt2e.export_utils import (
+    _allow_exported_model_train_eval as allow_exported_model_train_eval,
+    _move_exported_model_to_eval as move_exported_model_to_eval,
+    _move_exported_model_to_train as move_exported_model_to_train,
+)
+from .pt2e.generate_numeric_debug_handle import (  # noqa: F401
+    generate_numeric_debug_handle,
+)
 
 ObserverOrFakeQuantize = Union[ObserverBase, FakeQuantizeBase]
 ObserverOrFakeQuantize.__module__ = "torch.ao.quantization"
@@ -146,6 +150,7 @@ __all__ = [
     "generate_numeric_debug_handle",
 ]
 
+
 def default_eval_fn(model, calib_data):
     r"""Define the default evaluation function.
 
@@ -154,6 +159,7 @@ def default_eval_fn(model, calib_data):
     """
     for data, target in calib_data:
         model(data)
+
 
 class _DerivedObserverOrFakeQuantize(ObserverBase):
     r"""This observer is used to describe an observer whose quantization parameters
@@ -164,11 +170,13 @@ class _DerivedObserverOrFakeQuantize(ObserverBase):
         self,
         dtype: torch.dtype,
         obs_or_fqs: List[ObserverOrFakeQuantize],
-        derive_qparams_fn: Callable[[List[ObserverOrFakeQuantize]], Tuple[Tensor, Tensor]],
-        quant_min: Optional[int]=None,
-        quant_max: Optional[int]=None,
-        qscheme: Optional[torch.qscheme]=None,
-        ch_axis: Optional[int] = None
+        derive_qparams_fn: Callable[
+            [List[ObserverOrFakeQuantize]], Tuple[TensorBase, TensorBase]
+        ],
+        quant_min: Optional[int] = None,
+        quant_max: Optional[int] = None,
+        qscheme: Optional[torch.qscheme] = None,
+        ch_axis: Optional[int] = None,
     ):
         super().__init__(dtype)
         self.obs_or_fqs = obs_or_fqs
@@ -179,10 +187,13 @@ class _DerivedObserverOrFakeQuantize(ObserverBase):
         self.ch_axis = ch_axis
 
         from .utils import is_per_channel
-        if is_per_channel(self.qscheme):
-            assert self.ch_axis is not None, "Must provide a valid ch_axis if qscheme is per channel"
 
-    def forward(self, x: Tensor) -> Tensor:
+        if is_per_channel(self.qscheme):
+            assert (
+                self.ch_axis is not None
+            ), "Must provide a valid ch_axis if qscheme is per channel"
+
+    def forward(self, x: TensorBase) -> TensorBase:
         return x
 
     def calculate_qparams(self):

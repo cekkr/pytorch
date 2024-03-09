@@ -73,14 +73,6 @@ def _rebuild_from_type_v2(func, new_type, args, state):
 
 
 class Tensor():
-    '''
-    def __init__(self, target, device):
-        if not isinstance(target, TensorBase):
-            print("wrong type, excepted torch.Tensor")
-
-        setattr(self, 'gpuDevice', device)
-        setattr(self, 'target', target)
-    '''
     
     def __init__(self, *args, **kwargs):
         # Initialize the target object, passing all arguments

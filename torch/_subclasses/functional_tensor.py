@@ -16,7 +16,7 @@ from torch.utils._python_dispatch import (
 not_implemented_log = torch._logging.getArtifactLogger(__name__, "not_implemented")
 
 
-class FunctionalTensor(torch.Tensor):
+class FunctionalTensor(torch.TensorBase):
     """
     Functional tensors represent tensors that will remove mutations
     from a program. If you perform a mutable operation on a functional tensor,
@@ -30,7 +30,7 @@ class FunctionalTensor(torch.Tensor):
     on using the mode for dispatch (which can properly handle factory functions).
     """
 
-    elem: torch.Tensor
+    elem: torch.TensorBase
     # Indicates to our torch_dispatch dispatching infra that
     # this is an "infra" mode with lower dispatching precedence.
     _mode_key = torch._C._TorchDispatchModeKey.FUNCTIONAL
@@ -99,7 +99,7 @@ class FunctionalTensor(torch.Tensor):
             FunctionalTensor._extra_dispatch_keys & torch._C._dispatch_keys(elem)
         )
 
-        out = torch.Tensor._make_wrapper_subclass(  # type: ignore[arg-type, attr-defined]
+        out = torch.TensorBase._make_wrapper_subclass(  # type: ignore[arg-type, attr-defined]
             # TODO: right now, _make_wrapper_subclass's dynamic shape interaction is not great.
             # Calling the overload that has kwargs causes us to go down the first overload path,
             # which will **always** specialize sizes.
@@ -126,7 +126,8 @@ class FunctionalTensor(torch.Tensor):
         unrecognized_types = [
             t
             for t in types
-            if t not in [torch.Tensor, torch._subclasses.FakeTensor, FunctionalTensor]
+            if t
+            not in [torch.TensorBase, torch._subclasses.FakeTensor, FunctionalTensor]
         ]
         if unrecognized_types:
             not_implemented_log.debug(
@@ -230,7 +231,7 @@ class FunctionalTensorMode(TorchDispatchMode):
         self._dispatch_key = torch._C.DispatchKey.PreDispatch if pre_dispatch else None  # type: ignore[attr-defined]
         # Map of effect type (ex. _EffectType.ORDERED) to a token. The tokens help keep
         # track of the ordering between side effectful operations.
-        self._tokens: Dict[Any, torch.Tensor] = {}
+        self._tokens: Dict[Any, torch.TensorBase] = {}
 
         # Functionalization runs twice in AOTAutograd, once in
         # `run_functionalized_fw_and_collect_metadata` to collect metadata to
@@ -272,7 +273,7 @@ class FunctionalTensorMode(TorchDispatchMode):
             t
             for t in types
             if not issubclass(t, torch._subclasses.FakeTensor)
-            and t not in [torch.Tensor, FunctionalTensor]
+            and t not in [torch.TensorBase, FunctionalTensor]
         ]
         if unrecognized_types:
             not_implemented_log.debug(
@@ -330,7 +331,7 @@ class FunctionalTensorMode(TorchDispatchMode):
             # also wrapped outputs into FunctionalTensorWrappers.
             # When can this happen? e.g. `torch.div(2, 2)`
             assert not isinstance(x, FunctionalTensor)
-            if isinstance(x, torch.Tensor) and torch._is_functional_tensor(x):
+            if isinstance(x, torch.TensorBase) and torch._is_functional_tensor(x):
                 return FunctionalTensor(x)
             return x
 
@@ -400,7 +401,7 @@ class FunctionalTensorMode(TorchDispatchMode):
                 if func in FunctionalTensor.metadata_fns:
                     outs_unwrapped = func(*args_unwrapped, **kwargs_unwrapped)
                     outs_wrapped = pytree.tree_map_only(
-                        torch.Tensor, wrap, outs_unwrapped
+                        torch.TensorBase, wrap, outs_unwrapped
                     )
                 else:
                     # When we dispatch to the C++ functionalization kernel, we might need to jump back to the
@@ -417,7 +418,7 @@ class FunctionalTensorMode(TorchDispatchMode):
                     if self.export and func == torch.ops.aten.dropout.default:
                         torch._freeze_functional_tensor(outs_unwrapped)  # type: ignore[attr-defined]
                     outs_wrapped = pytree.tree_map_only(
-                        torch.Tensor, wrap, outs_unwrapped
+                        torch.TensorBase, wrap, outs_unwrapped
                     )
             finally:
                 torch._disable_functionalization()
@@ -467,14 +468,14 @@ def disable_functional_mode():
 def dispatch_functionalize(func, mode: FunctionalTensorMode = FunctionalTensorMode()):
     # TODO: pull these from aot autograd
     def to_fun(t):
-        if isinstance(t, torch.Tensor):
+        if isinstance(t, torch.TensorBase):
             return FunctionalTensor.to_functional(t)
         return t
 
     def from_fun(t):
         if not isinstance(t, FunctionalTensor):
             # quick sanity assert
-            if isinstance(t, torch.Tensor):
+            if isinstance(t, torch.TensorBase):
                 assert not torch._is_functional_tensor(t)
             return t
         torch._sync(t)
@@ -485,8 +486,8 @@ def dispatch_functionalize(func, mode: FunctionalTensorMode = FunctionalTensorMo
             torch._C.DispatchKeySet(torch._C.DispatchKey.Functionalize)
         )
         with disable_above, mode:
-            func_args = pytree.tree_map_only(torch.Tensor, to_fun, args)
-            func_kwargs = pytree.tree_map_only(torch.Tensor, to_fun, kwargs)
+            func_args = pytree.tree_map_only(torch.TensorBase, to_fun, args)
+            func_kwargs = pytree.tree_map_only(torch.TensorBase, to_fun, kwargs)
             func_outputs = func(*func_args, **func_kwargs)
             outputs = pytree.tree_map_only(FunctionalTensor, from_fun, func_outputs)
 
@@ -540,7 +541,7 @@ class PythonFunctionalizeAPI(BaseFunctionalizeAPI):
     def wrap_tensors(self, args: Tuple[Any]) -> Tuple[Any]:
         with self.mode:
             return torch.utils._pytree.tree_map_only(
-                torch.Tensor, FunctionalTensor.to_functional, args
+                torch.TensorBase, FunctionalTensor.to_functional, args
             )
 
     def unwrap_tensors(self, args: Tuple[Any]) -> Tuple[Any]:
@@ -632,9 +633,11 @@ class FunctorchFunctionalizeAPI(BaseFunctionalizeAPI):
     def functionalize(self, inner_f: Callable) -> Callable:
         return torch.func.functionalize(
             inner_f,
-            remove="mutations_and_views"
-            if self.interpreter.functionalize_add_back_views()
-            else "mutations",
+            remove=(
+                "mutations_and_views"
+                if self.interpreter.functionalize_add_back_views()
+                else "mutations"
+            ),
         )
 
     def redispatch_to_next(self) -> ContextManager:

@@ -473,7 +473,7 @@ def _sfdp_params_check(match):
         # Make sure attn_mask.dtype == query.dtype or attn_mask.dtype == torch.bool
         # attn_mask.dtype == torch.float for models like albert.
         if (
-            not isinstance(attn_mask, torch.Tensor)
+            not isinstance(attn_mask, torch.TensorBase)
             or not (
                 attn_mask.dtype == query.dtype
                 or attn_mask.dtype == torch.bool

@@ -14,11 +14,11 @@ if dist.is_available() or TYPE_CHECKING:
 
 
 def _identity_func(
-    obj: torch.Tensor,
+    obj: torch.TensorBase,
     pg: Optional[dist.ProcessGroup],
     device: Optional[torch.device],
     companion_obj: Any,
-) -> torch.Tensor:
+) -> torch.TensorBase:
     return obj
 
 
@@ -26,7 +26,7 @@ def _all_gather_sharded_tensor(
     sharded_tensor: "ShardedTensor",
     pg: Optional[dist.ProcessGroup] = None,
     device: Optional[torch.device] = None,
-) -> torch.Tensor:
+) -> torch.TensorBase:
     if pg is None:
         pg = distributed_c10d._get_default_group()
     world_size = dist.get_world_size(pg)
@@ -60,8 +60,7 @@ def _all_gather_sharded_tensor(
     return tensor
 
 
-class CompanionMismatch(Exception):
-    ...
+class CompanionMismatch(Exception): ...
 
 
 def _iterate_state_dict(
@@ -83,7 +82,7 @@ def _iterate_state_dict(
         ret = sharded_tensor_func(iter_object, pg, device, companion_obj)
     elif isinstance(iter_object, DTensor):
         ret = dtensor_func(iter_object, pg, device, companion_obj)
-    elif isinstance(iter_object, torch.Tensor):
+    elif isinstance(iter_object, torch.TensorBase):
         ret = tensor_func(iter_object, pg, device, companion_obj)
     elif (
         isinstance(iter_object, (int, float, str, bytes, io.BytesIO))
@@ -142,7 +141,7 @@ def _iterate_state_dict(
         raise ValueError(f"Unexpected value type {type(iter_object)}")
 
     if not ranks_only or dist.get_rank(pg) in ranks_only:
-        if isinstance(ret, torch.Tensor) and cpu_offload:
+        if isinstance(ret, torch.TensorBase) and cpu_offload:
             if companion_obj is None:
                 ret = ret.to(cpu_device)
             else:
@@ -311,11 +310,11 @@ def _create_cpu_state_dict(
         )
 
     def tensor_func(
-        obj: torch.Tensor,
+        obj: torch.TensorBase,
         pg: Optional[dist.ProcessGroup],
         device: Optional[torch.device],
         companion_obj: Any,
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         if len(obj.size()) == 0:
             return torch.tensor(0, dtype=obj.dtype)
 
@@ -357,11 +356,11 @@ def _check_state_dict_similarity(
     """
 
     def tensor_func(
-        obj: torch.Tensor,
+        obj: torch.TensorBase,
         pg: Optional[dist.ProcessGroup],
         device: Optional[torch.device],
         companion_obj: Any,
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         if companion_obj.dtype != obj.dtype or companion_obj.size() != obj.size():
             raise CompanionMismatch()
         return obj

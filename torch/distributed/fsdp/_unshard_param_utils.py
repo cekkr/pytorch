@@ -43,7 +43,7 @@ def _writeback_to_local_shard(
     padded unsharded flattened parameter.
     """
 
-    def _get_shard(flat_param_or_grad: torch.Tensor) -> torch.Tensor:
+    def _get_shard(flat_param_or_grad: torch.TensorBase) -> torch.TensorBase:
         if handle.uses_sharded_strategy:
             # For sharded strategies, get the *unpadded* shard instead of
             # the *padded* shard to persist user changes to the padding

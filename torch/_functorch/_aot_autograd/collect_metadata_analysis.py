@@ -14,7 +14,7 @@ from typing import Callable, DefaultDict, Dict, List
 
 import torch
 import torch.utils._pytree as pytree
-from torch import Tensor
+from torch import TensorBase
 from torch._subclasses.functional_tensor import FunctionalTensor, FunctionalTensorMode
 from torch._subclasses.meta_utils import safe_is_leaf
 from torch.fx.experimental.symbolic_shapes import is_concrete_int
@@ -75,10 +75,10 @@ def run_functionalized_fw_and_collect_metadata(
     is_train: bool = False,
     pre_dispatch: bool = False,
 ) -> Callable[..., ViewAndMutationMeta]:
-    memo: Dict[Tensor, Tensor] = {}
+    memo: Dict[TensorBase, TensorBase] = {}
 
     def _to_fun(t):
-        if isinstance(t, Tensor):
+        if isinstance(t, TensorBase):
             if t in memo:
                 return memo[t]
             r = to_fun(t)
@@ -137,7 +137,7 @@ def run_functionalized_fw_and_collect_metadata(
                     "tensor subclasses"
                 )
 
-            if not isinstance(arg, Tensor):
+            if not isinstance(arg, TensorBase):
                 new_arg = arg
             else:
                 new_arg = from_fun(f_arg)
@@ -176,11 +176,11 @@ def run_functionalized_fw_and_collect_metadata(
             if mutates_storage_metadata:
                 mutates_data = False
 
-            requires_grad = isinstance(f_arg, torch.Tensor) and f_arg.requires_grad
+            requires_grad = isinstance(f_arg, torch.TensorBase) and f_arg.requires_grad
 
             input_info.append(
                 InputAliasInfo(
-                    is_leaf=isinstance(arg, Tensor) and safe_is_leaf(arg),
+                    is_leaf=isinstance(arg, TensorBase) and safe_is_leaf(arg),
                     mutates_data=mutates_data,
                     mutates_metadata=mutates_metadata,
                     mutations_hidden_from_autograd=mutations_hidden_from_autograd,
@@ -199,11 +199,13 @@ def run_functionalized_fw_and_collect_metadata(
         inp_storage_refs = {
             StorageWeakRef(inpt.untyped_storage()): idx
             for idx, inpt in enumerate(flat_f_args)
-            if isinstance(inpt, Tensor)
+            if isinstance(inpt, TensorBase)
         }
 
         # We need inp tensor id's to be able to tell if an outputs **are** inputs.
-        inp_tensor_ids = {id(inpt) for inpt in flat_f_args if isinstance(inpt, Tensor)}
+        inp_tensor_ids = {
+            id(inpt) for inpt in flat_f_args if isinstance(inpt, TensorBase)
+        }
         # We need output tensor id's to tell if any output._base` attributes **are** other outputs.
         # (This is also a dict because we need to know that output's index, so we can regenerate
         # the alias from it).
@@ -219,7 +221,7 @@ def run_functionalized_fw_and_collect_metadata(
         out_storage_to_tensors: DefaultDict = collections.defaultdict(set)
         curr_storage = None
         for o in flat_f_outs:
-            if isinstance(o, torch.Tensor):
+            if isinstance(o, torch.TensorBase):
                 curr_storage = StorageWeakRef(o.untyped_storage())
                 out_tensor_alias_counts[curr_storage] += 1
                 # Note: [AOTAutograd: differentiable outputs that alias each other from a multi-output view call]
@@ -311,7 +313,7 @@ def run_functionalized_fw_and_collect_metadata(
 
         # maps the id of an intermediate base to its index in the output of the compiled forward
         intermediate_base_tensor_id_to_output_idx: Dict[int, int] = {}
-        intermediate_bases: List[torch.Tensor] = []
+        intermediate_bases: List[torch.TensorBase] = []
         # Why Do We Care If Storage Changed?
         # It's important to understand the implications of storage changes in complex scenarios. Take this example:
         #
@@ -344,12 +346,12 @@ def run_functionalized_fw_and_collect_metadata(
             )
             curr_storage = (
                 None
-                if not isinstance(o, torch.Tensor)
+                if not isinstance(o, torch.TensorBase)
                 else StorageWeakRef(o.untyped_storage())
             )
             outs_with_identical_metadata_that_require_grad = (
                 []
-                if not isinstance(o, Tensor)
+                if not isinstance(o, TensorBase)
                 else [
                     curr
                     for curr in out_storage_to_tensors[curr_storage]
@@ -365,7 +367,7 @@ def run_functionalized_fw_and_collect_metadata(
             # on FunctionalTensors, so we must enable a FunctionalTensorMode here to ensure
             # these op calls succeed.
             grad_fn = None
-            if isinstance(o, Tensor):
+            if isinstance(o, TensorBase):
                 with FunctionalTensorMode():
                     grad_fn = o.grad_fn
 
@@ -377,7 +379,7 @@ def run_functionalized_fw_and_collect_metadata(
             if isinstance(grad_fn, torch.autograd.function.BackwardCFunction):
                 is_result_of_custom_autograd_fn = True
 
-            if not isinstance(o, Tensor):
+            if not isinstance(o, TensorBase):
                 output_type = OutputType.non_alias
                 base_idx = None
             elif (
@@ -491,9 +493,9 @@ from a multi-output view call"
                             output_type = (
                                 OutputType.alias_of_intermediate_save_as_output
                             )
-                            intermediate_base_tensor_id_to_output_idx[
-                                id(o._base)
-                            ] = new_out_idx
+                            intermediate_base_tensor_id_to_output_idx[id(o._base)] = (
+                                new_out_idx
+                            )
                             intermediate_bases.append(o._base)
             elif (
                 # See https://github.com/pytorch/pytorch/issues/100348 for this case.
@@ -513,7 +515,7 @@ from a multi-output view call"
                 output_type = OutputType.non_alias
                 base_idx = None
 
-            if isinstance(o, torch.Tensor):
+            if isinstance(o, torch.TensorBase):
                 dynamic_dims = {
                     i for i, s in enumerate(o.shape) if not is_concrete_int(s)
                 }
@@ -524,17 +526,17 @@ from a multi-output view call"
                 raw_type=type(o),
                 base_idx=base_idx,
                 dynamic_dims=dynamic_dims,
-                requires_grad=isinstance(o, torch.Tensor) and o.requires_grad,
+                requires_grad=isinstance(o, torch.TensorBase) and o.requires_grad,
             )
             output_info.append(out_info)
 
         # See Note [AOT Autograd: Views to avoid tangents aliasing inputs]
         def view_avoid_dupes_with_primals(t):
-            if isinstance(t, Tensor) and is_traceable_wrapper_subclass(t):
+            if isinstance(t, TensorBase) and is_traceable_wrapper_subclass(t):
                 return transform_subclass(
                     t, lambda _, inner_t: view_avoid_dupes_with_primals(inner_t)
                 )
-            if isinstance(t, Tensor):
+            if isinstance(t, TensorBase):
                 return t.view(t.shape)
             return t
 
@@ -557,7 +559,7 @@ from a multi-output view call"
                 OutputType.unsafe_view_alias,
                 OutputType.custom_function_view,
             ]
-            and issubclass(info.raw_type, torch.Tensor)
+            and issubclass(info.raw_type, torch.TensorBase)
             and info.requires_grad
         ]
         # intermediate bases are also included in the backward graph

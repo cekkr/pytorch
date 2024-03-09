@@ -63,7 +63,7 @@ __all__ = [
     "triplet_margin_loss",
 ]
 
-Tensor = torch.Tensor
+Tensor = torch.TensorBase
 aten = torch._ops.ops.aten
 DispatchKey = torch._C.DispatchKey  # type: ignore[attr-defined]
 

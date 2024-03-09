@@ -7,7 +7,7 @@ __all__ = ["VariableMeta", "Variable"]
 
 class VariableMeta(type):
     def __instancecheck__(cls, other):
-        return isinstance(other, torch.Tensor)
+        return isinstance(other, torch.TensorBase)
 
 
 class Variable(torch._C._LegacyVariableBase, metaclass=VariableMeta):  # type: ignore[misc]

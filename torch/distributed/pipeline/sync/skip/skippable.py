@@ -6,9 +6,9 @@
 # LICENSE file in the root directory of this source tree.
 """The user interface to define skip connections."""
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
+    cast,
     ClassVar,
     Dict,
     FrozenSet,
@@ -16,16 +16,16 @@ from typing import (
     Iterable,
     List,
     Optional,
-    Set,
     Sequence,
+    Set,
     Tuple,
     Type,
+    TYPE_CHECKING,
     TypeVar,
     Union,
-    cast,
 )
 
-from torch import Tensor, nn
+from torch import nn, TensorBase
 
 from ..microbatch import Batch
 from .namespace import Namespace
@@ -34,11 +34,11 @@ from .tracker import current_skip_tracker
 __all__ = ["skippable", "stash", "pop", "verify_skippables"]
 
 
-Tensors = Sequence[Tensor]
-TensorOrTensors = Union[Tensor, Tensors]
+Tensors = Sequence[TensorBase]
+TensorOrTensors = Union[TensorBase, Tensors]
 
 StashPop = Union["stash", "pop"]
-StashPopGenerator = Generator[StashPop, Optional[Tensor], TensorOrTensors]
+StashPopGenerator = Generator[StashPop, Optional[TensorBase], TensorOrTensors]
 if TYPE_CHECKING:
     # Typechecking: nn.Module is not a Generic
     SkippableModule = nn.Module[Union[StashPopGenerator, TensorOrTensors]]  # type: ignore[type-arg]
@@ -146,8 +146,8 @@ class Skippable(nn.Module):
     def dispatch(
         self,
         input,
-        handle_stash: Callable[[str, Optional[Tensor]], None],
-        handle_pop: Callable[[str], Optional[Tensor]],
+        handle_stash: Callable[[str, Optional[TensorBase]], None],
+        handle_pop: Callable[[str], Optional[TensorBase]],
     ):
         """Dispatch :class:`stash` or :class:`pop` commands.
 
@@ -180,7 +180,7 @@ class Skippable(nn.Module):
             output = stop.args[0]
             return output
 
-    def forward(self, input: Union[List[Any], Tensor]) -> TensorOrTensors:
+    def forward(self, input: Union[List[Any], TensorBase]) -> TensorOrTensors:
         """Perform the forward propagation.
 
         :class:`stash` or :class:`pop` commands will be handled by portals
@@ -192,7 +192,7 @@ class Skippable(nn.Module):
 
         """
         skip_tracker = current_skip_tracker()
-        stashed_tensors: Dict[str, Optional[Tensor]] = {}
+        stashed_tensors: Dict[str, Optional[TensorBase]] = {}
 
         # Load skip tensors that might be popped.
         poppable_tensors = {}
@@ -205,12 +205,12 @@ class Skippable(nn.Module):
         input = batch.values
 
         # Handle skip commands.
-        def handle_stash(name: str, tensor: Optional[Tensor]) -> None:
+        def handle_stash(name: str, tensor: Optional[TensorBase]) -> None:
             if name not in self.stashable_names:
                 raise RuntimeError(f"'{name}' has not been declared as stashable")
             stashed_tensors[name] = tensor
 
-        def handle_pop(name: str) -> Optional[Tensor]:
+        def handle_pop(name: str) -> Optional[TensorBase]:
             if name not in self.poppable_names:
                 raise RuntimeError(f"'{name}' has not been declared as poppable")
             return poppable_tensors.pop(name)
@@ -240,7 +240,8 @@ class Skippable(nn.Module):
 
 # TODO(sublee): Move to above of Skippable class for better read flow.
 def skippable(
-    stash: Iterable[str] = (), pop: Iterable[str] = (),
+    stash: Iterable[str] = (),
+    pop: Iterable[str] = (),
 ) -> Callable[[Type[SkippableModule]], Type[Skippable]]:
     """Define a decorator to create :class:`nn.Module <torch.nn.Module>` with skip connections.
 
@@ -297,7 +298,11 @@ def skippable(
     def extend_skippable(module_cls: Type[SkippableModule]) -> Type[Skippable]:
         name = module_cls.__name__
         bases = (Skippable,)
-        attrs = {"module_cls": module_cls, "stashable_names": stashable_names, "poppable_names": poppable_names}
+        attrs = {
+            "module_cls": module_cls,
+            "stashable_names": stashable_names,
+            "poppable_names": poppable_names,
+        }
         return type(name, bases, attrs)
 
     return extend_skippable
@@ -320,7 +325,7 @@ class stash:
 
     __slots__ = ("name", "tensor")
 
-    def __init__(self, name: str, tensor: Optional[Tensor]) -> None:
+    def __init__(self, name: str, tensor: Optional[TensorBase]) -> None:
         self.name = name
         self.tensor = tensor
 
@@ -421,11 +426,12 @@ def verify_skippables(module: nn.Sequential) -> None:
 
             popped.add((ns, name))
 
-    for (_, name) in stashed - popped:
+    for _, name in stashed - popped:
         msg = f"no module declared '{name}' as poppable but stashed"
         msgs.append(msg)
 
     if msgs:
         raise TypeError(
-            "one or more pairs of stash and pop do not match:\n\n%s" "" % "\n".join("* %s" % x for x in msgs)
+            "one or more pairs of stash and pop do not match:\n\n%s"
+            "" % "\n".join("* %s" % x for x in msgs)
         )

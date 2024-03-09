@@ -815,7 +815,9 @@ class AlgorithmSelectorCache(PersistentCache):
         # corresponding ir.Buffer. if passed for a given
         # arg, the function will be called instead of
         # generating a random torch.Tensor for benchmarking.
-        input_gen_fns: Optional[Dict[int, Callable[[ir.Buffer], torch.Tensor]]] = None,
+        input_gen_fns: Optional[
+            Dict[int, Callable[[ir.Buffer], torch.TensorBase]]
+        ] = None,
         precompilation_timeout_seconds: int = 60 * 60,
     ):
         from .codegen.cuda.cuda_kernel import CUDATemplateCaller

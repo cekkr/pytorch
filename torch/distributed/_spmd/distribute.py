@@ -108,7 +108,7 @@ def _dispatch_with_local_tensors(
     kwargs: Optional[Dict[str, Any]] = None,
     specs: Optional[
         Dict[
-            torch.Tensor,
+            torch.TensorBase,
             Tuple[torch.Size, DeviceMesh, Sequence[Placement], Sequence[Placement]],
         ]
     ] = None,
@@ -134,7 +134,7 @@ def _dispatch_with_local_tensors(
 
         return (
             redistribute_local_tensor(arg, current_spec, target_spec)  # type: ignore[index]
-            if isinstance(arg, torch.Tensor) and arg in specs  # type: ignore[operator]
+            if isinstance(arg, torch.TensorBase) and arg in specs  # type: ignore[operator]
             else arg
         )
 
@@ -151,7 +151,7 @@ def _update_specs_for_redistribute(args, target_schema, redistribute):
     flatten_args_schema = pytree.tree_leaves(target_schema.args_schema)
 
     specs: Dict[
-        torch.Tensor,
+        torch.TensorBase,
         Tuple[
             torch.Size,
             DeviceMesh,
@@ -455,11 +455,11 @@ def _build_dummy_add_graph(
     Also returns the actual DTensor after resharding.
     """
 
-    def dummy_add(grad: torch.Tensor, zero: torch.Tensor) -> torch.Tensor:
+    def dummy_add(grad: torch.TensorBase, zero: torch.TensorBase) -> torch.TensorBase:
         return grad + zero
 
-    grad: torch.Tensor = dt._local_tensor
-    zero: torch.Tensor = torch.zeros_like(dt._local_tensor)
+    grad: torch.TensorBase = dt._local_tensor
+    zero: torch.TensorBase = torch.zeros_like(dt._local_tensor)
 
     traced_add = make_fx(dummy_add)(grad, zero)
 
@@ -671,7 +671,7 @@ def _get_last_consumer_to_nodes(
 
 def _convert_to_distributed(
     gm: fx.GraphModule,
-    inps: List[torch.Tensor],
+    inps: List[torch.TensorBase],
     schemas: List[Schema],
     default_mesh: Optional[DeviceMesh] = None,
     _allow_partial: bool = False,

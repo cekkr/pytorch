@@ -18,11 +18,11 @@ class _MultiDeviceReplicator:
     Copies are cached per-device.
     """
 
-    def __init__(self, master_tensor: torch.Tensor) -> None:
+    def __init__(self, master_tensor: torch.TensorBase) -> None:
         self.master = master_tensor
-        self._per_device_tensors: Dict[torch.device, torch.Tensor] = {}
+        self._per_device_tensors: Dict[torch.device, torch.TensorBase] = {}
 
-    def get(self, device: torch.device) -> torch.Tensor:
+    def get(self, device: torch.device) -> torch.TensorBase:
         retval = self._per_device_tensors.get(device, None)
         if retval is None:
             retval = self.master.to(device=device, non_blocking=True, copy=True)
@@ -139,20 +139,20 @@ class GradScaler:
 
             self._init_scale = init_scale
             # self._scale will be lazily initialized during the first call to scale()
-            self._scale: Optional[torch.Tensor] = None
+            self._scale: Optional[torch.TensorBase] = None
             self._growth_factor = growth_factor
             self._backoff_factor = backoff_factor
             self._growth_interval = growth_interval
             self._init_growth_tracker = 0
             # self._growth_tracker will be lazily initialized during the first call to scale()
-            self._growth_tracker: Optional[torch.Tensor] = None
+            self._growth_tracker: Optional[torch.TensorBase] = None
             self._per_optimizer_states: Dict[int, Dict[str, Any]] = defaultdict(
                 _refresh_per_optimizer_state
             )
 
     def _check_scale_growth_tracker(
         self, funcname: str
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> Tuple[torch.TensorBase, torch.TensorBase]:
         fix = "This may indicate your script did not use scaler.scale(loss or outputs) earlier in the iteration."
         assert self._scale is not None, (
             f"Attempted {funcname} but _scale is None.  " + fix
@@ -170,25 +170,25 @@ class GradScaler:
         )
 
     @overload
-    def scale(self, outputs: torch.Tensor) -> torch.Tensor:
-        ...
+    def scale(self, outputs: torch.TensorBase) -> torch.TensorBase: ...
 
     @overload
-    def scale(self, outputs: List[torch.Tensor]) -> List[torch.Tensor]:
-        ...
+    def scale(self, outputs: List[torch.TensorBase]) -> List[torch.TensorBase]: ...
 
     @overload
-    def scale(self, outputs: Tuple[torch.Tensor, ...]) -> Tuple[torch.Tensor, ...]:
-        ...
+    def scale(
+        self, outputs: Tuple[torch.TensorBase, ...]
+    ) -> Tuple[torch.TensorBase, ...]: ...
 
     @overload
-    def scale(self, outputs: Iterable[torch.Tensor]) -> Iterable[torch.Tensor]:
-        ...
+    def scale(
+        self, outputs: Iterable[torch.TensorBase]
+    ) -> Iterable[torch.TensorBase]: ...
 
     def scale(
         self,
-        outputs: Union[torch.Tensor, Iterable[torch.Tensor]],
-    ) -> Union[torch.Tensor, Iterable[torch.Tensor]]:
+        outputs: Union[torch.TensorBase, Iterable[torch.TensorBase]],
+    ) -> Union[torch.TensorBase, Iterable[torch.TensorBase]]:
         """
         Multiplies ('scales') a tensor or list of tensors by the scale factor.
 
@@ -202,19 +202,19 @@ class GradScaler:
             return outputs
 
         # Short-circuit for the common case.
-        if isinstance(outputs, torch.Tensor):
+        if isinstance(outputs, torch.TensorBase):
             if self._scale is None:
                 self._lazy_init_scale_growth_tracker(outputs.device)
             assert self._scale is not None
             return outputs * self._scale.to(device=outputs.device, non_blocking=True)
 
         # Invoke the more complex machinery only if we're treating multiple outputs.
-        stash: List[
-            _MultiDeviceReplicator
-        ] = []  # holds a reference that can be overwritten by apply_scale
+        stash: List[_MultiDeviceReplicator] = (
+            []
+        )  # holds a reference that can be overwritten by apply_scale
 
-        def apply_scale(val: Union[torch.Tensor, Iterable[torch.Tensor]]):
-            if isinstance(val, torch.Tensor):
+        def apply_scale(val: Union[torch.TensorBase, Iterable[torch.TensorBase]]):
+            if isinstance(val, torch.TensorBase):
                 if len(stash) == 0:
                     if self._scale is None:
                         self._lazy_init_scale_growth_tracker(val.device)
@@ -233,10 +233,10 @@ class GradScaler:
     def _unscale_grads_(
         self,
         optimizer: torch.optim.Optimizer,
-        inv_scale: torch.Tensor,
-        found_inf: torch.Tensor,
+        inv_scale: torch.TensorBase,
+        found_inf: torch.TensorBase,
         allow_fp16: bool,
-    ) -> Dict[torch.device, torch.Tensor]:
+    ) -> Dict[torch.device, torch.TensorBase]:
         per_device_inv_scale = _MultiDeviceReplicator(inv_scale)
         per_device_found_inf = _MultiDeviceReplicator(found_inf)
 
@@ -247,12 +247,12 @@ class GradScaler:
         # https://stackoverflow.com/questions/5029934/defaultdict-of-defaultdict
         # Google says mypy struggles with defaultdicts type annotations.
         per_device_and_dtype_grads: Dict[
-            torch.device, Dict[torch.dtype, List[torch.Tensor]]
+            torch.device, Dict[torch.dtype, List[torch.TensorBase]]
         ] = defaultdict(lambda: defaultdict(list))
         with torch.no_grad():
             for group in optimizer.param_groups:
                 for param in group["params"]:
-                    assert isinstance(param, torch.Tensor)
+                    assert isinstance(param, torch.TensorBase)
                     if param.grad is None:
                         continue
                     if (not allow_fp16) and param.grad.dtype == torch.float16:
@@ -424,7 +424,7 @@ class GradScaler:
                 scaler = self._get_scale_async()
                 assert scaler is not None
                 found_inf = cast(
-                    torch.Tensor,
+                    torch.TensorBase,
                     sum(
                         [
                             t.to(scaler.device, non_blocking=True)
@@ -456,7 +456,9 @@ class GradScaler:
 
         return retval
 
-    def update(self, new_scale: Optional[Union[float, torch.Tensor]] = None) -> None:
+    def update(
+        self, new_scale: Optional[Union[float, torch.TensorBase]] = None
+    ) -> None:
         """Update the scale factor.
 
         If any optimizer steps were skipped the scale is multiplied by ``backoff_factor``
@@ -526,7 +528,7 @@ class GradScaler:
         # To prepare for next iteration, clear the data collected from optimizers this iteration.
         self._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
 
-    def _get_scale_async(self) -> Optional[torch.Tensor]:
+    def _get_scale_async(self) -> Optional[torch.TensorBase]:
         return self._scale
 
     def get_scale(self) -> float:
@@ -671,9 +673,9 @@ class GradScaler:
         dummy_inv_scale = torch.full((), 1.0, dtype=torch.float32, device=_scale.device)
         found_inf = torch.full((), 0.0, dtype=torch.float32, device=_scale.device)
 
-        self._per_optimizer_states[id(optimizer)][
-            "found_inf_per_device"
-        ] = self._unscale_grads_(optimizer, dummy_inv_scale, found_inf, True)
+        self._per_optimizer_states[id(optimizer)]["found_inf_per_device"] = (
+            self._unscale_grads_(optimizer, dummy_inv_scale, found_inf, True)
+        )
 
         return self._per_optimizer_states[id(optimizer)]["found_inf_per_device"]
 

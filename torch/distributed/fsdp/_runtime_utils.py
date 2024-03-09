@@ -871,8 +871,8 @@ def _reduce_grad(state: _FSDPState, handle: FlatParamHandle) -> None:
 
 @no_type_check
 def _get_reduce_scatter_tensors(
-    state: _FSDPState, unsharded_grad: torch.Tensor
-) -> Tuple[torch.Tensor, torch.Tensor]:
+    state: _FSDPState, unsharded_grad: torch.TensorBase
+) -> Tuple[torch.TensorBase, torch.TensorBase]:
     """
     Returns the input and output tensors to reduce-scatter, respectively.
     """
@@ -889,8 +889,8 @@ def _get_reduce_scatter_tensors(
 def _accumulate_sharded_grad(
     state: _FSDPState,
     handle: FlatParamHandle,
-    sharded_grad: torch.Tensor,
-) -> torch.Tensor:
+    sharded_grad: torch.TensorBase,
+) -> torch.TensorBase:
     """
     Accumulates the reduce-scattered sharded gradient with any existing sharded
     gradient if needed, returning the gradient to offload (if CPU offloading is
@@ -937,7 +937,7 @@ def _post_reduce_grad_callback(
     state: _FSDPState,
     handle: FlatParamHandle,
     # Additional arguments needed for the callback logic
-    grad_to_offload: torch.Tensor,
+    grad_to_offload: torch.TensorBase,
 ):
     """
     This callback captures any logic to run after the gradient reduction
@@ -952,7 +952,7 @@ def _post_reduce_grad_callback(
 def _offload_grad(
     state: _FSDPState,
     handle: FlatParamHandle,
-    grad_to_offload: torch.Tensor,
+    grad_to_offload: torch.TensorBase,
 ):
     if not handle._offload_params:
         return
@@ -1004,7 +1004,7 @@ def _post_backward_use_sharded_grad_views(handle: FlatParamHandle):
             handle.flat_param._cpu_grad = None
 
 
-def _div_if_needed(tensor: torch.Tensor, div_factor: float) -> None:
+def _div_if_needed(tensor: torch.TensorBase, div_factor: float) -> None:
     if div_factor > 1:
         tensor.div_(div_factor)
 
@@ -1012,7 +1012,7 @@ def _div_if_needed(tensor: torch.Tensor, div_factor: float) -> None:
 @no_type_check
 def _cast_grad_to_param_dtype(
     state: _FSDPState,
-    sharded_grad: torch.Tensor,
+    sharded_grad: torch.TensorBase,
     param: FlatParameter,
 ):
     """
@@ -1040,8 +1040,8 @@ def _cast_grad_to_param_dtype(
 
 
 def _check_grad_to_accumulate(
-    new_sharded_grad: torch.Tensor,
-    accumulated_grad: torch.Tensor,
+    new_sharded_grad: torch.TensorBase,
+    accumulated_grad: torch.TensorBase,
 ) -> None:
     _p_assert(
         accumulated_grad.shape == new_sharded_grad.shape,
@@ -1382,7 +1382,7 @@ def _register_pre_backward_hooks(
         # conservatively assume that they will be used in the backward
         handle._ran_pre_backward_hook = False
 
-    def _register_hook(t: torch.Tensor) -> torch.Tensor:
+    def _register_hook(t: torch.TensorBase) -> torch.TensorBase:
         if t.requires_grad:
             t.register_hook(
                 functools.partial(_pre_backward_hook, state, module, handle)
@@ -1468,7 +1468,7 @@ def _register_post_backward_reshard_only_hook(
         return
     # Construct `inp_tensors` lazily to avoid CPU overhead in typical case
     # where each flat parameter requires gradient
-    inp_tensors: Optional[List[torch.Tensor]] = None
+    inp_tensors: Optional[List[torch.TensorBase]] = None
     if not handle:
         return
     flat_param = handle.flat_param
@@ -1558,7 +1558,7 @@ def _reset_flat_param_grad_info_if_needed(
 def _get_buffers_and_dtypes_for_computation(
     state: _FSDPState,
     root_module: nn.Module,
-) -> Tuple[List[torch.Tensor], List[Optional[torch.dtype]]]:
+) -> Tuple[List[torch.TensorBase], List[Optional[torch.dtype]]]:
     """
     Returns all buffers in the module tree rooted at ``root_module`` and a
     corresponding list of the buffer dtypes for computation. Each buffer dtype
@@ -1566,9 +1566,9 @@ def _get_buffers_and_dtypes_for_computation(
     low precision dtype otherwise.
     """
     _p_assert(state._is_root, "Expects the root to cast buffers")
-    buffers: List[torch.Tensor] = []
+    buffers: List[torch.TensorBase] = []
     buffer_dtypes: List[Optional[torch.dtype]] = []
-    visited_buffers: Set[torch.Tensor] = set()
+    visited_buffers: Set[torch.TensorBase] = set()
     # Traverse the FSDP states bottom-up so that we prefer the owning FSDP
     # instance's mixed precision setting for each buffer
     fsdp_states, fsdp_modules = traversal_utils._get_fsdp_states_with_modules(
@@ -1608,7 +1608,7 @@ def _get_orig_buffer_dtypes(
 
 
 def _cast_buffers_to_dtype_and_device(
-    buffers: List[torch.Tensor],
+    buffers: List[torch.TensorBase],
     buffer_dtypes: List[Optional[torch.dtype]],
     device: torch.device,
 ) -> None:

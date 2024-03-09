@@ -1,6 +1,17 @@
 import dataclasses
 import traceback
-from typing import Any, Callable, Container, Dict, List, Optional, OrderedDict, Tuple, TypeVar, overload
+from typing import (
+    Any,
+    Callable,
+    Container,
+    Dict,
+    List,
+    Optional,
+    OrderedDict,
+    overload,
+    Tuple,
+    TypeVar,
+)
 
 import torch
 import torch.distributed as dist
@@ -40,6 +51,7 @@ def _pack_kwargs(*args: Any, **kwargs: Any) -> Tuple[Tuple[Any, ...], Tuple[str,
 
     return tuple(flat_args), tuple(kwarg_keys)
 
+
 def _cast_forward_inputs(
     dtype: Optional[torch.dtype],
     *args: Any,
@@ -53,14 +65,17 @@ def _cast_forward_inputs(
     if dtype is None:
         return args, kwargs
 
-    def cast_fn(x: torch.Tensor) -> torch.Tensor:
+    def cast_fn(x: torch.TensorBase) -> torch.TensorBase:
         if not torch.is_floating_point(x) or x.dtype == dtype:
             return x
         return x.to(dtype)
 
     return (_apply_to_tensors(cast_fn, args), _apply_to_tensors(cast_fn, kwargs))
 
-def _unpack_kwargs(flat_args: Tuple[Any, ...], kwarg_keys: Tuple[str, ...]) -> Tuple[Tuple[Any, ...], Dict[str, Any]]:
+
+def _unpack_kwargs(
+    flat_args: Tuple[Any, ...], kwarg_keys: Tuple[str, ...]
+) -> Tuple[Tuple[Any, ...], Dict[str, Any]]:
     """See _pack_kwargs."""
     assert len(kwarg_keys) <= len(
         flat_args
@@ -73,24 +88,26 @@ def _unpack_kwargs(flat_args: Tuple[Any, ...], kwarg_keys: Tuple[str, ...]) -> T
 
 
 S = TypeVar("S", dict, list, tuple)
-T = TypeVar("T", torch.Tensor, PackedSequence)
+T = TypeVar("T", torch.TensorBase, PackedSequence)
 
 
 @overload
-def _recursive_to(inputs: S, target_device: torch.device, use_side_stream_for_tensor_copies: bool) -> List[S]:
-    ...
+def _recursive_to(
+    inputs: S, target_device: torch.device, use_side_stream_for_tensor_copies: bool
+) -> List[S]: ...
 
 
 @overload
-def _recursive_to(inputs: T, target_device: torch.device, use_side_stream_for_tensor_copies: bool) -> Tuple[T]:
-    ...
+def _recursive_to(
+    inputs: T, target_device: torch.device, use_side_stream_for_tensor_copies: bool
+) -> Tuple[T]: ...
 
 
 def _recursive_to(inputs, target_device, use_side_stream_for_tensor_copies):
     r"""Recursively moves input to the target_device."""
 
     def to_map(obj):
-        if isinstance(obj, (torch.Tensor, PackedSequence)):
+        if isinstance(obj, (torch.TensorBase, PackedSequence)):
             device = obj.data.device if isinstance(obj, PackedSequence) else obj.device
             if device == target_device:
                 return (obj,)
@@ -116,7 +133,7 @@ def _recursive_to(inputs, target_device, use_side_stream_for_tensor_copies):
                     if isinstance(obj, PackedSequence):
                         output.data.record_stream(current_stream)  # type: ignore[arg-type]
                     else:
-                        assert isinstance(output, torch.Tensor)
+                        assert isinstance(output, torch.TensorBase)
                         output.record_stream(current_stream)  # type: ignore[arg-type]
                 return (output,)
         if _is_namedtuple(obj):
@@ -146,7 +163,7 @@ def _p_assert(cond: Any, s: str, raise_assertion_error: bool = True) -> None:
             raise AssertionError(s)
 
 
-def _alloc_storage(tensor: torch.Tensor, size: torch.Size) -> None:
+def _alloc_storage(tensor: torch.TensorBase, size: torch.Size) -> None:
     """
     Allocate storage for ``tensor`` with the given size.
 
@@ -155,9 +172,7 @@ def _alloc_storage(tensor: torch.Tensor, size: torch.Size) -> None:
         storage was already allocated.
     """
     with torch.no_grad():
-        if (
-            not torch.distributed._functional_collectives.is_torchdynamo_compiling()
-        ):
+        if not torch.distributed._functional_collectives.is_torchdynamo_compiling():
             already_allocated = tensor._typed_storage()._size() == size.numel()
             if not already_allocated:
                 tensor_storage_size = tensor._typed_storage()._size()
@@ -168,7 +183,7 @@ def _alloc_storage(tensor: torch.Tensor, size: torch.Size) -> None:
                 tensor._typed_storage()._resize_(size.numel())
 
 
-def _free_storage(tensor: torch.Tensor):
+def _free_storage(tensor: torch.TensorBase):
     """
     Frees the underlying storage of ``tensor``.
 
@@ -177,9 +192,7 @@ def _free_storage(tensor: torch.Tensor):
         storage was already freed.
     """
     with torch.no_grad():
-        if (
-            not torch.distributed._functional_collectives.is_torchdynamo_compiling()
-        ):
+        if not torch.distributed._functional_collectives.is_torchdynamo_compiling():
             already_freed = tensor._typed_storage()._size() == 0
             if not already_freed:
                 _p_assert(
@@ -192,26 +205,25 @@ def _free_storage(tensor: torch.Tensor):
                 tensor._typed_storage()._resize_(0)
 
 
-
 Q = TypeVar("Q")
 R = TypeVar("R", dict, list, tuple, set, OrderedDict, PackedSequence, Any)
 
 
 @overload
-def _apply_to_tensors(fn: Callable[[torch.Tensor], Q], container: torch.Tensor) -> Q:
-    ...
+def _apply_to_tensors(
+    fn: Callable[[torch.TensorBase], Q], container: torch.TensorBase
+) -> Q: ...
 
 
 @overload
-def _apply_to_tensors(fn: Callable[[torch.Tensor], Any], container: R) -> R:
-    ...
+def _apply_to_tensors(fn: Callable[[torch.TensorBase], Any], container: R) -> R: ...
 
 
 def _apply_to_tensors(fn, container):
     """Recursively apply to all tensor in different kinds of container types."""
 
     def apply(x):
-        if isinstance(x, torch.Tensor):
+        if isinstance(x, torch.TensorBase):
             return fn(x)
         elif hasattr(x, "__dataclass_fields__"):
             dc = dataclasses.replace(x)
@@ -264,7 +276,9 @@ def _to_kwargs(
 
 
 def _verify_param_shape_across_processes(
-    process_group: dist.ProcessGroup, tensors: List[torch.Tensor], logger: Optional[dist.Logger] = None
+    process_group: dist.ProcessGroup,
+    tensors: List[torch.TensorBase],
+    logger: Optional[dist.Logger] = None,
 ):
     return dist._verify_params_across_processes(process_group, tensors, logger)
 
@@ -285,7 +299,7 @@ def _sync_module_states(
     parameter shapes are consistent before running the synchronization. This can
     be checked with ``_verify_param_shape_across_processes``.
     """
-    module_states: List[torch.Tensor] = []
+    module_states: List[torch.TensorBase] = []
     for name, param in module.named_parameters():
         if name not in params_and_buffers_to_ignore:
             module_states.append(param.detach())
@@ -300,7 +314,7 @@ def _sync_module_states(
 
 def _sync_params_and_buffers(
     process_group: dist.ProcessGroup,
-    module_states: List[torch.Tensor],
+    module_states: List[torch.TensorBase],
     broadcast_bucket_size: int,
     src: int,
 ) -> None:
@@ -335,5 +349,5 @@ def _replace_by_prefix(
         del state_dict[key]
 
 
-def _data_ptr_allocated(tensor: torch.Tensor) -> bool:
+def _data_ptr_allocated(tensor: torch.TensorBase) -> bool:
     return tensor.untyped_storage().data_ptr() > 0

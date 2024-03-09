@@ -21,10 +21,10 @@ log = logging.getLogger(__name__)
 
 
 def _validate_sdpa_input(
-    query: torch.Tensor,
-    key: torch.Tensor,
-    value: torch.Tensor,
-    attn_mask: Optional[torch.Tensor] = None,
+    query: torch.TensorBase,
+    key: torch.TensorBase,
+    value: torch.TensorBase,
+    attn_mask: Optional[torch.TensorBase] = None,
     dropout_p=0.0,
     is_causal=False,
     scale=None,
@@ -111,7 +111,7 @@ def _check_head_dim_size_flash_nested(params: SDPAParams, debug=False) -> bool:
 
 
 def _check_for_seq_len_0_and_consistent_head_dim_nested_helper(
-    param: torch.Tensor, param_name: str, debug=False
+    param: torch.TensorBase, param_name: str, debug=False
 ) -> bool:
     assert isinstance(param, NestedTensor), "param should be a jagged NT"
 
@@ -301,7 +301,9 @@ def _select_sdp_backend(query, key, value, attn_mask, dropout, is_causal):
     return SDPBackend.ERROR
 
 
-def _cumulative_and_max_seq_len_nnz(qkv: torch.Tensor) -> Tuple[torch.Tensor, int, int]:
+def _cumulative_and_max_seq_len_nnz(
+    qkv: torch.TensorBase,
+) -> Tuple[torch.TensorBase, int, int]:
     # This function is used to calculate two pieces of metadata that are needed
     # for use with flash-attention and efficient_attention kernels. They are the
     # cumulative sequence_length over a batch of sequences and the maximum
@@ -329,7 +331,7 @@ def _cumulative_and_max_seq_len_nnz(qkv: torch.Tensor) -> Tuple[torch.Tensor, in
     return cumulative_seqlen, max_seqlen, n_elem
 
 
-def _is_safe_to_get_storage_as_tensor(tensor: torch.Tensor):
+def _is_safe_to_get_storage_as_tensor(tensor: torch.TensorBase):
     # This function checks if a nested tensor is valid for
     # use with the flash-attention and efficient_attention kernels without
     # needing to call contiguous on the nested tensor input.
@@ -361,8 +363,8 @@ def _is_safe_to_get_storage_as_tensor(tensor: torch.Tensor):
 
 
 def _view_as_dense(
-    tensor: torch.Tensor, Nnz: int, num_heads: int, head_dim: int
-) -> torch.Tensor:
+    tensor: torch.TensorBase, Nnz: int, num_heads: int, head_dim: int
+) -> torch.TensorBase:
     if tensor.is_nested:
         return buffer_from_jagged(tensor)
     return tensor.view(Nnz, num_heads, head_dim)
@@ -584,8 +586,8 @@ def _sdpa_nested_preprocessing(query, key, value):
 
 
 def _pad_last_dim(
-    tensor: torch.Tensor, alignment_size: int, slice: bool
-) -> torch.Tensor:
+    tensor: torch.TensorBase, alignment_size: int, slice: bool
+) -> torch.TensorBase:
     # FlashAttentionV2 requires that head dimension be a multiple of 8
     # This was previously done within the kernel, however
     # This causes the kernel to maybe alias query, key, value
@@ -608,17 +610,17 @@ def _calculate_scale(query, scale):
     return softmax_scale
 
 
-def _post_process_flash_output(out: torch.Tensor, og_size):
+def _post_process_flash_output(out: torch.TensorBase, og_size):
     if not out.is_nested and out.size(-1) != og_size:
         out = out[..., 0:og_size]
     return out
 
 
 def jagged_scaled_dot_product_attention(
-    query: torch.Tensor,
-    key: torch.Tensor,
-    value: torch.Tensor,
-    attn_mask: Optional[torch.Tensor] = None,
+    query: torch.TensorBase,
+    key: torch.TensorBase,
+    value: torch.TensorBase,
+    attn_mask: Optional[torch.TensorBase] = None,
     dropout_p=0.0,
     is_causal=False,
     scale=None,

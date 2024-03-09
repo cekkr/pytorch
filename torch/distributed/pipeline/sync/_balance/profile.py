@@ -7,11 +7,11 @@
 """Per-layer profilers."""
 import copy
 import time
-from typing import Any, Generator, List, Union, Sequence
+from typing import Any, Generator, List, Sequence, Union
 
 import torch
-from torch import Tensor
 import torch.nn as nn
+from torch import TensorBase
 
 from ..microbatch import Batch
 
@@ -20,11 +20,14 @@ __all__: List[str] = []
 
 Device = Union[torch.device, int, str]
 
-Tensors = Sequence[Tensor]
-TensorOrTensors = Union[Tensor, Tensors]
+Tensors = Sequence[TensorBase]
+TensorOrTensors = Union[TensorBase, Tensors]
 
 
-def layerwise_sandbox(module: nn.Sequential, device: torch.device,) -> Generator[nn.Module, None, None]:
+def layerwise_sandbox(
+    module: nn.Sequential,
+    device: torch.device,
+) -> Generator[nn.Module, None, None]:
     """Copies layers for ease to profile. It doesn't modify the given
     module.
     """
@@ -41,7 +44,12 @@ def detach(batch: Batch) -> None:
         batch[i] = x.detach().requires_grad_(x.requires_grad)
 
 
-def profile_times(module: nn.Sequential, sample: Union[List[Any], Tensor], timeout: float, device: torch.device,) -> List[int]:
+def profile_times(
+    module: nn.Sequential,
+    sample: Union[List[Any], TensorBase],
+    timeout: float,
+    device: torch.device,
+) -> List[int]:
     """Profiles elapsed times per layer."""
     if any(p.grad is not None for p in module.parameters()):
         raise ValueError("some parameter already has gradient")
@@ -82,7 +90,11 @@ def profile_times(module: nn.Sequential, sample: Union[List[Any], Tensor], timeo
 
 
 def profile_sizes(
-    module: nn.Sequential, input: Union[List[Any], Tensor], chunks: int, param_scale: float, device: torch.device,
+    module: nn.Sequential,
+    input: Union[List[Any], TensorBase],
+    chunks: int,
+    param_scale: float,
+    device: torch.device,
 ) -> List[int]:
     """Profiles CUDA memory usage per layer."""
     if device.type != "cuda":

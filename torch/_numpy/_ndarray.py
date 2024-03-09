@@ -160,7 +160,7 @@ ri_dunder = {
 
 
 def _upcast_int_indices(index):
-    if isinstance(index, torch.Tensor):
+    if isinstance(index, torch.TensorBase):
         if index.dtype in (torch.int8, torch.int16, torch.int32, torch.uint8):
             return index.to(torch.int64)
     elif isinstance(index, tuple):
@@ -184,8 +184,8 @@ _Unspecified.unspecified = _Unspecified()
 class ndarray:
     def __init__(self, t=None):
         if t is None:
-            self.tensor = torch.Tensor()
-        elif isinstance(t, torch.Tensor):
+            self.tensor = torch.TensorBase()
+        elif isinstance(t, torch.TensorBase):
             self.tensor = t
         else:
             raise ValueError(
@@ -525,7 +525,7 @@ def array(obj, dtype=None, *, copy=True, order="K", subok=False, ndmin=0, like=N
 
     if isinstance(obj, (list, tuple)):
         # FIXME and they have the same dtype, device, etc
-        if obj and all(isinstance(x, torch.Tensor) for x in obj):
+        if obj and all(isinstance(x, torch.TensorBase) for x in obj):
             # list of arrays: *under torch.Dynamo* these are FakeTensors
             obj = torch.stack(obj)
         else:

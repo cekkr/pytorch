@@ -795,7 +795,7 @@ class ReplacementPatternEntry(PatternEntry):
                     result = graph.call_function(target, args, kwargs)
                     if "val" in node.meta and "val" not in result.meta:
                         result.meta["val"] = node.meta["val"]
-                        if isinstance(node.meta["val"], torch.Tensor):
+                        if isinstance(node.meta["val"], torch.TensorBase):
                             assert "tensor_meta" in node.meta
                             result.meta["tensor_meta"] = node.meta["tensor_meta"]
                     return result
@@ -985,7 +985,7 @@ def register_replacement(
         sym_args: List[torch.SymInt] = []
         with torch._dynamo.utils.detect_fake_mode(args):
             for i, grad in enumerate(requires_grad):
-                if isinstance(args[i], torch.Tensor):
+                if isinstance(args[i], torch.TensorBase):
                     if grad and is_integer_dtype(args[i].dtype):
                         return False
 
@@ -1078,7 +1078,7 @@ def register_replacement(
     # TODO: Revisit the functionalize_rng_ops for lowmem dropout
     with functorch_config.patch(functionalize_rng_ops=False):
         requires_grad: List[bool] = [
-            isinstance(x, torch.Tensor) and x.requires_grad for x in example_inputs
+            isinstance(x, torch.TensorBase) and x.requires_grad for x in example_inputs
         ]
         if search_fn_pattern is None:
             pattern = gen_pattern(
@@ -1218,9 +1218,9 @@ class PatternMatcherPass:
         self, prevent_match_across_mutations=False, pass_name: Optional[str] = None
     ):
         super().__init__()
-        self.patterns: DefaultDict[
-            torch.fx.node.Target, List[PatternEntry]
-        ] = defaultdict(list)
+        self.patterns: DefaultDict[torch.fx.node.Target, List[PatternEntry]] = (
+            defaultdict(list)
+        )
         self.prevent_match_across_mutations = prevent_match_across_mutations
         self.pass_name = pass_name
 

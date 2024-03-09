@@ -13,7 +13,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 import torch.utils.dlpack
-from torch import Tensor
+from torch import TensorBase
 from torch._guards import DuplicateInputs, TracingContext
 from torch._prims_common import CUDARngStateHelper
 from torch.multiprocessing.reductions import StorageWeakRef
@@ -82,7 +82,7 @@ def create_runtime_wrapper(
             args_ = list(args)
             # See Note [Detaching inputs that never need gradients]
             for idx in indices_of_inps_to_detach:
-                if isinstance(args_[idx], torch.Tensor):
+                if isinstance(args_[idx], torch.TensorBase):
                     args_[idx] = args_[idx].detach()
             with torch.autograd._force_original_view_tracking(True):
                 all_outs = call_func_at_runtime_with_args(
@@ -409,7 +409,7 @@ def aot_dispatch_subclass_wrapper(
 #
 def aot_wrapper_dedupe(
     flat_fn,
-    flat_args: List[Tensor],
+    flat_args: List[TensorBase],
     aot_config: AOTConfig,
     *,
     compiler_fn,
@@ -425,7 +425,7 @@ def aot_wrapper_dedupe(
     ok = True
 
     for i, a in enumerate(flat_args):
-        if not isinstance(a, torch.Tensor):
+        if not isinstance(a, torch.TensorBase):
             leaf_flat_args.append(a)
         elif a not in args_set:
             args_set.add(a)
@@ -498,7 +498,7 @@ fw_metadata={str(fw_metadata)}
     #   ]
     #   keep_arg_mask = [True, True, False, True]
 
-    seen_args: Dict[Tensor, int] = {}
+    seen_args: Dict[TensorBase, int] = {}
     keep_arg_mask = []
     # Implicitly map duped arg position (list index) to de-duped arg position
     add_dupe_map: List[int] = []
@@ -506,7 +506,7 @@ fw_metadata={str(fw_metadata)}
 
     j = 0  # index into deduped_flat_args
     for t in flat_args:
-        if isinstance(t, torch.Tensor):
+        if isinstance(t, torch.TensorBase):
             if t in seen_args:
                 keep_arg_mask.append(False)
                 add_dupe_map.append(seen_args[t])
@@ -628,7 +628,7 @@ fw_metadata={str(fw_metadata)}
 # would cause us to hit that path more frequently).
 def aot_wrapper_synthetic_base(
     flat_fn,
-    flat_args: List[Tensor],
+    flat_args: List[TensorBase],
     aot_config: AOTConfig,
     *,
     fw_metadata: ViewAndMutationMeta,
@@ -852,7 +852,7 @@ def merge_view_inputs(
     *,
     # The autograd case currently has more restrictions than the inference case.
     is_inference: bool,
-) -> Tuple[List[Any], Optional[List[Union[int, Tuple[int, torch.Tensor]]]]]:
+) -> Tuple[List[Any], Optional[List[Union[int, Tuple[int, torch.TensorBase]]]]]:
     def _are_differentiable_views(view1, view2):
         if view1 is view2:
             return True
@@ -876,7 +876,7 @@ def merge_view_inputs(
     base_args = []
     other_args = []
     for i, inpt in enumerate(fwd_inputs):
-        if isinstance(inpt, Tensor):
+        if isinstance(inpt, TensorBase):
             storage_ref = StorageWeakRef(inpt.untyped_storage())
             storage_ref_to_idx[storage_ref].append(i)
         else:
@@ -887,7 +887,9 @@ def merge_view_inputs(
     # - another int (corresponding to the index in the argument list of the element from the outer calling convention)
     # - idx, view_tensor, where we can generate the new output with view_tensor._view_func(old_args[idx])
     #   idx corresponds to which synthetic base from the outer calling context to view
-    inner_calling_convention_meta: Dict[int, Union[int, Tuple[int, torch.Tensor]]] = {}
+    inner_calling_convention_meta: Dict[
+        int, Union[int, Tuple[int, torch.TensorBase]]
+    ] = {}
     for aliased_input_indices in storage_ref_to_idx.values():
         if len(aliased_input_indices) <= 1 or not any(
             # We only care about mutations that affect all aliases,
@@ -1011,7 +1013,7 @@ def merge_view_inputs(
             inner_calling_convention_meta[old_idx] = new_idx
         # post process into a list
         post_processed_calling_convention_meta: List[
-            Union[int, Tuple[int, torch.Tensor]]
+            Union[int, Tuple[int, torch.TensorBase]]
         ] = [-1 for _ in range(len(inner_calling_convention_meta))]
         for k, v in inner_calling_convention_meta.items():
             post_processed_calling_convention_meta[k] = v

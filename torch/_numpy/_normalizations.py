@@ -112,7 +112,7 @@ def normalize_outarray(arg, parm=None):
 
     # Dynamo can pass torch tensors as out arguments,
     # wrap it in an ndarray before processing
-    if isinstance(arg, torch.Tensor):
+    if isinstance(arg, torch.TensorBase):
         arg = ndarray(arg)
 
     if not isinstance(arg, ndarray):
@@ -157,7 +157,7 @@ def maybe_copy_to(out, result, promote_scalar_result=False):
     # NB: here out is either an ndarray or None
     if out is None:
         return result
-    elif isinstance(result, torch.Tensor):
+    elif isinstance(result, torch.TensorBase):
         if result.shape != out.shape:
             can_fit = result.numel() == 1 and out.ndim == 0
             if promote_scalar_result and can_fit:
@@ -180,7 +180,7 @@ def maybe_copy_to(out, result, promote_scalar_result=False):
 def wrap_tensors(result):
     from ._ndarray import ndarray
 
-    if isinstance(result, torch.Tensor):
+    if isinstance(result, torch.TensorBase):
         return ndarray(result)
     elif isinstance(result, (tuple, list)):
         result = type(result)(wrap_tensors(x) for x in result)

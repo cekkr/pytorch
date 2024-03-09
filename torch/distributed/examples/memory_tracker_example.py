@@ -4,7 +4,7 @@ import torchvision
 from torch.distributed._tools import MemoryTracker
 
 
-def run_one_model(net: torch.nn.Module, input: torch.Tensor):
+def run_one_model(net: torch.nn.Module, input: torch.TensorBase):
     net.cuda()
     input = input.cuda()
 

@@ -87,11 +87,11 @@ def assert_metadata_eq(assert_eq, m1, m2, *, skip_symbolic=False):
 
 
 def is_sparse_coo(t):
-    return isinstance(t, torch.Tensor) and t.layout is torch.sparse_coo
+    return isinstance(t, torch.TensorBase) and t.layout is torch.sparse_coo
 
 
 def is_sparse_compressed(t):
-    return isinstance(t, torch.Tensor) and t.layout in {
+    return isinstance(t, torch.TensorBase) and t.layout in {
         torch.sparse_csr,
         torch.sparse_csc,
         torch.sparse_bsr,
@@ -898,7 +898,7 @@ class MetaConverter:
         # TODO: zero tensors?  We appear to have eliminated them by
         # excluding complex for now
 
-        if isinstance(t, torch.Tensor) or is_traceable_wrapper_subclass(t):
+        if isinstance(t, torch.TensorBase) or is_traceable_wrapper_subclass(t):
             if t.device.type != "xla" and any(
                 [
                     t.is_quantized,

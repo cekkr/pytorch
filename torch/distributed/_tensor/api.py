@@ -74,7 +74,7 @@ class _ToTorchTensor(torch.autograd.Function):
         return local_tensor.view_as(local_tensor)
 
     @staticmethod
-    def backward(ctx, grad_output: torch.Tensor):  # type: ignore[override]
+    def backward(ctx, grad_output: torch.TensorBase):  # type: ignore[override]
         dtensor_spec = ctx.dtensor_spec
         mesh = dtensor_spec.mesh
         grad_placements = ctx.grad_placements
@@ -104,7 +104,7 @@ class _FromTorchTensor(torch.autograd.Function):
     @staticmethod
     def forward(  # type: ignore[override]
         ctx,  # pyre-ignore[2]: Parameter must be annotated.
-        input: torch.Tensor,
+        input: torch.TensorBase,
         device_mesh: DeviceMesh,
         placements: Tuple[Placement, ...],
         run_check: bool,
@@ -187,8 +187,8 @@ class _FromTorchTensor(torch.autograd.Function):
         return grad_output.to_local(), None, None, None, None, None
 
 
-class DTensor(torch.Tensor):  # pyre-ignore[13]: pyre is bad at __new__
-    _local_tensor: torch.Tensor
+class DTensor(torch.TensorBase):  # pyre-ignore[13]: pyre is bad at __new__
+    _local_tensor: torch.TensorBase
     _spec: DTensorSpec
     __slots__ = ["_local_tensor", "_spec"]
 
@@ -199,7 +199,7 @@ class DTensor(torch.Tensor):  # pyre-ignore[13]: pyre is bad at __new__
     @staticmethod
     def __new__(
         cls,
-        local_tensor: torch.Tensor,
+        local_tensor: torch.TensorBase,
         device_mesh: DeviceMesh,
         placements: Tuple[Placement, ...],
         *,
@@ -226,7 +226,7 @@ class DTensor(torch.Tensor):  # pyre-ignore[13]: pyre is bad at __new__
 
         # new method instruct wrapper tensor from local_tensor and add
         # placement spec, it does not do actual distribution
-        r = torch.Tensor._make_wrapper_subclass(  # type: ignore[attr-defined]
+        r = torch.TensorBase._make_wrapper_subclass(  # type: ignore[attr-defined]
             cls,
             shape,
             strides=stride,
@@ -284,7 +284,7 @@ class DTensor(torch.Tensor):  # pyre-ignore[13]: pyre is bad at __new__
 
     @staticmethod
     def from_local(
-        local_tensor: torch.Tensor,
+        local_tensor: torch.TensorBase,
         device_mesh: Optional[DeviceMesh] = None,
         placements: Optional[Sequence[Placement]] = None,
         *,
@@ -365,7 +365,7 @@ class DTensor(torch.Tensor):  # pyre-ignore[13]: pyre is bad at __new__
 
     def to_local(
         self, *, grad_placements: Optional[Sequence[Placement]] = None
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         """
         Get the local tensor of this DTensor on its current rank. For sharding it returns
         a local shard of the logical tensor view, for replication it returns the replica on
@@ -455,7 +455,7 @@ class DTensor(torch.Tensor):  # pyre-ignore[13]: pyre is bad at __new__
 
     def full_tensor(
         self, *, grad_placements: Optional[Sequence[Placement]] = None
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         """
         Return the full tensor of this DTensor. It will perform necessary collectives
         to gather the local tensors from other ranks in its DeviceMesh and concatenate
@@ -505,7 +505,7 @@ class DTensor(torch.Tensor):  # pyre-ignore[13]: pyre is bad at __new__
 
 
 def distribute_tensor(
-    tensor: torch.Tensor,
+    tensor: torch.TensorBase,
     device_mesh: Optional[DeviceMesh] = None,
     placements: Optional[Sequence[Placement]] = None,
 ) -> DTensor:

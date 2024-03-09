@@ -166,7 +166,7 @@ class ContentStoreWriter:
         self.seen_storage_hashes.add(h)
         return h
 
-    def compute_tensor_metadata(self, t: torch.Tensor, h=None):
+    def compute_tensor_metadata(self, t: torch.TensorBase, h=None):
         if h is None:
             h = hash_storage(t.untyped_storage(), stable_hash=self.stable_hash)
         return (
@@ -178,7 +178,7 @@ class ContentStoreWriter:
             torch._utils.get_tensor_metadata(t),
         )
 
-    def write_tensor(self, name: str, t: torch.Tensor) -> None:
+    def write_tensor(self, name: str, t: torch.TensorBase) -> None:
         storage = t.untyped_storage()
         h = self.write_storage(storage)
         # TODO: Support more advanced snapshotting of requires_grad/grad/etc
@@ -227,7 +227,7 @@ class ContentStoreReader:
             raise FileNotFoundError(fn)
         return torch.load(fn, weights_only=True)
 
-    def read_tensor(self, name: str, *, device=None) -> torch.Tensor:
+    def read_tensor(self, name: str, *, device=None) -> torch.TensorBase:
         dtype, h, storage_offset, size, stride, metadata = self.read_tensor_metadata(
             name
         )

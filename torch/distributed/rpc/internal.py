@@ -41,7 +41,7 @@ class _InternalRPCPickler:
     def __init__(self):
         # Ignore type error because dispatch_table is defined in third-party package
         self._dispatch_table = copyreg.dispatch_table.copy()  # type: ignore[attr-defined]
-        self._dispatch_table[torch.Tensor] = self._tensor_reducer
+        self._dispatch_table[torch.TensorBase] = self._tensor_reducer
         # Used for registering customized picklers.
         self._class_reducer_dict = {}
 
@@ -250,7 +250,9 @@ def _build_rpc_profiling_key(
     Returns:
         String representing profiling key
     """
-    profile_key = f"rpc_{exec_type.value}#{func_name}({current_worker_name} -> {dst_worker_name})"
+    profile_key = (
+        f"rpc_{exec_type.value}#{func_name}({current_worker_name} -> {dst_worker_name})"
+    )
     return profile_key
 
 

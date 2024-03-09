@@ -131,7 +131,7 @@ class ConstantFolder(torch.fx.Interpreter):
         if (
             self.skip_constructors
             and node.op != "get_attr"
-            and not any(isinstance(e, torch.Tensor) for e in flattened_inputs)
+            and not any(isinstance(e, torch.TensorBase) for e in flattened_inputs)
         ):
             return self.unknown_value
 
@@ -144,7 +144,7 @@ class ConstantFolder(torch.fx.Interpreter):
 
         out = super().run_node(node)
 
-        if node.op != "get_attr" and isinstance(out, torch.Tensor):
+        if node.op != "get_attr" and isinstance(out, torch.TensorBase):
             if not self.insertable_tensor_check(out):
                 return out
 
@@ -167,10 +167,12 @@ class ConstantFolder(torch.fx.Interpreter):
 
         return out
 
-    def insertable_tensor_check(self, tensor: torch.Tensor) -> bool:
+    def insertable_tensor_check(self, tensor: torch.TensorBase) -> bool:
         return True
 
-    def add_node_replacement(self, node: torch.fx.Node, tensor: torch.Tensor) -> None:
+    def add_node_replacement(
+        self, node: torch.fx.Node, tensor: torch.TensorBase
+    ) -> None:
         self.node_replacements[node] = tensor
 
     def run(self):

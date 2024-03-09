@@ -16,7 +16,7 @@ __all__ = ["Wishart"]
 _log_2 = math.log(2)
 
 
-def _mvdigamma(x: torch.Tensor, p: int) -> torch.Tensor:
+def _mvdigamma(x: torch.TensorBase, p: int) -> torch.TensorBase:
     assert x.gt((p - 1) / 2).all(), "Wrong domain for multivariate digamma function."
     return torch.digamma(
         x.unsqueeze(-1)
@@ -24,7 +24,7 @@ def _mvdigamma(x: torch.Tensor, p: int) -> torch.Tensor:
     ).sum(-1)
 
 
-def _clamp_above_eps(x: torch.Tensor) -> torch.Tensor:
+def _clamp_above_eps(x: torch.TensorBase) -> torch.TensorBase:
     # We assume positive input for this function
     return x.clamp(min=torch.finfo(x.dtype).eps)
 
@@ -62,6 +62,7 @@ class Wishart(ExponentialFamily):
     [4] Odell, P. L. & Feiveson, A. H., 1966. `A Numerical Procedure to Generate a SampleCovariance Matrix`. JASA, 61(313):199-203.
     [5] Ku, Y.-C. & Bloomfield, P., 2010. `Generating Random Wishart Matrices with Fractional Degrees of Freedom in OX`.
     """
+
     arg_constraints = {
         "covariance_matrix": constraints.positive_definite,
         "precision_matrix": constraints.positive_definite,
@@ -74,10 +75,10 @@ class Wishart(ExponentialFamily):
 
     def __init__(
         self,
-        df: Union[torch.Tensor, Number],
-        covariance_matrix: Optional[torch.Tensor] = None,
-        precision_matrix: Optional[torch.Tensor] = None,
-        scale_tril: Optional[torch.Tensor] = None,
+        df: Union[torch.TensorBase, Number],
+        covariance_matrix: Optional[torch.TensorBase] = None,
+        precision_matrix: Optional[torch.TensorBase] = None,
+        scale_tril: Optional[torch.TensorBase] = None,
         validate_args=None,
     ):
         assert (covariance_matrix is not None) + (scale_tril is not None) + (

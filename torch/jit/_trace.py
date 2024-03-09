@@ -7,6 +7,7 @@ This module contains functionality to support the JIT's tracing frontend, notabl
 This is not intended to be imported directly; please use the exposed
 functionalities in `torch.jit`.
 """
+
 import contextlib
 
 import copy
@@ -57,7 +58,7 @@ def _create_interpreter_name_lookup_fn(frames_up=1):
         f_globals = frame.f_globals
 
         for k, v in f_locals.items():
-            if isinstance(v, torch.Tensor) and var is v:
+            if isinstance(v, torch.TensorBase) and var is v:
                 return k if k != "self" else ""
         return ""
 
@@ -101,7 +102,7 @@ class ONNXTracedModule(torch.nn.Module):
         self._return_inputs = return_inputs
         self._return_inputs_states = return_inputs_states
 
-    def forward(self, *args: torch.Tensor):
+    def forward(self, *args: torch.TensorBase):
         in_vars, in_desc = _flatten(args)
         # NOTE: use full state, because we need it for BatchNorm export
         # This differs from the compiler path, which doesn't support it at the moment.
@@ -112,9 +113,9 @@ class ONNXTracedModule(torch.nn.Module):
         outs = []
 
         def wrapper(*args):
-            in_args: List[torch.Tensor] = []
+            in_args: List[torch.TensorBase] = []
             for i in range(len(in_vars)):
-                if not isinstance(args[i], torch.Tensor):
+                if not isinstance(args[i], torch.TensorBase):
                     raise RuntimeError("Expected Tensor argument")
                 in_args.append(args[i])
 
@@ -155,7 +156,7 @@ def _clone_inputs(args):
     def clone_input(a):
         if a is None:
             return None
-        elif isinstance(a, torch.Tensor):
+        elif isinstance(a, torch.TensorBase):
             # TODO: figure out one liner to .clone() and set requires_grad
             v = (
                 a.detach()
@@ -169,7 +170,7 @@ def _clone_inputs(args):
             return a.clone(memory_format=torch.preserve_format)
 
     return function._nested_map(
-        lambda x: isinstance(x, torch.Tensor), clone_input, condition_msg="tensors"
+        lambda x: isinstance(x, torch.TensorBase), clone_input, condition_msg="tensors"
     )(args)
 
 
@@ -330,7 +331,7 @@ def _check_trace(
 ):
     # Note: tracing is independent of optimizations, which consume the trace
     for inputs in check_inputs:
-        if isinstance(inputs, torch.Tensor):
+        if isinstance(inputs, torch.TensorBase):
             inputs = (inputs,)
 
         if is_trace_module:
@@ -351,7 +352,7 @@ def _check_trace(
             check_mod_func = check_mod._c._get_method(traced_func.name)
             inputs = inputs[traced_func.name]
             if (
-                isinstance(inputs, (torch.Tensor))
+                isinstance(inputs, (torch.TensorBase))
                 or isinstance(inputs, dict)
                 and not example_inputs_is_kwarg
             ):
@@ -474,7 +475,7 @@ def _check_trace(
                     outs = wrap_retval(mod(**inputs))
                 else:
                     outs = wrap_retval(mod(*_clone_inputs(inputs)))
-                outs = [out for out in outs if isinstance(out, torch.Tensor)]
+                outs = [out for out in outs if isinstance(out, torch.TensorBase)]
                 return outs
             except Exception as e:
                 graph_diff_errors, tensor_compare_errors = graph_diagnostic_info()
@@ -608,7 +609,7 @@ torch._C._tracer_warn_use_python()
 
 
 def make_tuple(example_inputs):
-    if isinstance(example_inputs, (torch.Tensor, dict)):
+    if isinstance(example_inputs, (torch.TensorBase, dict)):
         return (example_inputs,)
     # done primarily so that weird iterables fail here and not pybind11 code
     if not isinstance(example_inputs, tuple):
@@ -856,7 +857,7 @@ def trace(
 
     # Special case for common case of passing a single Tensor
     if (
-        isinstance(example_inputs, (torch.Tensor, dict))
+        isinstance(example_inputs, (torch.TensorBase, dict))
         and example_kwarg_inputs is None
     ):
         example_inputs = (example_inputs,)

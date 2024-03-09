@@ -26,10 +26,10 @@ def _get_sdpa_extreme_seqlen(func, tensor):
     return int(func(tensor).item())
 
 
-class NestedTensor(torch.Tensor):
-    _values: torch.Tensor  # type: ignore[assignment]
-    _offsets: torch.Tensor
-    _lengths: Optional[torch.Tensor]
+class NestedTensor(torch.TensorBase):
+    _values: torch.TensorBase  # type: ignore[assignment]
+    _offsets: torch.TensorBase
+    _lengths: Optional[torch.TensorBase]
     # NOTE [ Nested ints for ragged sizes and strides ]
     #
     # Jagged layout tensors are tensors that represent a n-dim tensor with a
@@ -61,7 +61,7 @@ class NestedTensor(torch.Tensor):
     ):
         ks = DispatchKeySet(DispatchKey.NestedTensor)
         ks = ks.add(DispatchKey.AutogradNestedTensor)
-        r = torch.Tensor._make_wrapper_subclass(  # type: ignore[attr-defined]
+        r = torch.TensorBase._make_wrapper_subclass(  # type: ignore[attr-defined]
             cls,
             (0,),
             (0,),
@@ -247,7 +247,7 @@ class ViewBufferFromNested(torch.autograd.Function):
         return x.values()
 
     @staticmethod
-    def backward(ctx, gO: torch.Tensor):  # type: ignore[override]
+    def backward(ctx, gO: torch.TensorBase):  # type: ignore[override]
         (offsets,) = ctx.saved_tensors
         return NestedTensor(
             gO,
@@ -262,8 +262,8 @@ class ViewNestedFromBuffer(torch.autograd.Function):
     @staticmethod
     def forward(
         ctx,
-        values: torch.Tensor,
-        offsets: torch.Tensor,
+        values: torch.TensorBase,
+        offsets: torch.TensorBase,
         metadata_cache: Optional[Dict[str, Any]] = None,
     ):  # type: ignore[override]
         return NestedTensor(
@@ -281,7 +281,7 @@ class ViewNestedFromBuffer(torch.autograd.Function):
 # NOTE: @jbschlosser is working on making it a view
 class ViewNonContiguousNestedFromBuffer(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, values: torch.Tensor, offsets: torch.Tensor, lengths: torch.Tensor):  # type: ignore[override]
+    def forward(ctx, values: torch.TensorBase, offsets: torch.TensorBase, lengths: torch.TensorBase):  # type: ignore[override]
         return NestedTensor(
             values.detach(),
             offsets=offsets,
@@ -295,11 +295,11 @@ class ViewNonContiguousNestedFromBuffer(torch.autograd.Function):
 
 # Need to make it obvious that users should be passing in offsets
 def jagged_from_list(
-    tensors: List[torch.Tensor],
-    offsets: Optional[torch.Tensor],
+    tensors: List[torch.TensorBase],
+    offsets: Optional[torch.TensorBase],
     dtype=None,
     device=None,
-) -> Tuple[NestedTensor, torch.Tensor]:
+) -> Tuple[NestedTensor, torch.TensorBase]:
     """Constructs a NestedTensor backed by jagged layout from a list of tensors"""
 
     if not len(set(t.dtype for t in tensors)) == 1:  # noqa: C401
@@ -355,8 +355,8 @@ def jagged_from_list(
 
 
 def jagged_from_tensor_and_lengths(
-    tensor: torch.Tensor, starts: torch.Tensor, lengths: torch.Tensor
-) -> Tuple[NestedTensor, torch.Tensor, Optional[torch.Tensor]]:
+    tensor: torch.TensorBase, starts: torch.TensorBase, lengths: torch.TensorBase
+) -> Tuple[NestedTensor, torch.TensorBase, Optional[torch.TensorBase]]:
     """Constructs a NestedTensor backed by jagged layout from a tensor, starts of sequences, and sequence lengths"""
     batch_size = tensor.shape[0]
     if is_expandable_to(starts.shape, (batch_size,)) and is_expandable_to(

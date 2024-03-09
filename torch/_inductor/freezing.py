@@ -121,7 +121,7 @@ def freeze(
     return aot_autograd_gm, preserved_arg_indices
 
 
-class ErasedTensor(torch.Tensor):
+class ErasedTensor(torch.TensorBase):
     @staticmethod
     def __new__(cls, elem, name, owning_mod):
         return super().__new__(cls, elem.to(device="meta"))
@@ -193,7 +193,7 @@ def enforce_output_layout(gm: torch.fx.GraphModule):
     with gm.graph.inserting_before(output_node):
         for n in out_list:
             if not isinstance(
-                n.meta["val"], torch.Tensor
+                n.meta["val"], torch.TensorBase
             ) or not torch._prims_common.is_non_overlapping_and_dense(n.meta["val"]):
                 continue
 

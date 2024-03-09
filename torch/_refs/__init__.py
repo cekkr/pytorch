@@ -341,7 +341,7 @@ __all__ = [
     "istft",
 ]
 
-Tensor = torch.Tensor
+Tensor = torch.TensorBase
 DispatchKey = torch._C.DispatchKey  # type: ignore[attr-defined]
 aten = torch._ops.ops.aten
 
@@ -1718,7 +1718,7 @@ def sub(
         if not utils.is_weakly_lesser_type(type(alpha), python_type):
             msg = f"alpha argument of type {type(alpha)} cannot be safely cast to type {python_type}!"
             raise ValueError(msg)
-        if isinstance(b, torch.Tensor):
+        if isinstance(b, torch.TensorBase):
             b = prims.mul(b, alpha)
         else:
             # Carefully not to use prims.mul if b is a scalar / symint.
@@ -4561,8 +4561,8 @@ def ravel(a: TensorLikeType) -> TensorLikeType:
 # missing ref impl. for aten.gather
 @out_wrapper()
 def take_along_dim(
-    a: torch.Tensor, indices: torch.Tensor, dim: Optional[int] = None
-) -> torch.Tensor:
+    a: torch.TensorBase, indices: torch.TensorBase, dim: Optional[int] = None
+) -> torch.TensorBase:
     torch._check(
         a.ndim == indices.ndim,
         lambda: (
@@ -6298,7 +6298,7 @@ def _infer_scalar_type(obj):
             return torch.cdouble
         else:
             raise RuntimeError("invalid default scalar type for complex")
-    if isinstance(obj, torch.Tensor):
+    if isinstance(obj, torch.TensorBase):
         return obj.dtype
     if isinstance(obj, str):
         raise TypeError(f"new(): invalid data type '{type(obj).__name__}'")
@@ -6354,7 +6354,7 @@ def _internal_new_from_data(
     type_inference,
     pin_memory=False,
 ):
-    if isinstance(data, torch.Tensor):
+    if isinstance(data, torch.TensorBase):
         torch._check(
             not pin_memory, lambda: "Can't pin tensor constructed from a variable"
         )
@@ -6403,7 +6403,7 @@ def _internal_new_from_data(
 # xref: tensor_ctor in torch/csrc/utils/tensor_new.cpp
 def tensor(data, *, dtype=None, device=None, pin_memory=False, requires_grad=False):
     # TODO (or not): support names kwarg
-    if isinstance(data, torch.Tensor):
+    if isinstance(data, torch.TensorBase):
         warnings.warn(
             "To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() "
             "or sourceTensor.clone().detach().requires_grad_(True), rather than torch.tensor(sourceTensor)"

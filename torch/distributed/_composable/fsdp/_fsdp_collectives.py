@@ -12,7 +12,7 @@ from ._fsdp_param import FSDPParam
 
 
 class AllGatherResult(NamedTuple):
-    all_gather_output: torch.Tensor
+    all_gather_output: torch.TensorBase
     all_gather_event: Optional[torch.cuda.Event]
     all_gather_work: Optional[dist.distributed_c10d.Work]
     all_gather_input_numels: List[int]
@@ -99,7 +99,7 @@ def foreach_all_gather_copy_out(
 @torch.no_grad()
 def foreach_reduce_scatter(
     fsdp_params: List[FSDPParam],
-    unsharded_grads: List[torch.Tensor],
+    unsharded_grads: List[torch.TensorBase],
     group: dist.ProcessGroup,
     reduce_scatter_stream: torch.cuda.Stream,
     orig_dtype: torch.dtype,
@@ -174,13 +174,13 @@ def foreach_reduce_scatter(
 
 
 def foreach_reduce_scatter_copy_in(
-    unsharded_grads: List[torch.Tensor],
-    reduce_scatter_input: torch.Tensor,
+    unsharded_grads: List[torch.TensorBase],
+    reduce_scatter_input: torch.TensorBase,
     world_size: int,
 ) -> None:
-    grad_views: List[torch.Tensor] = []
-    grads_to_copy: List[torch.Tensor] = []
-    padded_grad_slices: List[torch.Tensor] = []
+    grad_views: List[torch.TensorBase] = []
+    grads_to_copy: List[torch.TensorBase] = []
+    padded_grad_slices: List[torch.TensorBase] = []
     for grad in unsharded_grads:
         grad_size = grad.size()
         dim0_padded_size = _get_dim0_padded_size(grad_size, world_size)
@@ -196,8 +196,8 @@ def foreach_reduce_scatter_copy_in(
 
 
 def _reduce_scatter(
-    output: torch.Tensor,
-    input: torch.Tensor,
+    output: torch.TensorBase,
+    input: torch.TensorBase,
     group: dist.ProcessGroup,
     divide_factors: Optional[Tuple[float, float]],
 ) -> None:
@@ -212,6 +212,6 @@ def _reduce_scatter(
         dist.reduce_scatter_tensor(output, input, op=ReduceOp.AVG, group=group)
 
 
-def _div_if_needed(tensor: torch.Tensor, div_factor: float) -> None:
+def _div_if_needed(tensor: torch.TensorBase, div_factor: float) -> None:
     if div_factor > 1:
         tensor.div_(div_factor)

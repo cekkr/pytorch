@@ -82,8 +82,8 @@ class _NormPartial(_Partial):
             raise NotImplementedError(f"Unsupported norm type: {self.norm_type}")
 
     def _partition_value(
-        self, tensor: torch.Tensor, mesh: DeviceMesh, mesh_dim: int
-    ) -> torch.Tensor:
+        self, tensor: torch.TensorBase, mesh: DeviceMesh, mesh_dim: int
+    ) -> torch.TensorBase:
         if self.reduce_op in (c10d.ReduceOp.MAX, c10d.ReduceOp.MIN):
             return tensor
         elif self.reduce_op == c10d.ReduceOp.SUM:
@@ -92,31 +92,31 @@ class _NormPartial(_Partial):
 
     def _reduce_shard_value(
         self,
-        tensor: torch.Tensor,
+        tensor: torch.TensorBase,
         mesh: DeviceMesh,
         mesh_dim: int,
         shard_spec: Placement,
-    ) -> torch.Tensor:
+    ) -> torch.TensorBase:
         assert isinstance(shard_spec, Shard), f"{shard_spec}"
         tensor = self._pre_reduce_transform(tensor)
         reduced_tensor = super()._reduce_shard_value(tensor, mesh, mesh_dim, shard_spec)
         return self._post_reduce_transform(reduced_tensor)
 
     def _reduce_value(
-        self, tensor: torch.Tensor, mesh: DeviceMesh, mesh_dim: int
-    ) -> torch.Tensor:
+        self, tensor: torch.TensorBase, mesh: DeviceMesh, mesh_dim: int
+    ) -> torch.TensorBase:
         tensor = self._pre_reduce_transform(tensor)
         reduced_tensor = super()._reduce_value(tensor, mesh, mesh_dim)
         return self._post_reduce_transform(reduced_tensor)
 
-    def _pre_reduce_transform(self, tensor: torch.Tensor) -> torch.Tensor:
+    def _pre_reduce_transform(self, tensor: torch.TensorBase) -> torch.TensorBase:
         if self.reduce_op == c10d.ReduceOp.SUM:
             assert isinstance(self.norm_type, (int, float)), f"{self.norm_type}"
             if self.norm_type != 0 and self.norm_type != 1:
                 return tensor**self.norm_type
         return tensor
 
-    def _post_reduce_transform(self, tensor: torch.Tensor) -> torch.Tensor:
+    def _post_reduce_transform(self, tensor: torch.TensorBase) -> torch.TensorBase:
         if self.reduce_op == c10d.ReduceOp.SUM:
             assert isinstance(self.norm_type, (int, float)), f"{self.norm_type}"
             if self.norm_type != 0 and self.norm_type != 1:

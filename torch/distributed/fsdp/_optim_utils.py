@@ -93,8 +93,8 @@ class _ConsolidatedOptimState:
             name to its value.
     """
 
-    tensor_state: Dict[str, torch.Tensor] = field(default_factory=dict)
-    zero_dim_tensor_state: Dict[str, torch.Tensor] = field(default_factory=dict)
+    tensor_state: Dict[str, torch.TensorBase] = field(default_factory=dict)
+    zero_dim_tensor_state: Dict[str, torch.TensorBase] = field(default_factory=dict)
     non_tensor_state: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -172,7 +172,7 @@ def _unflatten_optim_state(
             if cpu_offload:
                 for key in list(optim_state.keys()):
                     state = optim_state[key]
-                    if not isinstance(state, torch.Tensor):
+                    if not isinstance(state, torch.TensorBase):
                         continue
                     optim_state[key] = state.cpu()
         return unflat_param_state
@@ -298,7 +298,7 @@ def _unflatten_communicated_optim_state(
                 flat_param_views[state_name] = views
             else:
                 views = flat_param_views[state_name]
-            optim_state: Union[torch.Tensor, ShardedTensor, DTensor] = next(views)
+            optim_state: Union[torch.TensorBase, ShardedTensor, DTensor] = next(views)
             if shard_state:
                 osd_config = fsdp_state._optim_state_dict_config
                 if getattr(osd_config, "_use_dtensor", False):
@@ -339,7 +339,7 @@ def _broadcast_processed_state(
     objects: List[Any] = [None]
     if fsdp_state.rank == 0:
         objects[0] = tree_map_only(
-            torch.Tensor,
+            torch.TensorBase,
             lambda v: v.cpu() if v.dim() == 0 else _PosDimTensorInfo(v.shape, v.dtype),  # type: ignore[union-attr]
             optim_state,
         )
@@ -354,11 +354,11 @@ def _broadcast_state(
     fsdp_state: _FSDPState, state: Any, group: Optional[dist.ProcessGroup]
 ) -> Any:
     if fsdp_state.rank == 0:
-        if not isinstance(state, torch.Tensor) or state.dim() == 0:
+        if not isinstance(state, torch.TensorBase) or state.dim() == 0:
             return state
         tensor = state.to(fsdp_state.compute_device)
     else:
-        if isinstance(state, torch.Tensor):
+        if isinstance(state, torch.TensorBase):
             assert state.dim() == 0, (
                 "For non-zero ranks, a tensor state should have zero dimension, "
                 "but got the state with shape {state.shape()}."
@@ -538,7 +538,7 @@ def _flatten_optim_state_dict(
     # Handle user-defined state, states that are not associated with parameters.
     for key in all_state_keys:
         user_state = unflat_osd_state[key]
-        if isinstance(user_state, torch.Tensor) and rank0_only and use_orig_params:
+        if isinstance(user_state, torch.TensorBase) and rank0_only and use_orig_params:
             user_state = _broadcast_state(fsdp_state, user_state, group=group)
         flat_osd_state[key] = copy.copy(user_state)
 
@@ -602,13 +602,15 @@ def _flatten_optim_state(
     # There may still be some unflattened parameters with state and some
     # without
     unflat_param_states = [
-        _gather_state_dict(
-            unflat_osd_state[unflat_param_name],
-            pg=fsdp_state.process_group,
-            device=fsdp_state.compute_device,
+        (
+            _gather_state_dict(
+                unflat_osd_state[unflat_param_name],
+                pg=fsdp_state.process_group,
+                device=fsdp_state.compute_device,
+            )
+            if unflat_param_name in unflat_osd_state
+            else None
         )
-        if unflat_param_name in unflat_osd_state
-        else None
         for unflat_param_name in unflat_param_names
     ]
     # Check that the unflattened parameters have the same state names
@@ -693,11 +695,11 @@ def _flatten_optim_state(
 
 def _flatten_tensor_optim_state(
     state_name: str,
-    pos_dim_tensors: List[torch.Tensor],
+    pos_dim_tensors: List[torch.TensorBase],
     unflat_param_names: List[str],
     unflat_param_shapes: Sequence[torch.Size],
     handle: FlatParamHandle,
-) -> torch.Tensor:
+) -> torch.TensorBase:
     """
     Flattens the positive-dimension tensor optimizer state given by the values
     ``tensors`` for the state ``state_name`` for a single flat parameter
@@ -756,13 +758,15 @@ def _flatten_tensor_optim_state(
     # parameter)
     cpu_device = torch.device("cpu")
     tensors_to_flatten = [
-        torch.flatten(state_value.to(cpu_device))
-        if state_value is not None
-        else torch.flatten(
-            torch.zeros(
-                size=shape,
-                dtype=dtype,
-                device=cpu_device,
+        (
+            torch.flatten(state_value.to(cpu_device))
+            if state_value is not None
+            else torch.flatten(
+                torch.zeros(
+                    size=shape,
+                    dtype=dtype,
+                    device=cpu_device,
+                )
             )
         )
         for state_value, shape in zip(pos_dim_tensors, unflat_param_shapes)
@@ -778,9 +782,9 @@ def _flatten_tensor_optim_state(
 
 def _flatten_zero_dim_tensor_optim_state(
     state_name: str,
-    zero_dim_tensors: List[torch.Tensor],
+    zero_dim_tensors: List[torch.TensorBase],
     unflat_param_names: List[str],
-) -> torch.Tensor:
+) -> torch.TensorBase:
     """
     Flattens the zero-dimension tensor optimizer state given by the values
     ``zero_dim_tensors`` for the state ``state_name`` for a single flat
@@ -905,12 +909,12 @@ def _rekey_sharded_optim_state_dict(
     # passed to the optimizer
     assert len(param_to_param_key) <= len(param_to_fqns)
 
-    unflat_param_names_to_flat_param_key: Dict[
-        Tuple[str, ...], Union[int, str]
-    ] = {}  # for "state"
-    unflat_param_name_to_flat_param_key: Dict[
-        str, Union[int, str]
-    ] = {}  # for "param_groups"
+    unflat_param_names_to_flat_param_key: Dict[Tuple[str, ...], Union[int, str]] = (
+        {}
+    )  # for "state"
+    unflat_param_name_to_flat_param_key: Dict[str, Union[int, str]] = (
+        {}
+    )  # for "param_groups"
     for param, unflat_param_names in param_to_fqns.items():
         if param not in param_to_param_key:
             # This parameter was not passed to the optimizer
@@ -1004,7 +1008,7 @@ def _get_param_id_to_param_from_optim_input(
     all_tensors = True
     all_dicts = True
     for param in params:
-        all_tensors &= isinstance(param, torch.Tensor)
+        all_tensors &= isinstance(param, torch.TensorBase)
         all_dicts &= isinstance(param, dict)
     if not all_tensors and not all_dicts:
         raise TypeError("Optimizer input should be an iterable of Tensors or dicts")
@@ -1298,7 +1302,7 @@ def _is_named_optimizer(optim_state_dict: Dict[str, Any]) -> bool:
 class StateInfo:
     # The key of these dictionaries are the state name, e.g., `exp_avg`.
     tensors: Dict[str, _PosDimTensorInfo]
-    scalar_tensors: Dict[str, torch.Tensor]
+    scalar_tensors: Dict[str, torch.TensorBase]
     non_tensors: Dict[str, Any]
 
 
@@ -1344,7 +1348,7 @@ def _convert_all_state_info(
     gathered_state_info: List[Dict[str, StateInfo]],
     input_states: Dict[str, Any],
     output_states: Dict[str, Dict[str, Any]],
-) -> Tuple[Optional[torch.dtype], Dict[str, List[Optional[torch.Tensor]]]]:
+) -> Tuple[Optional[torch.dtype], Dict[str, List[Optional[torch.TensorBase]]]]:
     """
     Given the ``gathered_state_info`` and ``input_states``, the API converted
     the StateInfo into the original state if the state is not a non-scalar
@@ -1352,7 +1356,7 @@ def _convert_all_state_info(
     ``state_buffer`` in a correct order for later allgather purpose.
     """
 
-    state_buffers: Dict[str, List[Optional[torch.Tensor]]] = {}
+    state_buffers: Dict[str, List[Optional[torch.TensorBase]]] = {}
 
     for fqn, gathered_state in output_states.items():
         state_info = [s[fqn] for s in gathered_state_info]
@@ -1543,7 +1547,7 @@ def _allgather_orig_param_states(
     # Synchronize can be slow but this will be easier for us to debug.
     torch.cuda.synchronize()
     for state_name, buffers in state_buffers.items():
-        local_buffers: List[torch.Tensor] = []
+        local_buffers: List[torch.TensorBase] = []
         begin = fsdp_state.rank * flat_param._sharded_size.numel()
         # End is inclusive.
         end = begin + flat_param._sharded_size.numel() - 1
@@ -1602,7 +1606,7 @@ def _allgather_orig_param_states(
                 #     optimizer state if the parameter is not frozen in the
                 #     previous steps.
                 if buffers[param_idx] is not None:
-                    local_buffers.append(cast(torch.Tensor, buffers[param_idx]))
+                    local_buffers.append(cast(torch.TensorBase, buffers[param_idx]))
                 param_idx += 1
 
             mem_offset += numel

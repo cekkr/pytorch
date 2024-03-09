@@ -129,7 +129,7 @@ def _dtype_for_scalar(py_type):
 
 
 def _dtype_for_scalar_or_tensor(x):
-    return x.dtype if isinstance(x, torch.Tensor) else _dtype_for_scalar(type(x))
+    return x.dtype if isinstance(x, torch.TensorBase) else _dtype_for_scalar(type(x))
 
 
 def is_float_or_fp_tensor(x):
@@ -171,8 +171,8 @@ def nep50_to_tensors(x1, x2, handle_weaks, function_name):
             dtype = get_default_dtype_for(dtype)
         return torch.as_tensor(scalar, dtype=dtype)
 
-    x1_is_weak = not isinstance(x1, torch.Tensor)
-    x2_is_weak = not isinstance(x2, torch.Tensor)
+    x1_is_weak = not isinstance(x1, torch.TensorBase)
+    x2_is_weak = not isinstance(x2, torch.TensorBase)
     if not handle_weaks or (x1_is_weak and x2_is_weak):
         x1 = to_tensor(x1) if x1_is_weak else x1
         x2 = to_tensor(x2) if x2_is_weak else x2

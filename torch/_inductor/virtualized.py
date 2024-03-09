@@ -152,7 +152,9 @@ class NullKernelHandler(NullHandler):
 
 _ops: Virtualized[OpsHandler[Any]] = Virtualized("ops", MockHandler)
 _graph: Virtualized[GraphLowering] = Virtualized("graph", NullHandler)
-_real_inputs: Virtualized[List[torch.Tensor]] = Virtualized("real_inputs", NullHandler)
+_real_inputs: Virtualized[List[torch.TensorBase]] = Virtualized(
+    "real_inputs", NullHandler
+)
 _fake_mode: Virtualized[FakeTensorMode] = Virtualized("fake_mode", NullHandler)
 _kernel: Virtualized[NullKernelHandler] = Virtualized(
     "kernel", NullKernelHandler

@@ -137,13 +137,13 @@ def _gen_transform_infos(
 
 
 def redistribute_local_tensor(
-    local_tensor: torch.Tensor,
+    local_tensor: torch.TensorBase,
     current_spec: DTensorSpec,
     target_spec: DTensorSpec,
     *,
     async_op: bool = False,
     is_backward: bool = False,
-) -> torch.Tensor:
+) -> torch.TensorBase:
     """
     This redistribute the local tensor (torch.Tensor) from the current DTensorSpec to
     the target DTensorSpec, which involves the necessary collective calls to transform

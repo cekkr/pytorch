@@ -1,5 +1,5 @@
 import torch.library
-from torch import Tensor
+from torch import TensorBase
 from torch.autograd import Function
 
 _test_lib_def = torch.library.Library("_inductor_test", "DEF")
@@ -20,5 +20,5 @@ class Realize(Function):
         return grad_output
 
 
-def realize(x: Tensor) -> Tensor:
+def realize(x: TensorBase) -> TensorBase:
     return Realize.apply(x)

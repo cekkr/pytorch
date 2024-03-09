@@ -6,7 +6,7 @@ import torch.fx as fx
 
 import torch.utils._pytree as pytree
 
-from torch import Tensor
+from torch import TensorBase
 
 from torch.distributed._tensor import DeviceMesh, Replicate, Shard
 from torch.distributed._tensor.ops.view_ops import (
@@ -40,16 +40,18 @@ class BatchDimAnalyzer:
         # batch dim size is used to track the batch dim size of the input tensor
         self.batch_dim_size = -1
 
-        self.dim_rule_map: Dict[torch._ops.OpOverload, Callable[..., torch.Tensor]] = {
+        self.dim_rule_map: Dict[
+            torch._ops.OpOverload, Callable[..., torch.TensorBase]
+        ] = {
             aten.squeeze.default: torch.squeeze,
             aten.squeeze.dim: torch.squeeze,
-            aten.view.default: Tensor.view,
+            aten.view.default: TensorBase.view,
             aten.reshape.default: torch.reshape,
-            aten._unsafe_view.default: Tensor.view,
+            aten._unsafe_view.default: TensorBase.view,
             aten.unsqueeze.default: torch.unsqueeze,
-            aten.expand.default: Tensor.expand,
+            aten.expand.default: TensorBase.expand,
             aten.permute.default: torch.permute,
-            aten.repeat.default: Tensor.repeat,
+            aten.repeat.default: TensorBase.repeat,
             aten.transpose.int: torch.transpose,
         }
 

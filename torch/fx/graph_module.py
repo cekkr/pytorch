@@ -27,6 +27,7 @@ __all__ = [
 
 _USER_PRESERVED_ATTRIBUTES_KEY = "_user_preserved_attributes"
 
+
 # Normal exec loses the source code, however we can work with
 # the linecache module to recover it.
 # Using _exec_with_source will add it to our local cache
@@ -158,7 +159,9 @@ class _CodeOnlyModule(torch.nn.Module):
         self.__dict__ = body
 
 
-def _deserialize_graph_module(forward, body: Dict[Any, Any], graph_module_cls=None) -> torch.nn.Module:
+def _deserialize_graph_module(
+    forward, body: Dict[Any, Any], graph_module_cls=None
+) -> torch.nn.Module:
     """
     Deserialize a GraphModule given the dictionary of the original module,
     using the code to reconstruct the graph. We delete the actual graph before
@@ -196,7 +199,10 @@ def _deserialize_graph_module(forward, body: Dict[Any, Any], graph_module_cls=No
     # referencing the private local subclass KeepModules.
     graph._tracer_cls = tracer_cls
     from ._lazy_graph_module import _make_graph_module
-    gm = _make_graph_module(com, graph, class_name=graphmodule_cls_name, graph_module_cls=graph_module_cls)
+
+    gm = _make_graph_module(
+        com, graph, class_name=graphmodule_cls_name, graph_module_cls=graph_module_cls
+    )
 
     # The GraphModule constructor only retains attributes referenced by the graph.
     # In this case, our goal is return a GraphModule as close to identical as the one
@@ -230,7 +236,7 @@ def _copy_attr(from_module: torch.nn.Module, to_module: torch.nn.Module, target:
     orig = getattr(from_module, field)
     # If it is a tensor and not a parameter attribute of a module, it should be a named buffer.
     # So, we register it as a named buffer in the target module.
-    if isinstance(orig, torch.Tensor) and not isinstance(orig, torch.nn.Parameter):
+    if isinstance(orig, torch.TensorBase) and not isinstance(orig, torch.nn.Parameter):
         to_module.register_buffer(field, orig)
     else:
         setattr(to_module, field, orig)
@@ -250,7 +256,7 @@ def _assign_attr(from_obj: Any, to_module: torch.nn.Module, target: str):
 
     # If it is a tensor and not a parameter attribute of a module, it should be a named buffer.
     # So, we register it as a named buffer in the target module.
-    if isinstance(from_obj, torch.Tensor) and not isinstance(
+    if isinstance(from_obj, torch.TensorBase) and not isinstance(
         from_obj, torch.nn.Parameter
     ):
         to_module.register_buffer(field, from_obj)
@@ -304,9 +310,11 @@ class _WrappedCall:
                 return super(self.cls, obj).__call__(*args, **kwargs)  # type: ignore[misc]
         except Exception as e:
             assert e.__traceback__
-            topmost_framesummary: traceback.FrameSummary = (
-                traceback.StackSummary.extract(traceback.walk_tb(e.__traceback__))[-1]
-            )  # type: ignore[arg-type]
+            topmost_framesummary: (
+                traceback.FrameSummary
+            ) = traceback.StackSummary.extract(traceback.walk_tb(e.__traceback__))[
+                -1
+            ]  # type: ignore[arg-type]
             if "eval_with_key" in topmost_framesummary.filename:
                 print(
                     _WrappedCall._generate_error_message(topmost_framesummary),
@@ -315,6 +323,7 @@ class _WrappedCall:
                 raise e.with_traceback(None)  # noqa: TRY200
             else:
                 raise e
+
 
 @compatibility(is_backward_compatible=True)
 class GraphModule(torch.nn.Module):
@@ -813,6 +822,7 @@ class {module_name}(torch.nn.Module):
 
     def __copy__(self):
         from ._lazy_graph_module import _make_graph_module
+
         res = _make_graph_module(self, self.graph)
         res.meta = getattr(self, "meta", {})
         return res

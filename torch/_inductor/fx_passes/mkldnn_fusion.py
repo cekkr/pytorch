@@ -348,8 +348,8 @@ if torch._C._has_mkldnn:
             return None
 
         if any(
-            not isinstance(get_meta_value(n.args[0]), torch.Tensor)
-            or not isinstance(get_meta_value(n.args[1]), torch.Tensor)
+            not isinstance(get_meta_value(n.args[0]), torch.TensorBase)
+            or not isinstance(get_meta_value(n.args[1]), torch.TensorBase)
             for n in binary_nodes
         ):
             return False
@@ -1117,9 +1117,11 @@ if torch._C._has_mkldnn:
                 # For bfloat16 dynamic shape path, using input size hint to pack weight for a better performance.
                 packed_weight_inputs = (
                     transpose_weight_node,
-                    batch_size.node.shape_env.size_hint(batch_size.node.expr)
-                    if has_free_symbols(batch_size)
-                    else batch_size,
+                    (
+                        batch_size.node.shape_env.size_hint(batch_size.node.expr)
+                        if has_free_symbols(batch_size)
+                        else batch_size
+                    ),
                 )
                 packed_weight_op = (
                     mkldnn._reorder_linear_weight

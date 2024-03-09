@@ -156,10 +156,10 @@ class _InductorModule(torch.nn.Module):
         super().__init__()
         self.gm = gm
         self.compiled: Optional[
-            Callable[[List[torch.Tensor]], List[torch.Tensor]]
+            Callable[[List[torch.TensorBase]], List[torch.TensorBase]]
         ] = None
 
-    def forward(self, *args: torch.Tensor, tag: str) -> List[torch.Tensor]:
+    def forward(self, *args: torch.TensorBase, tag: str) -> List[torch.TensorBase]:
         if self.compiled is None:
             inductor_decompositions = select_decomp_table()
             # TODO: figure out why turning on cudagraphs cause exceptions.

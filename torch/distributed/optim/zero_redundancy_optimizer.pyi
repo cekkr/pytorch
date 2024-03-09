@@ -12,10 +12,10 @@ class _ZeROJoinHook(JoinHook):
 
 class _DDPBucketAssignment:
     bucket_index: int
-    parameters: List[torch.Tensor]
+    parameters: List[torch.TensorBase]
     offset: int
     device: torch.device
-    tensor: Optional[torch.Tensor]
+    tensor: Optional[torch.TensorBase]
 
 class _OverlapStatus(enum.IntEnum):
     UNINITIALIZED: int = ...
@@ -50,7 +50,7 @@ class ZeroRedundancyOptimizer(Optimizer, Joinable):
     _device_to_device_index: Dict[torch.device, int] = ...
     _overlap_with_ddp: bool = ...
     _overlap_info: _OverlapInfo = ...
-    _buckets: List[List[torch.Tensor]] = ...
+    _buckets: List[List[torch.TensorBase]] = ...
     _bucket_assignments_per_rank: List[Dict[int, _DDPBucketAssignment]] = ...
     def __init__(
         self,
@@ -71,7 +71,7 @@ class ZeroRedundancyOptimizer(Optimizer, Joinable):
     def state_dict(self) -> Dict[str, Any]: ...
     def _local_step(
         self,
-        gradients: Optional[List[Optional[torch.Tensor]]] = None,
+        gradients: Optional[List[Optional[torch.TensorBase]]] = None,
         closure: Optional[Callable[[], float]] = None,
         **kwargs: Any,
     ) -> Optional[float]: ...

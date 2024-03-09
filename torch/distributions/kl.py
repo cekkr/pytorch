@@ -36,12 +36,12 @@ from .transformed_distribution import TransformedDistribution
 from .uniform import Uniform
 from .utils import _sum_rightmost, euler_constant as _euler_gamma
 
-_KL_REGISTRY: Dict[
-    Tuple[Type, Type], Callable
-] = {}  # Source of truth mapping a few general (type, type) pairs to functions.
-_KL_MEMOIZE: Dict[
-    Tuple[Type, Type], Callable
-] = {}  # Memoized version mapping many specific (type, type) pairs to functions.
+_KL_REGISTRY: Dict[Tuple[Type, Type], Callable] = (
+    {}
+)  # Source of truth mapping a few general (type, type) pairs to functions.
+_KL_MEMOIZE: Dict[Tuple[Type, Type], Callable] = (
+    {}
+)  # Memoized version mapping many specific (type, type) pairs to functions.
 
 __all__ = ["register_kl", "kl_divergence"]
 
@@ -160,7 +160,7 @@ def _batch_trace_XXT(bmat):
     return flat_trace.reshape(bmat.shape[:-2])
 
 
-def kl_divergence(p: Distribution, q: Distribution) -> torch.Tensor:
+def kl_divergence(p: Distribution, q: Distribution) -> torch.TensorBase:
     r"""
     Compute Kullback-Leibler divergence :math:`KL(p \| q)` between two distributions.
 

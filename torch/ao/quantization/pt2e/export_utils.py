@@ -108,22 +108,22 @@ def _replace_batchnorm(m: torch.fx.GraphModule, train_to_eval: bool):
     m.recompile()
 
     def bn_train(
-        x: torch.Tensor,
-        bn_weight: torch.Tensor,
-        bn_bias: torch.Tensor,
-        bn_running_mean: torch.Tensor,
-        bn_running_var: torch.Tensor,
+        x: torch.TensorBase,
+        bn_weight: torch.TensorBase,
+        bn_bias: torch.TensorBase,
+        bn_running_mean: torch.TensorBase,
+        bn_running_var: torch.TensorBase,
     ):
         return F.batch_norm(
             x, bn_running_mean, bn_running_var, bn_weight, bn_bias, training=True
         )
 
     def bn_eval(
-        x: torch.Tensor,
-        bn_weight: torch.Tensor,
-        bn_bias: torch.Tensor,
-        bn_running_mean: torch.Tensor,
-        bn_running_var: torch.Tensor,
+        x: torch.TensorBase,
+        bn_weight: torch.TensorBase,
+        bn_bias: torch.TensorBase,
+        bn_running_mean: torch.TensorBase,
+        bn_running_var: torch.TensorBase,
     ):
         return F.batch_norm(
             x, bn_running_mean, bn_running_var, bn_weight, bn_bias, training=False

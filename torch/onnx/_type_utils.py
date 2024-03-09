@@ -1,4 +1,5 @@
 """Utilities for converting and operating on ONNX, JIT and torch types."""
+
 from __future__ import annotations
 
 import enum
@@ -160,7 +161,7 @@ class JitScalarType(enum.IntEnum):
     @classmethod
     @_beartype.beartype
     def from_value(
-        cls, value: Union[None, torch._C.Value, torch.Tensor], default=None
+        cls, value: Union[None, torch._C.Value, torch.TensorBase], default=None
     ) -> JitScalarType:
         """Create a JitScalarType from an value's scalar type.
 
@@ -176,7 +177,7 @@ class JitScalarType(enum.IntEnum):
             SymbolicValueError: when value.type()'s info are empty and default is None
         """
 
-        if not isinstance(value, (torch._C.Value, torch.Tensor)) or (
+        if not isinstance(value, (torch._C.Value, torch.TensorBase)) or (
             isinstance(value, torch._C.Value) and value.node().mustBeNone()
         ):
             # default value of type JitScalarType is returned when value is not valid
@@ -191,7 +192,7 @@ class JitScalarType(enum.IntEnum):
             return default
 
         # Each value type has their own way of storing scalar type
-        if isinstance(value, torch.Tensor):
+        if isinstance(value, torch.TensorBase):
             return cls.from_dtype(value.dtype)
         if isinstance(value.type(), torch.ListType):
             try:

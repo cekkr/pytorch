@@ -4,7 +4,7 @@ from collections import defaultdict
 from typing import Any, Dict, Iterator, Optional, Set, Tuple, Union
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 from torch.nn.utils._named_member_accessor import NamedMemberAccessor
 
 __all__ = ["functional_call"]
@@ -12,8 +12,8 @@ __all__ = ["functional_call"]
 
 def _untie_named_tensors_map(
     module: "torch.nn.Module",
-    parameters_and_buffers: Dict[str, Tensor],
-) -> Dict[str, Tensor]:
+    parameters_and_buffers: Dict[str, TensorBase],
+) -> Dict[str, TensorBase]:
     """
     Unties all tied tensors in the module to parameters_and_buffers.
 
@@ -40,12 +40,12 @@ def _untie_named_tensors_map(
         ValueError: if there are more than one user-given values for the same tied tensor.
     """
     # A map of {name: tensor} for all tensors (including tied ones) in the module.
-    all_named_tensors: Dict[str, Tensor] = {}
+    all_named_tensors: Dict[str, TensorBase] = {}
     all_named_tensors.update(module.named_parameters(remove_duplicate=False))
     all_named_tensors.update(module.named_buffers(remove_duplicate=False))
 
     # A map of {tensor: set(all_tied_names)} for all tensor names in the module.
-    tensor_to_tied_names_map: Dict[Tensor, Set[str]] = defaultdict(set)
+    tensor_to_tied_names_map: Dict[TensorBase, Set[str]] = defaultdict(set)
     for name, tensor in all_named_tensors.items():
         tensor_to_tied_names_map[tensor].add(name)
 
@@ -89,7 +89,7 @@ def _untie_named_tensors_map(
 @contextlib.contextmanager
 def _reparametrize_module(
     module: "torch.nn.Module",
-    parameters_and_buffers: Dict[str, Tensor],
+    parameters_and_buffers: Dict[str, TensorBase],
     *,
     tie_weights: bool = False,
     strict: bool = False,
@@ -120,7 +120,7 @@ def _reparametrize_module(
                 )
             )
 
-    orig_parameters_and_buffers: Dict[str, Tensor] = {}
+    orig_parameters_and_buffers: Dict[str, TensorBase] = {}
     try:
         orig_parameters_and_buffers, _ = accessor.swap_tensors_dict(
             untied_parameters_and_buffers, allow_missing=True
@@ -144,7 +144,7 @@ def _reparametrize_module(
 
 def functional_call(
     module: "torch.nn.Module",
-    parameters_and_buffers: Dict[str, Tensor],
+    parameters_and_buffers: Dict[str, TensorBase],
     args: Union[Any, Tuple],
     kwargs: Optional[Dict[str, Any]] = None,
     *,
@@ -228,7 +228,7 @@ def functional_call(
 
 def _functional_call(
     module: "torch.nn.Module",
-    parameters_and_buffers: Dict[str, Tensor],
+    parameters_and_buffers: Dict[str, TensorBase],
     args: Union[Any, Tuple],
     kwargs: Optional[Dict[str, Any]] = None,
     *,

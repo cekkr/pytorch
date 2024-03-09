@@ -54,7 +54,9 @@ class SchemaCheckMode(TorchDispatchMode):
                 return torch.allclose(lhs, rhs, equal_nan=True)
 
         def has_mutated(before, after, md):
-            are_tensors = type(before) == torch.Tensor and type(after) == torch.Tensor
+            are_tensors = (
+                type(before) == torch.TensorBase and type(after) == torch.TensorBase
+            )
             if (
                 are_tensors
                 and before.layout != torch.sparse_csr
@@ -81,7 +83,7 @@ class SchemaCheckMode(TorchDispatchMode):
             return name if name != "self" else "input"
 
         def unwrap(e):
-            if isinstance(e, torch.Tensor) and not type(e) == torch.Tensor:
+            if isinstance(e, torch.TensorBase) and not type(e) == torch.TensorBase:
                 try:
                     return e.elem
                 except AttributeError as t:
@@ -89,8 +91,8 @@ class SchemaCheckMode(TorchDispatchMode):
             return e
 
         def parse_metadata(e):
-            if isinstance(e, torch.Tensor):
-                if not type(e) == torch.Tensor:
+            if isinstance(e, torch.TensorBase):
+                if not type(e) == torch.TensorBase:
                     try:
                         current = e.elem
                         return (
@@ -158,7 +160,7 @@ class SchemaCheckMode(TorchDispatchMode):
                             self.aliasing.append(
                                 Aliasing(func._schema.name, name, f"output_{j}")
                             )
-                    if after is tuple_out[j] and isinstance(after, torch.Tensor):
+                    if after is tuple_out[j] and isinstance(after, torch.TensorBase):
                         # Only mutable ops e.g. (add_, add.out) are allowed to directly return inputs.
                         if not schema_info.is_mutable(
                             SchemaArgument(SchemaArgType.input, i)

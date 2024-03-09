@@ -819,7 +819,7 @@ def is_valid_addmm_fusion(match):
     inp = match.kwargs["inp"]
 
     if not (
-        isinstance(inp, torch.fx.Node) and isinstance(inp.meta["val"], torch.Tensor)
+        isinstance(inp, torch.fx.Node) and isinstance(inp.meta["val"], torch.TensorBase)
     ):
         return False  # Input is a number
 
@@ -959,7 +959,7 @@ class ConstructorMoverPass:
         Get the device of a node.
         """
         ten = node.meta.get("val")
-        return None if not isinstance(ten, torch.Tensor) else ten.device
+        return None if not isinstance(ten, torch.TensorBase) else ten.device
 
     def get_cpu_indeg_count(self, graph: fx.Graph) -> Dict[fx.Node, int]:
         """

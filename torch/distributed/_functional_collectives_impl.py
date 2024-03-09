@@ -145,7 +145,7 @@ def _register_tensor_wrapper(tensor) -> None:
         weakref.finalize(tensor, _wait_reg_dec, data_ptr, wait_reg)
 
 
-def _wait_tensor(tensor: torch.Tensor) -> torch.Tensor:
+def _wait_tensor(tensor: torch.TensorBase) -> torch.TensorBase:
     global data_ptr_to_work
     data_ptr = tensor.data_ptr()
     wait_reg = data_ptr_to_work.get(data_ptr)
@@ -154,7 +154,7 @@ def _wait_tensor(tensor: torch.Tensor) -> torch.Tensor:
     return tensor
 
 
-def _tensor_needs_wait(tensor: torch.Tensor) -> bool:
+def _tensor_needs_wait(tensor: torch.TensorBase) -> bool:
     """Returns true if ```tensor``` needs to be waited. Works with ACS and inner tensors."""
     if hasattr(tensor, "_get_acs_underlying_tensor"):
         tensor = tensor._get_acs_underlying_tensor()
@@ -271,7 +271,7 @@ def _all_gather_into_tensor_coalesced(self, tag, rankset, group_size):
 
 
 def _reduce_scatter_tensor(
-    input: torch.Tensor,
+    input: torch.TensorBase,
     reduceOp: str,
     tag: str,
     ranks: List[int],
@@ -306,7 +306,7 @@ def _reduce_scatter_tensor(
 
 
 def _reduce_scatter_tensor_coalesced(
-    inputs: List[torch.Tensor],
+    inputs: List[torch.TensorBase],
     reduce_op: str,
     tag: str,
     ranks: List[int],
@@ -376,7 +376,7 @@ def _reduce_scatter_tensor_coalesced_fallback(
 
 
 def _all_to_all_single(
-    input: torch.Tensor,
+    input: torch.TensorBase,
     output_split_sizes: Optional[List[int]],
     input_split_sizes: Optional[List[int]],
     tag: str,

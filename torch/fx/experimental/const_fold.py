@@ -6,7 +6,12 @@ from torch.fx.node import map_arg
 from torch.fx.passes.split_module import split_module
 
 
-__all__ = ['FoldedGraphModule', 'get_unique_attr_name_in_module', 'split_const_subgraphs']
+__all__ = [
+    "FoldedGraphModule",
+    "get_unique_attr_name_in_module",
+    "split_const_subgraphs",
+]
+
 
 class FoldedGraphModule(torch.fx.GraphModule):
     """
@@ -60,10 +65,14 @@ class FoldedGraphModule(torch.fx.GraphModule):
 
         def _create_param(i):
             return torch.nn.Parameter(
-                i
-                if not isinstance(i, int)
-                else torch.Tensor([i]).to(device=self.device_for_folded_attrs),
-                requires_grad=i.requires_grad if isinstance(i, torch.Tensor) else False,
+                (
+                    i
+                    if not isinstance(i, int)
+                    else torch.TensorBase([i]).to(device=self.device_for_folded_attrs)
+                ),
+                requires_grad=(
+                    i.requires_grad if isinstance(i, torch.TensorBase) else False
+                ),
             )
 
         params = (

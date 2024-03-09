@@ -170,12 +170,14 @@ class DTensorExpandMode(ParallelMode):
         inps, schemas = [], []
 
         for p in pytree.tree_leaves(params_and_buffers):
-            assert isinstance(p, torch.Tensor), f"expecting Tensor but got {type(p)}"
+            assert isinstance(
+                p, torch.TensorBase
+            ), f"expecting Tensor but got {type(p)}"
             inps.append(p)
             schemas.append(replicate_schema)
 
         for o in pytree.tree_leaves(named_states):
-            if isinstance(o, torch.Tensor):
+            if isinstance(o, torch.TensorBase):
                 inps.append(o)
                 schemas.append(replicate_schema)
             else:
@@ -183,7 +185,7 @@ class DTensorExpandMode(ParallelMode):
                 schemas.append(replicate_schema)
 
         for a in flat_args:
-            if isinstance(a, torch.Tensor):
+            if isinstance(a, torch.TensorBase):
                 inps.append(a)
                 if id(a) in self._placements_override:
                     schemas.append(

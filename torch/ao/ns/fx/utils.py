@@ -2,23 +2,22 @@ import enum
 import operator
 
 import torch
-import torch.nn as nn
 import torch.ao.nn.intrinsic.quantized as nniq
 import torch.ao.nn.quantized as nnq
+import torch.nn as nn
 
 toq = torch.ops.quantized
-from typing import Tuple, Callable, Dict, Set, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Set, Tuple, Union
+
+from torch.ao.quantization import FakeQuantizeBase, ObserverBase
+from torch.ao.quantization.observer import _is_activation_post_process
+from torch.ao.quantization.utils import getattr_from_fqn
 
 from torch.fx import GraphModule
 from torch.fx.graph import Node
-from torch.ao.quantization import (
-    ObserverBase,
-    FakeQuantizeBase,
-)
-from torch.ao.quantization.utils import getattr_from_fqn
-from torch.ao.quantization.observer import _is_activation_post_process
 
 from .ns_types import NSNodeTargetType, NSResultsType
+
 
 # TODO(future PR): consider deleting this enum and using the torch types
 # directly.  This might be tricky because it is not a one to one mapping.
@@ -163,7 +162,7 @@ def get_node_input_qparams(
     node: Node,
     gm: GraphModule,
     node_type_to_io_type_map: Dict[str, Set[NSNodeTargetType]],
-) -> Optional[Tuple[Union[torch.Tensor, float], Union[torch.Tensor, int]]]:
+) -> Optional[Tuple[Union[torch.TensorBase, float], Union[torch.TensorBase, int]]]:
     """
     Returns the qparams (scale, zero_point) of the first input to `node`,
     if they can be inferred from the graph.
@@ -424,7 +423,7 @@ def maybe_dequantize_first_two_tensor_args_and_handle_tuples(f):
                 results.append(inner(*new_args, **kwargs))
             return results
 
-        elif isinstance(a0, torch.Tensor) and isinstance(a1, torch.Tensor):
+        elif isinstance(a0, torch.TensorBase) and isinstance(a1, torch.TensorBase):
             if a0.is_quantized:
                 a0 = a0.dequantize()
             if a1.is_quantized:
@@ -441,7 +440,7 @@ def maybe_dequantize_first_two_tensor_args_and_handle_tuples(f):
 
 
 @maybe_dequantize_first_two_tensor_args_and_handle_tuples
-def compute_sqnr(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+def compute_sqnr(x: torch.TensorBase, y: torch.TensorBase) -> torch.TensorBase:
     """
     Computes the SQNR between `x` and `y`.
 
@@ -458,7 +457,9 @@ def compute_sqnr(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
 
 
 @maybe_dequantize_first_two_tensor_args_and_handle_tuples
-def compute_normalized_l2_error(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+def compute_normalized_l2_error(
+    x: torch.TensorBase, y: torch.TensorBase
+) -> torch.TensorBase:
     """
     Computes the normalized L2 error between `x` and `y`.
 
@@ -469,11 +470,13 @@ def compute_normalized_l2_error(x: torch.Tensor, y: torch.Tensor) -> torch.Tenso
     Return:
         float or tuple of floats
     """
-    return torch.sqrt(((x - y) ** 2).sum() / (x ** 2).sum())
+    return torch.sqrt(((x - y) ** 2).sum() / (x**2).sum())
 
 
 @maybe_dequantize_first_two_tensor_args_and_handle_tuples
-def compute_cosine_similarity(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+def compute_cosine_similarity(
+    x: torch.TensorBase, y: torch.TensorBase
+) -> torch.TensorBase:
     """
     Computes the cosine similarity between `x` and `y`.
 
@@ -491,12 +494,21 @@ def compute_cosine_similarity(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     y = y.reshape(1, -1)
     return torch.nn.functional.cosine_similarity(x, y)
 
+
 def op_type_supports_shadowing(node: Node) -> bool:
-    if node.op == 'call_function':
-        if node.target in (torch.add, torch.mul, operator.add, operator.mul, torch.cat, torch.stack):
+    if node.op == "call_function":
+        if node.target in (
+            torch.add,
+            torch.mul,
+            operator.add,
+            operator.mul,
+            torch.cat,
+            torch.stack,
+        ):
             # shadowing for ops with multiple tensor inputs is not implemented yet
             return False
     return True
+
 
 def get_normalized_nth_input(node: Node, gm: GraphModule, idx: int) -> Node:
     """
@@ -505,7 +517,8 @@ def get_normalized_nth_input(node: Node, gm: GraphModule, idx: int) -> Node:
     """
     try:
         norm_args_and_kwargs = node.normalized_arguments(
-            gm, normalize_to_only_use_kwargs=True)
+            gm, normalize_to_only_use_kwargs=True
+        )
         if norm_args_and_kwargs is not None:
             norm_args, norm_kwargs = norm_args_and_kwargs
             assert len(norm_args) + len(norm_kwargs) > idx

@@ -104,9 +104,9 @@ class _ReplicateState(_State):
     def forward_post_hook(
         self,
         module: nn.Module,
-        input: Tuple[torch.Tensor],
-        output: torch.Tensor,
-    ) -> torch.Tensor:
+        input: Tuple[torch.TensorBase],
+        output: torch.TensorBase,
+    ) -> torch.TensorBase:
         return self._ddp._post_forward(output)
 
 

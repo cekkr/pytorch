@@ -5,11 +5,11 @@
 # This source code is licensed under the BSD license found in the
 # LICENSE file in the root directory of this source tree.
 """Tracks skip tensors on a thread."""
-from contextlib import contextmanager
 import threading
+from contextlib import contextmanager
 from typing import Dict, Generator, List, Optional, Tuple
 
-from torch import Tensor
+from torch import TensorBase
 
 from ..checkpoint import is_checkpointing
 from ..dependency import fork, join
@@ -35,16 +35,23 @@ class SkipTracker:
     """
 
     def __init__(self) -> None:
-        self.tensors: Dict[Tuple[Namespace, str], Optional[Tensor]] = {}
+        self.tensors: Dict[Tuple[Namespace, str], Optional[TensorBase]] = {}
 
-    def save(self, batch: Batch, ns: Namespace, name: str, tensor: Optional[Tensor]) -> None:
+    def save(
+        self, batch: Batch, ns: Namespace, name: str, tensor: Optional[TensorBase]
+    ) -> None:
         self.tensors[(ns, name)] = tensor
 
-    def load(self, batch: Batch, ns: Namespace, name: str) -> Optional[Tensor]:
+    def load(self, batch: Batch, ns: Namespace, name: str) -> Optional[TensorBase]:
         return self.tensors.pop((ns, name))
 
     def copy(
-        self, batch: Batch, prev_stream: AbstractStream, next_stream: AbstractStream, ns: Namespace, name: str,
+        self,
+        batch: Batch,
+        prev_stream: AbstractStream,
+        next_stream: AbstractStream,
+        ns: Namespace,
+        name: str,
     ) -> None:
         raise TypeError("copy is not supported for non-portal skip tensors")
 
@@ -63,7 +70,9 @@ class SkipTrackerThroughPotals(SkipTracker):
         self.skip_layout = skip_layout
         self.portals: Dict[Tuple[Namespace, str], Portal] = {}
 
-    def save(self, batch: Batch, ns: Namespace, name: str, tensor: Optional[Tensor]) -> None:
+    def save(
+        self, batch: Batch, ns: Namespace, name: str, tensor: Optional[TensorBase]
+    ) -> None:
         """Saves the stashed skip tensor in a portal. The portal is then
         connected to the given micro-batch with :class:`Join`.
         """
@@ -110,7 +119,7 @@ class SkipTrackerThroughPotals(SkipTracker):
         tensor_idx = batch.find_tensor_idx()
         batch[tensor_idx] = join(batch[tensor_idx], phony)
 
-    def load(self, batch: Batch, ns: Namespace, name: str) -> Optional[Tensor]:
+    def load(self, batch: Batch, ns: Namespace, name: str) -> Optional[TensorBase]:
         """Loads a skip tensor from the corresponding portal to pop. The given
         micro-batch is connected to the portal with :class:`Fork`.
         """
@@ -125,7 +134,12 @@ class SkipTrackerThroughPotals(SkipTracker):
         return tensor
 
     def copy(
-        self, batch: Batch, prev_stream: AbstractStream, next_stream: AbstractStream, ns: Namespace, name: str,
+        self,
+        batch: Batch,
+        prev_stream: AbstractStream,
+        next_stream: AbstractStream,
+        ns: Namespace,
+        name: str,
     ) -> None:
         """Copies the skip tensor in the corresponding portal. The given
         micro-batch and the portal will be tied with :class:`Fork` and

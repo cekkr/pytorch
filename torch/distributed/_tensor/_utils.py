@@ -125,7 +125,7 @@ def compute_local_shape_and_global_offset(
 
 
 def compute_global_tensor_info(
-    tensor: torch.Tensor, mesh: DeviceMesh, placements: Sequence[Placement]
+    tensor: torch.TensorBase, mesh: DeviceMesh, placements: Sequence[Placement]
 ) -> Tuple[List[int], List[int]]:
     """
     Compute the global size and stride of a DTensor from the given local tensor.

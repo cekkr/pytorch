@@ -1896,7 +1896,7 @@ def histogram(
     if weights is not None:
         weights = _util.cast_if_needed(weights, a.dtype)
 
-    if isinstance(bins, torch.Tensor):
+    if isinstance(bins, torch.TensorBase):
         if bins.ndim == 0:
             # bins was a single int
             bins = operator.index(bins)

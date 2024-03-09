@@ -440,7 +440,8 @@ class CppWrapperCpu(WrapperCodeGen):
                         )
 
             assert all(
-                isinstance(v, torch.Tensor) for v in list(V.graph.constants.values())
+                isinstance(v, torch.TensorBase)
+                for v in list(V.graph.constants.values())
             ), "Expect all constants to be Tensor"
             for idx, constants_key in enumerate(V.graph.constants.keys()):
                 if V.graph.aot_mode:
@@ -564,7 +565,7 @@ class CppWrapperCpu(WrapperCodeGen):
                 self.write_input_output_info("inputs_info_", idx, name)
 
             for idx, (name, tensor) in enumerate(V.graph.constants.items()):
-                assert isinstance(tensor, torch.Tensor)
+                assert isinstance(tensor, torch.TensorBase)
                 self.prefix.writeline(f"""constants_info_[{idx}].name = "{name}";""")
                 self.prefix.writeline(
                     f"constants_info_[{idx}].dtype = static_cast<int32_t>({self.codegen_dtype(tensor.dtype)});"
@@ -745,9 +746,11 @@ class CppWrapperCpu(WrapperCodeGen):
     @cache_on_self
     def get_output_refs(self):
         return [
-            f"at::scalar_tensor({x.codegen_reference(self.wrapper_call)})"
-            if isinstance(x, ir.ShapeAsConstantBuffer) and not config.abi_compatible
-            else x.codegen_reference(self.wrapper_call)
+            (
+                f"at::scalar_tensor({x.codegen_reference(self.wrapper_call)})"
+                if isinstance(x, ir.ShapeAsConstantBuffer) and not config.abi_compatible
+                else x.codegen_reference(self.wrapper_call)
+            )
             for x in V.graph.graph_outputs
         ]
 
@@ -922,7 +925,8 @@ class CppWrapperCpu(WrapperCodeGen):
             # as a global variable passed when calling exec(code, mod.__dict__, mod.__dict__).
             # For cpp wrapper, we need to pass this python value to the inductor_entry_impl function explicitly.
             assert all(
-                isinstance(v, torch.Tensor) for v in list(V.graph.constants.values())
+                isinstance(v, torch.TensorBase)
+                for v in list(V.graph.constants.values())
             ), "Expect all constants to be Tensor"
             constants_str = f"[{', '.join(V.graph.constants.keys())}]"
             args_str += f"""

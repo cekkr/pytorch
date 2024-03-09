@@ -87,11 +87,11 @@ def get_effect_key(op, args, kwargs) -> Optional[_EffectType]:
 
 @with_effects.py_impl(DispatchKey.CompositeExplicitAutograd)
 def with_effects_dense(
-    token: torch.Tensor,
+    token: torch.TensorBase,
     op: torch._ops.OpOverload,
     *args: Tuple[Any, ...],
     **kwargs: Dict[str, Any],
-) -> Tuple[torch.Tensor, ...]:
+) -> Tuple[torch.TensorBase, ...]:
     out = op(*args, **kwargs)
     new_token = torch.tensor([])
     if isinstance(out, tuple):
@@ -102,11 +102,11 @@ def with_effects_dense(
 @with_effects.py_impl(FakeTensorMode)
 def with_effects_fake(
     mode,
-    token: torch.Tensor,
+    token: torch.TensorBase,
     op: torch._ops.OpOverload,
     *args: Tuple[Any, ...],
     **kwargs: Dict[str, Any],
-) -> Tuple[torch.Tensor, ...]:
+) -> Tuple[torch.TensorBase, ...]:
     with mode:
         result = with_effects_dense(token, op, *args, **kwargs)
         return result
@@ -115,11 +115,11 @@ def with_effects_fake(
 @with_effects.py_impl(ProxyTorchDispatchMode)
 def with_effects_proxy(
     mode,
-    token: torch.Tensor,
+    token: torch.TensorBase,
     op: torch._ops.OpOverload,
     *args: Tuple[Any, ...],
     **kwargs: Dict[str, Any],
-) -> Tuple[torch.Tensor, ...]:
+) -> Tuple[torch.TensorBase, ...]:
     if not mode.enable_tracing:
         return with_effects(token, op, *args, **kwargs)
 
@@ -146,7 +146,7 @@ with_effects.fallthrough(DispatchKey.AutogradCUDA)
 
 def handle_effects(
     allow_token_discovery: bool,
-    tokens: Dict[_EffectType, torch.Tensor],
+    tokens: Dict[_EffectType, torch.TensorBase],
     op: torch._ops.OpOverload,
     args: Tuple[Any, ...],
     kwargs: Dict[str, Any],
@@ -198,7 +198,7 @@ def handle_effects(
     # Add the newly created token into the tokens map for a following call to
     # use this token.
     wrapped_token = ctx.wrap_tensors(new_token)
-    assert isinstance(wrapped_token, torch.Tensor)
+    assert isinstance(wrapped_token, torch.TensorBase)
     tokens[key] = wrapped_token
 
     return ctx.wrap_tensors(unwrapped_outs)  # type: ignore[arg-type]

@@ -69,7 +69,7 @@ def create_fw_bw_graph(f, num_mapped_args, *args):
         with disable_proxy_modes_tracing():
 
             def _from_fun(t):
-                if isinstance(t, torch.Tensor):
+                if isinstance(t, torch.TensorBase):
                     if t.dtype != torch.bool:
                         return torch.empty_strided(
                             t.size(),
@@ -97,14 +97,14 @@ def create_fw_bw_graph(f, num_mapped_args, *args):
             example_xs = _unstack_pytree(unwrapped_mapped_xs)[0]
 
             example_pos_args = [
-                _from_fun(arg) if isinstance(arg, torch.Tensor) else arg
+                _from_fun(arg) if isinstance(arg, torch.TensorBase) else arg
                 for arg in pos_args
             ]
             example_flat_out = pytree.tree_map(
                 _from_fun, f(*example_xs, *example_pos_args)
             )
             if any(
-                not isinstance(out, torch.Tensor)
+                not isinstance(out, torch.TensorBase)
                 for out in example_flat_out
                 if out is not None
             ):
@@ -126,9 +126,11 @@ def create_fw_bw_graph(f, num_mapped_args, *args):
             def fw_with_masks(*args):
                 fw_out = f(*args)
                 return fw_out, [
-                    True
-                    if isinstance(ret, torch.Tensor) and ret.requires_grad
-                    else False
+                    (
+                        True
+                        if isinstance(ret, torch.TensorBase) and ret.requires_grad
+                        else False
+                    )
                     for ret in fw_out
                 ]
 
@@ -147,12 +149,12 @@ def create_fw_bw_graph(f, num_mapped_args, *args):
             input_storage = {
                 StorageWeakRef(arg._typed_storage())
                 for arg in example_args
-                if isinstance(arg, torch.Tensor)
+                if isinstance(arg, torch.TensorBase)
             }
 
             def maybe_clone(t):
                 if (
-                    isinstance(t, torch.Tensor)
+                    isinstance(t, torch.TensorBase)
                     and StorageWeakRef(t._typed_storage()) in input_storage
                 ):
                     return t.clone()
@@ -167,7 +169,7 @@ def create_fw_bw_graph(f, num_mapped_args, *args):
 
 def map_wrapper(f, xs, *args):
     flat_xs, xs_spec = pytree.tree_flatten(xs)
-    if not all(isinstance(t, torch.Tensor) for t in flat_xs):
+    if not all(isinstance(t, torch.TensorBase) for t in flat_xs):
         raise RuntimeError(f"Mapped xs can only consist of tensors. Got xs {flat_xs}.")
 
     num_mapped_args = len(flat_xs)
@@ -248,7 +250,7 @@ def trace_map(proxy_mode, func_overload, f, xs, pos_args):
         example_outs = body_graph(*example_input, *pos_args)
 
         def expand_tensor(t):
-            if isinstance(t, torch.Tensor):
+            if isinstance(t, torch.TensorBase):
                 return t.expand(leading_dim_size, *t.shape)
             return t
 
@@ -266,7 +268,7 @@ def trace_map(proxy_mode, func_overload, f, xs, pos_args):
 
 def _unstack_pytree(xs):
     flat_xs, inspec = pytree.tree_flatten(xs)
-    if not all(isinstance(xs, torch.Tensor) for xs in flat_xs):
+    if not all(isinstance(xs, torch.TensorBase) for xs in flat_xs):
         raise RuntimeError(f"Leaves of xs must be Tensor {flat_xs}")
 
     if not all(xs.shape[0] == flat_xs[0].shape[0] for xs in flat_xs):
@@ -292,7 +294,7 @@ def _stack_pytree(pytrees):
     b = zip(*flat_out)
     stacked_out = []
     for leaves in b:
-        if all(isinstance(leaf, torch.Tensor) for leaf in leaves):
+        if all(isinstance(leaf, torch.TensorBase) for leaf in leaves):
             stacked_out.append(torch.stack(leaves))
         elif all(leaf is None for leaf in leaves):
             # Backward graph can return None output when forward inputs doesn't require grad.

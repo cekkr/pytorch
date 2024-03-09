@@ -8,7 +8,7 @@ from typing import Any, Callable, List, Optional, Tuple, Union
 import torch
 import torch.utils._pytree as pytree
 import torch.utils.dlpack
-from torch import Tensor
+from torch import TensorBase
 from torch._dispatch.python import enable_python_dispatcher
 from torch._dynamo.utils import lazy_format_graph_code
 from torch._logging import getArtifactLogger, trace_structured
@@ -49,7 +49,7 @@ def _create_graph(f, args, *, aot_config: AOTConfig) -> torch.fx.GraphModule:
 
 def aot_dispatch_base_graph(
     flat_fn,
-    flat_args: List[Tensor],
+    flat_args: List[TensorBase],
     aot_config: AOTConfig,
     *,
     fw_metadata: ViewAndMutationMeta,
@@ -138,7 +138,7 @@ def aot_dispatch_autograd_graph(
     # It includes outputs of the original forward, *and* any updated inputs due to input mutations.
     # However, it does *not* include any outputs that are aliases of inputs or intermediates, or any metadata-only input mutations.
     traced_tangents = pytree.tree_map(
-        lambda x: x.detach().contiguous() if isinstance(x, Tensor) else x,
+        lambda x: x.detach().contiguous() if isinstance(x, TensorBase) else x,
         fw_metadata.traced_tangents,
     )
 

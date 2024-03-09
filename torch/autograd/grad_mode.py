@@ -385,7 +385,7 @@ class _unsafe_preserve_version_counter(_DecoratorContextManager):
 
     """
 
-    def __init__(self, tensor: torch.Tensor) -> None:
+    def __init__(self, tensor: torch.TensorBase) -> None:
         self.tensor = tensor
         self.prev_version = tensor._version
 

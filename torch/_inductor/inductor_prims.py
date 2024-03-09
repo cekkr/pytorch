@@ -4,7 +4,7 @@ import logging
 from typing import Optional, Sequence
 
 import torch
-from torch import _prims, Tensor
+from torch import _prims, TensorBase
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ def make_prim(
     )
 
 
-def eager_force_stride(input_tensor: Tensor, stride) -> Tensor:
+def eager_force_stride(input_tensor: TensorBase, stride) -> TensorBase:
     if input_tensor.stride() == stride:
         return input_tensor
     new_tensor = input_tensor.clone().as_strided(

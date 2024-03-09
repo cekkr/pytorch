@@ -1,22 +1,14 @@
+import pickle
 from collections import defaultdict
 
 from itertools import chain
 
-import pickle
-
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    no_type_check,
-    Sequence,
-)
+from typing import Any, Callable, Dict, List, no_type_check, Sequence
 
 import torch
 import torch.nn as nn
-from torch.utils.hooks import RemovableHandle
 from torch.utils._python_dispatch import TorchDispatchMode
+from torch.utils.hooks import RemovableHandle
 
 
 BYTES_PER_MB = 1024 * 1024.0
@@ -229,6 +221,7 @@ class MemoryTracker:
 
     def _create_pre_forward_hook(self, name: str) -> Callable:
         """Prefix operator name with current module and 'forward', and insert 'fw_start' marker at forward pass start."""
+
         def _pre_forward_hook(module: nn.Module, inputs: Any) -> None:
             self._cur_module_name = f"{name}.forward"
             if (
@@ -244,8 +237,8 @@ class MemoryTracker:
 
         def _post_forward_hook(
             module: nn.Module,
-            inputs: Sequence[torch.Tensor],
-            outputs: Sequence[torch.Tensor],
+            inputs: Sequence[torch.TensorBase],
+            outputs: Sequence[torch.TensorBase],
         ) -> None:
             if (
                 hasattr(module, "_memory_tracker_is_root")
@@ -259,7 +252,9 @@ class MemoryTracker:
         """Insert the current module name with backward prefix for the operator name."""
 
         def _backward_hook(
-            module: nn.Module, grad_input: torch.Tensor, grad_output: torch.Tensor
+            module: nn.Module,
+            grad_input: torch.TensorBase,
+            grad_output: torch.TensorBase,
         ) -> None:
             self._cur_module_name = f"{name}.backward"
 

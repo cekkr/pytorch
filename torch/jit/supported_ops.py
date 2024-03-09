@@ -67,7 +67,7 @@ def _get_tensor_ops():
 
     methods = []
     # discover methods
-    for elem in dir(torch.Tensor):
+    for elem in dir(torch.TensorBase):
         if not _hidden(elem):
             schemas = torch._C._jit_get_schemas_for_operator("aten::" + elem)
             for schema in schemas:

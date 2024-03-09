@@ -140,7 +140,7 @@ def getattr_recursive(obj, target):
 class GraphLowering(torch.fx.Interpreter):
     graph_outputs: List[ir.IRNode]
 
-    def symbolic_sizes_strides(self, ex: torch.Tensor):
+    def symbolic_sizes_strides(self, ex: torch.TensorBase):
         """
         Support dynamic shapes and dynamic strides by assigning variables
         to each dimension.  We duck-shape tensors, so if two tensors
@@ -175,7 +175,7 @@ class GraphLowering(torch.fx.Interpreter):
         stride = [i.node.expr if isinstance(i, torch.SymInt) else i for i in stride]
         return size, stride
 
-    def static_sizes_strides(self, ex: torch.Tensor):
+    def static_sizes_strides(self, ex: torch.TensorBase):
         """
         Primarily used to weights
         """
@@ -198,7 +198,7 @@ class GraphLowering(torch.fx.Interpreter):
     def __init__(
         self,
         gm: torch.fx.GraphModule,
-        example_inputs: Optional[List[torch.Tensor]] = None,
+        example_inputs: Optional[List[torch.TensorBase]] = None,
         shape_env=None,
         num_static_inputs=None,
         graph_id=None,
@@ -252,7 +252,7 @@ class GraphLowering(torch.fx.Interpreter):
         self.folded_constants: Set[str] = (
             set(const_output_index.keys()) if const_output_index else set()
         )
-        self.constants: Dict[str, torch.Tensor] = (
+        self.constants: Dict[str, torch.TensorBase] = (
             const_module.constants if const_module else {}
         )
         self.constant_reprs: Dict[str, str] = {}
@@ -294,10 +294,10 @@ class GraphLowering(torch.fx.Interpreter):
         self._warned_fallback = {"aten.convolution_backward"}
         self.user_visible_outputs = user_visible_outputs
         self.cache_key: str = ""  # This is the cache key for the compiled artifact
-        self.cache_path: str = ""  # This is the path in the filesystem where the compiled artifact is stored
-        self.cache_linemap: List[
-            Tuple[int, str]
-        ] = (
+        self.cache_path: str = (
+            ""  # This is the path in the filesystem where the compiled artifact is stored
+        )
+        self.cache_linemap: List[Tuple[int, str]] = (
             []
         )  # This is the linemap used by the profiler to mark custom compiled kernels getting run
         # Used if lowering encounters cases where cudagraphs are not supported
@@ -485,7 +485,7 @@ class GraphLowering(torch.fx.Interpreter):
     def make_subgraph(
         self,
         gm: torch.fx.GraphModule,
-        example_inputs: List[torch.Tensor],
+        example_inputs: List[torch.TensorBase],
         subgraph_name: str,
     ) -> "GraphLowering":
         """
@@ -733,7 +733,7 @@ class GraphLowering(torch.fx.Interpreter):
             # Ignored arg, must be unused
             # Alternately we could filter this out in AotAutograd
             return None
-        assert isinstance(example, torch.Tensor), example
+        assert isinstance(example, torch.TensorBase), example
         # todo(chilli): We can remove the last check once we turn buffers into
         # static shape tensors. That's a hack to workaround Inductor believing
         # the buffer should be static but us passing in a fake tensor with
@@ -821,7 +821,7 @@ class GraphLowering(torch.fx.Interpreter):
             ) from None
 
     @staticmethod
-    def can_inline_constant(t: torch.Tensor) -> bool:
+    def can_inline_constant(t: torch.TensorBase) -> bool:
         """
         True if this is a small constant attr that will be inlined.
         """
@@ -981,7 +981,7 @@ class GraphLowering(torch.fx.Interpreter):
                 result.realize()
 
             if (is_output or is_input_for_as_strided) and isinstance(
-                n.meta["val"], torch.Tensor
+                n.meta["val"], torch.TensorBase
             ):
                 strides = n.meta["val"].stride()
                 dense = torch._prims_common.is_non_overlapping_and_dense(n.meta["val"])
@@ -1154,7 +1154,7 @@ class GraphLowering(torch.fx.Interpreter):
                     return defake(x)
                 else:
                     assert isinstance(
-                        x, torch.Tensor
+                        x, torch.TensorBase
                     ), "Unknown type when creating real inputs" + str(type(x))
                     return x
 

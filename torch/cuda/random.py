@@ -1,7 +1,7 @@
 from typing import Iterable, List, Union
 
 import torch
-from .. import Tensor
+from .. import TensorBase
 from . import _lazy_call, _lazy_init, current_device, device_count
 
 __all__ = [
@@ -17,7 +17,7 @@ __all__ = [
 ]
 
 
-def get_rng_state(device: Union[int, str, torch.device] = "cuda") -> Tensor:
+def get_rng_state(device: Union[int, str, torch.device] = "cuda") -> TensorBase:
     r"""Return the random number generator state of the specified GPU as a ByteTensor.
 
     Args:
@@ -39,7 +39,7 @@ def get_rng_state(device: Union[int, str, torch.device] = "cuda") -> Tensor:
     return default_generator.get_state()
 
 
-def get_rng_state_all() -> List[Tensor]:
+def get_rng_state_all() -> List[TensorBase]:
     r"""Return a list of ByteTensor representing the random number states of all devices."""
     results = []
     for i in range(device_count()):
@@ -48,7 +48,7 @@ def get_rng_state_all() -> List[Tensor]:
 
 
 def set_rng_state(
-    new_state: Tensor, device: Union[int, str, torch.device] = "cuda"
+    new_state: TensorBase, device: Union[int, str, torch.device] = "cuda"
 ) -> None:
     r"""Set the random number generator state of the specified GPU.
 
@@ -74,7 +74,7 @@ def set_rng_state(
     _lazy_call(cb)
 
 
-def set_rng_state_all(new_states: Iterable[Tensor]) -> None:
+def set_rng_state_all(new_states: Iterable[TensorBase]) -> None:
     r"""Set the random number generator state of all devices.
 
     Args:

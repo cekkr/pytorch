@@ -8,7 +8,7 @@ from typing import Any, List, Optional, Tuple, Union
 
 import torch.utils._pytree as pytree
 
-from torch import Tensor
+from torch import TensorBase
 from torch.utils._python_dispatch import is_traceable_wrapper_subclass
 
 from .schemas import MutationType, SubclassCreationMeta, ViewAndMutationMeta
@@ -22,7 +22,7 @@ def requires_subclass_dispatch(args, fw_metadata: ViewAndMutationMeta) -> bool:
     any_subclass_args = any(
         is_traceable_wrapper_subclass(x)
         for x in args_flattened
-        if isinstance(x, Tensor)
+        if isinstance(x, TensorBase)
     )
     from torch._functorch._aot_autograd.schemas import SubclassCreationMeta
 
@@ -42,7 +42,7 @@ def create_subclass_meta(
     idx = 0
     infos: List[Union[int, SubclassCreationMeta]] = []
     for a in curr_args:
-        if isinstance(a, Tensor) and is_traceable_wrapper_subclass(a):
+        if isinstance(a, TensorBase) and is_traceable_wrapper_subclass(a):
             attrs, meta = a.__tensor_flatten__()  # type: ignore[attr-defined]
             start_idx = idx
             cnt = len(attrs)
@@ -80,7 +80,7 @@ def unwrap_tensor_subclasses(wrapped_args, *, is_joint_structure: bool):
     def concat_inner_tensors_from_subclasses(xs):
         xs_inner = []
         for x in xs:
-            if isinstance(x, Tensor) and is_traceable_wrapper_subclass(x):
+            if isinstance(x, TensorBase) and is_traceable_wrapper_subclass(x):
                 attrs, _ = x.__tensor_flatten__()  # type: ignore[attr-defined]
                 xs_inner += [getattr(x, attr) for attr in attrs]
             else:

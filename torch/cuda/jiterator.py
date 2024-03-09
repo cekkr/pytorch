@@ -2,7 +2,7 @@ import re
 from typing import Callable, List
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 
 __all__: List[str] = []
 
@@ -67,7 +67,7 @@ class _JittedFunction:
         self.kwargs_dict = kwargs
         self.is_cuda_available = torch.cuda.is_available()
 
-    def __call__(self, *tensors: Tensor, **kwargs):
+    def __call__(self, *tensors: TensorBase, **kwargs):
         # Jiterator follow torch.cuda's lazy initialization behavior
         # Defer checking cuda's availability at the function invocation time
         assert (

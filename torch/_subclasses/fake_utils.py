@@ -21,23 +21,25 @@ aten = torch._ops.ops.aten
 def outputs_alias_inputs(outputs, inputs):
     input_storages = {
         inp._typed_storage()._cdata
-        for inp in tree_flatten_only(torch.Tensor, inputs)
+        for inp in tree_flatten_only(torch.TensorBase, inputs)
         if torch._C._has_storage(inp)
     }
     return any(
         torch._C._has_storage(out) and out._typed_storage()._cdata in input_storages
-        for out in tree_flatten_only(torch.Tensor, outputs)
+        for out in tree_flatten_only(torch.TensorBase, outputs)
     )
 
 
 def outputs_are_inputs(outputs, inputs):
-    input_ids = {id(inp) for inp in tree_flatten_only(torch.Tensor, inputs)}
-    return any(id(out) in input_ids for out in tree_flatten_only(torch.Tensor, outputs))
+    input_ids = {id(inp) for inp in tree_flatten_only(torch.TensorBase, inputs)}
+    return any(
+        id(out) in input_ids for out in tree_flatten_only(torch.TensorBase, outputs)
+    )
 
 
 def output_alias_each_other(outputs):
     storages = set()
-    for out in tree_flatten_only(torch.Tensor, outputs):
+    for out in tree_flatten_only(torch.TensorBase, outputs):
         if not torch._C._has_storage(out):
             continue
         stor = out._typed_storage()._cdata
@@ -109,7 +111,7 @@ class CrossRefFakeMode(TorchDispatchMode):
                 # TODO: enable_python_dispatcher() here
                 with FakeTensorMode(shape_env=ShapeEnv()) as fake_mode:
                     fake_args, fake_kwargs = pytree.tree_map_only(
-                        torch.Tensor,
+                        torch.TensorBase,
                         functools.partial(fake_mode.from_tensor, static_shapes=True),
                         (args, kwargs),
                     )
@@ -153,9 +155,9 @@ class CrossRefFakeMode(TorchDispatchMode):
             for idx, (r_out, fake_out) in enumerate(
                 zip(pytree.tree_leaves(r), pytree.tree_leaves(fake_r))
             ):
-                r_is_ten = isinstance(r_out, torch.Tensor)
+                r_is_ten = isinstance(r_out, torch.TensorBase)
                 assert r_is_ten == isinstance(
-                    fake_out, torch.Tensor
+                    fake_out, torch.TensorBase
                 ), f"{context} mismatched number of tensor outputs"
                 if r_is_ten:
                     assert r_out.requires_grad == fake_out.requires_grad, (
