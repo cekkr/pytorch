@@ -104,7 +104,7 @@ def serialize_tensor(e):
 
 
 def serialize_torch_args(e):
-    if isinstance(e, torch.Tensor):
+    if isinstance(e, torch.TensorBase):
         if e.is_sparse:
             return serialize_sparse_tensor(e)
         return serialize_tensor(e)
@@ -114,7 +114,7 @@ def serialize_torch_args(e):
 
 def contains_tensor(elems):
     for elem in pytree.tree_leaves(elems):
-        if isinstance(elem, torch.Tensor):
+        if isinstance(elem, torch.TensorBase):
             return True
     return False
 
@@ -199,7 +199,7 @@ class OperatorInputsMode(TorchDispatchMode):
 
 
 def map_to_device(e, device):
-    if isinstance(e, torch.Tensor):
+    if isinstance(e, torch.TensorBase):
         return e.to(device)
     elif isinstance(e, torch.device):
         return device
@@ -211,7 +211,7 @@ def map_to_device(e, device):
 
 
 def map_to_dtype(e, dtype):
-    if isinstance(e, torch.Tensor) and e.is_floating_point():
+    if isinstance(e, torch.TensorBase) and e.is_floating_point():
         return e.to(dtype)
     elif isinstance(e, torch.dtype):
         return dtype

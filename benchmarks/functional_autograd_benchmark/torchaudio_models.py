@@ -7,7 +7,7 @@ from typing import Optional, Tuple
 
 import torch
 import torch.nn.functional as F
-from torch import nn, Tensor
+from torch import nn, TensorBase
 
 __all__ = ["Wav2Letter"]
 
@@ -100,7 +100,7 @@ class Wav2Letter(nn.Module):
         if input_type in ["power_spectrum", "mfcc"]:
             self.acoustic_model = acoustic_model
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: TensorBase) -> TensorBase:
         r"""
         Args:
             x (Tensor): Tensor of dimension (batch_size, num_features, input_length).
@@ -505,13 +505,13 @@ class MultiheadAttentionContainer(torch.nn.Module):
 
     def forward(
         self,
-        query: torch.Tensor,
-        key: torch.Tensor,
-        value: torch.Tensor,
-        attn_mask: Optional[torch.Tensor] = None,
-        bias_k: Optional[torch.Tensor] = None,
-        bias_v: Optional[torch.Tensor] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        query: torch.TensorBase,
+        key: torch.TensorBase,
+        value: torch.TensorBase,
+        attn_mask: Optional[torch.TensorBase] = None,
+        bias_k: Optional[torch.TensorBase] = None,
+        bias_v: Optional[torch.TensorBase] = None,
+    ) -> Tuple[torch.TensorBase, torch.TensorBase]:
         r"""
         Args:
             query, key, value (Tensor): map a query and a set of key-value pairs to an output.
@@ -582,13 +582,13 @@ class ScaledDotProduct(torch.nn.Module):
 
     def forward(
         self,
-        query: torch.Tensor,
-        key: torch.Tensor,
-        value: torch.Tensor,
-        attn_mask: Optional[torch.Tensor] = None,
-        bias_k: Optional[torch.Tensor] = None,
-        bias_v: Optional[torch.Tensor] = None,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        query: torch.TensorBase,
+        key: torch.TensorBase,
+        value: torch.TensorBase,
+        attn_mask: Optional[torch.TensorBase] = None,
+        bias_k: Optional[torch.TensorBase] = None,
+        bias_v: Optional[torch.TensorBase] = None,
+    ) -> Tuple[torch.TensorBase, torch.TensorBase]:
         r"""Uses a scaled dot product with the projected key-value pair to update
         the projected query.
         Args:
@@ -684,8 +684,8 @@ class InProjContainer(torch.nn.Module):
         self.value_proj = value_proj
 
     def forward(
-        self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        self, query: torch.TensorBase, key: torch.TensorBase, value: torch.TensorBase
+    ) -> Tuple[torch.TensorBase, torch.TensorBase, torch.TensorBase]:
         r"""Projects the input sequences using in-proj layers.
         Args:
             query, key, value (Tensors): sequence to be projected

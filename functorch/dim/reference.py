@@ -167,7 +167,7 @@ def __torch_function__(self, orig, cls, args, kwargs=empty_dict):
     from . import _Tensor, Tensor, TensorLike
     from .delayed_mul_tensor import DelayedMulTensor
 
-    if orig is torch.Tensor.__mul__:
+    if orig is torch.TensorBase.__mul__:
         lhs, rhs = args
         if (
             isinstance(lhs, _Tensor)
@@ -302,7 +302,7 @@ def _contains_dim(input):
 
 def expand(self, *sizes):
     if not _contains_dim(sizes):
-        return self.__torch_function__(torch.Tensor.expand, None, (self, *sizes))
+        return self.__torch_function__(torch.TensorBase.expand, None, (self, *sizes))
     dims = sizes
     sizes = [d.size for d in dims] + [-1] * self.ndim
     self = self.expand(*sizes)
@@ -372,13 +372,13 @@ def _wrap(
 def _def(name, *args, **kwargs):
     from . import _Tensor
 
-    orig = getattr(torch.Tensor, name)
+    orig = getattr(torch.TensorBase, name)
     setattr(_Tensor, name, _wrap(orig, *args, **kwargs))
 
 
 no_slice = slice(None)
 
-_orig_getitem = torch.Tensor.__getitem__
+_orig_getitem = torch.TensorBase.__getitem__
 
 
 class dim_tracker:
@@ -593,7 +593,7 @@ def stack(tensors, new_dim, dim=0, out=None):
     return pr.index((index, index + 1), (new_dim, dim))
 
 
-_orig_split = torch.Tensor.split
+_orig_split = torch.TensorBase.split
 
 
 def split(self, split_size_or_sections, dim=0):

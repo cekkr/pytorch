@@ -2,26 +2,25 @@
 # Module caffe2.python.workspace
 
 
-
-
 import collections
 import contextlib
-from google.protobuf.message import Message
-from multiprocessing import Process
-import os
-from collections import defaultdict
 import logging
-import numpy as np
-from past.builtins import basestring
+import os
 import shutil
 import socket
 import tempfile
+from collections import defaultdict
+from multiprocessing import Process
+
+import numpy as np
+from google.protobuf.message import Message
+from past.builtins import basestring
+
+import caffe2.python._import_c_extension as C
 
 from caffe2.proto import caffe2_pb2
 from caffe2.python import scope, utils
 from caffe2.python.lazy import TriggerLazyImport
-
-import caffe2.python._import_c_extension as C
 
 logger = logging.getLogger(__name__)
 
@@ -65,11 +64,11 @@ if has_cuda_support:
     GetGPUMemoryInfo = C.get_gpu_memory_info
 else:
     # pyre-fixme[9]: incompatible type assignment
-    NumCudaDevices = lambda: 0 # noqa
+    NumCudaDevices = lambda: 0  # noqa
     # pyre-fixme[9]: incompatible type assignment
-    GetCUDAVersion = lambda: 0 # noqa
+    GetCUDAVersion = lambda: 0  # noqa
     # pyre-fixme[9]: incompatible type assignment
-    GetCuDNNVersion = lambda: 0 # noqa
+    GetCuDNNVersion = lambda: 0  # noqa
 
 if has_hip_support:
     GpuDeviceType = caffe2_pb2.HIP
@@ -79,6 +78,7 @@ if has_hip_support:
 
     def GetGpuPeerAccessPattern():
         return np.asarray(C.get_hip_peer_access_pattern())
+
     GetDeviceProperties = C.get_device_properties
     GetGPUMemoryInfo = C.get_gpu_memory_info
 
@@ -87,11 +87,11 @@ if not has_gpu_support:
     # like core, scope tests use GpuDeviceType even without gpu support
     GpuDeviceType = caffe2_pb2.CUDA
     # pyre-fixme[9]: incompatible type assignment
-    NumGpuDevices = lambda: 0 # noqa
-    GetDeviceProperties = lambda x: None # noqa
-    GetGpuPeerAccessPattern = lambda: np.array([]) # noqa
+    NumGpuDevices = lambda: 0  # noqa
+    GetDeviceProperties = lambda x: None  # noqa
+    GetGpuPeerAccessPattern = lambda: np.array([])  # noqa
     # pyre-fixme[9]: incompatible type assignment
-    GetGPUMemoryInfo = lambda: None # noqa
+    GetGPUMemoryInfo = lambda: None  # noqa
 
 IsNUMAEnabled = C.is_numa_enabled
 GetNumNUMANodes = C.get_num_numa_nodes
@@ -100,19 +100,21 @@ GetBlobSizeBytes = C.get_blob_size_bytes
 
 
 def FillRandomNetworkInputs(net, input_dims, input_types):
-    C.fill_random_network_inputs(net.Proto().SerializeToString(), input_dims, input_types)
+    C.fill_random_network_inputs(
+        net.Proto().SerializeToString(), input_dims, input_types
+    )
 
 
 def _GetFreeFlaskPort():
     """Get a free flask port."""
     # We will prefer to use 5000. If not, we will then pick a random port.
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    result = sock.connect_ex(('127.0.0.1', 5000))
+    result = sock.connect_ex(("127.0.0.1", 5000))
     if result == 0:
         return 5000
     else:
         s = socket.socket()
-        s.bind(('', 0))
+        s.bind(("", 0))
         port = s.getsockname()[1]
         s.close()
         # Race condition: between the interval we close the socket and actually
@@ -120,6 +122,7 @@ def _GetFreeFlaskPort():
         # don't do much here as this is mostly for convenience in research
         # rather than 24x7 service.
         return port
+
 
 def StartMint(root_folder=None, port=None):
     """Start a mint instance.
@@ -129,33 +132,29 @@ def StartMint(root_folder=None, port=None):
     writing up some fix is a todo item.
     """
     from caffe2.python.mint import app
+
     if root_folder is None:
         # Get the root folder from the current workspace
         root_folder = C.root_folder()
     if port is None:
         port = _GetFreeFlaskPort()
-    process = Process(
-        target=app.main,
-        args=(
-            ['-p', str(port), '-r', root_folder],
-        )
-    )
+    process = Process(target=app.main, args=(["-p", str(port), "-r", root_folder],))
     process.start()
-    print('Mint running at http://{}:{}'.format(socket.getfqdn(), port))
+    print("Mint running at http://{}:{}".format(socket.getfqdn(), port))
     return process
 
 
 def StringifyProto(obj):
     """Stringify a protocol buffer object.
 
-  Inputs:
-    obj: a protocol buffer object, or a Pycaffe2 object that has a Proto()
-        function.
-  Outputs:
-    string: the output protobuf string.
-  Raises:
-    AttributeError: if the passed in object does not have the right attribute.
-  """
+    Inputs:
+      obj: a protocol buffer object, or a Pycaffe2 object that has a Proto()
+          function.
+    Outputs:
+      string: the output protobuf string.
+    Raises:
+      AttributeError: if the passed in object does not have the right attribute.
+    """
     if isinstance(obj, basestring):
         return obj
     else:
@@ -163,11 +162,12 @@ def StringifyProto(obj):
             # First, see if this object is a protocol buffer, which we can
             # simply serialize with the SerializeToString() call.
             return obj.SerializeToString()
-        elif hasattr(obj, 'Proto'):
+        elif hasattr(obj, "Proto"):
             return obj.Proto().SerializeToString()
         else:
-            raise ValueError("Unexpected argument to StringifyProto of type " +
-                             type(obj).__name__)
+            raise ValueError(
+                "Unexpected argument to StringifyProto of type " + type(obj).__name__
+            )
 
 
 def ResetWorkspace(root_folder=None):
@@ -190,7 +190,8 @@ def CreateNet(net, overwrite=False, input_blobs=None):
         C.create_net,
         C.Workspace.current._last_failed_op_net_position,
         GetNetName(net),
-        StringifyProto(net), overwrite,
+        StringifyProto(net),
+        overwrite,
     )
 
 
@@ -229,14 +230,15 @@ def CallWithExceptionIntercept(func, op_id_fetcher, net_name, *args, **kwargs):
         op_id = op_id_fetcher()
         net_tracebacks = operator_tracebacks.get(net_name, None)
         logger.warning(
-            'Original python traceback for operator `{}` in network '
-            '`{}` in exception above (most recent call last):'.format(
-                op_id, net_name))
+            "Original python traceback for operator `{}` in network "
+            "`{}` in exception above (most recent call last):".format(op_id, net_name)
+        )
         if net_tracebacks and op_id in net_tracebacks:
             tb = net_tracebacks[op_id]
             for line in reversed(tb):
-                logger.warning('  File "{}", line {}, in {}'.format(
-                    line[0], line[1], line[2]))
+                logger.warning(
+                    '  File "{}", line {}, in {}'.format(line[0], line[1], line[2])
+                )
         raise
 
 
@@ -263,13 +265,16 @@ def RunNet(name, num_iter=1, allow_fail=False):
         C.run_net,
         C.Workspace.current._last_failed_op_net_position,
         GetNetName(name),
-        StringifyNetName(name), num_iter, allow_fail,
+        StringifyNetName(name),
+        num_iter,
+        allow_fail,
     )
 
 
 def RunPlan(plan_or_step):
     # TODO(jiayq): refactor core.py/workspace.py to avoid circular deps
     import caffe2.python.core as core
+
     if isinstance(plan_or_step, core.ExecutionStep):
         plan_or_step = core.Plan(plan_or_step)
     return C.run_plan(StringifyProto(plan_or_step))
@@ -278,13 +283,13 @@ def RunPlan(plan_or_step):
 def RunPlanInBackground(plan_or_step):
     # TODO(jiayq): refactor core.py/workspace.py to avoid circular deps
     import caffe2.python.core as core
+
     if isinstance(plan_or_step, core.ExecutionStep):
         plan_or_step = core.Plan(plan_or_step)
     return C.run_plan_in_background(StringifyProto(plan_or_step))
 
 
-def InferShapesAndTypes(nets, blob_dimensions=None, nets_proto=False,
-                        blob_types=None):
+def InferShapesAndTypes(nets, blob_dimensions=None, nets_proto=False, blob_types=None):
     """Infers the shapes and types for the specified nets.
 
     Inputs:
@@ -326,8 +331,9 @@ def InferShapesAndTypes(nets, blob_dimensions=None, nets_proto=False,
 def _StringifyName(name, expected_type):
     if isinstance(name, basestring):
         return name
-    assert type(name).__name__ == expected_type, \
+    assert type(name).__name__ == expected_type, (
         "Expected a string or %s" % expected_type
+    )
     return str(name)
 
 
@@ -386,9 +392,7 @@ def FetchBlob(name):
     result = C.fetch_blob(StringifyBlobName(name))
     if isinstance(result, tuple):
         raise TypeError(
-            "Use FetchInt8Blob to fetch Int8 Blob {}".format(
-                StringifyBlobName(name)
-            )
+            "Use FetchInt8Blob to fetch Int8 Blob {}".format(StringifyBlobName(name))
         )
     return result
 
@@ -398,9 +402,7 @@ def FetchTorch(name):
     return ws.blobs[name].to_torch()
 
 
-Int8Tensor = collections.namedtuple(
-    'Int8Tensor', ['data', 'scale', 'zero_point']
-)
+Int8Tensor = collections.namedtuple("Int8Tensor", ["data", "scale", "zero_point"])
 
 
 def FetchInt8Blob(name):
@@ -415,9 +417,11 @@ def FetchInt8Blob(name):
       zero_point: int, fake quantization offset
     """
     result = C.fetch_blob(StringifyBlobName(name))
-    assert isinstance(result, tuple), \
-        'You are not fetching an Int8Blob {}. Please use FetchBlob'.format(
-            StringifyBlobName(name))
+    assert isinstance(
+        result, tuple
+    ), "You are not fetching an Int8Blob {}. Please use FetchBlob".format(
+        StringifyBlobName(name)
+    )
     return Int8Tensor(*result)
 
 
@@ -430,17 +434,21 @@ def FetchInt8BlobRealVal(name):
       real value representation of int8 numpy array
     """
     result = C.fetch_blob(StringifyBlobName(name))
-    assert isinstance(result, tuple), \
-        'You are not fetching an Int8Blob {}. Please use FetchBlob'.format(
-            StringifyBlobName(name))
+    assert isinstance(
+        result, tuple
+    ), "You are not fetching an Int8Blob {}. Please use FetchBlob".format(
+        StringifyBlobName(name)
+    )
     int8_blob = Int8Tensor(*result)
     return (int8_blob.data.astype(np.int32) - int(int8_blob.zero_point)).astype(
-        np.float32) * int8_blob.scale
+        np.float32
+    ) * int8_blob.scale
 
 
 def RemoveBlob(name) -> None:
     ws = C.Workspace.current
     _Workspace_remove_blob(ws, name)
+
 
 def _Workspace_fetch_int8_blob(ws, name):
     """Fetches an Int8 blob from the workspace. It shared backend implementation
@@ -454,9 +462,11 @@ def _Workspace_fetch_int8_blob(ws, name):
       zero_point: int, fake quantization offset
     """
     result = ws.fetch_blob(name)
-    assert isinstance(result, tuple), \
-        'You are not fetching an Int8Blob {}. Please use fetch_blob'.format(
-            StringifyBlobName(name))
+    assert isinstance(
+        result, tuple
+    ), "You are not fetching an Int8Blob {}. Please use fetch_blob".format(
+        StringifyBlobName(name)
+    )
     return Int8Tensor(*result)
 
 
@@ -475,7 +485,7 @@ def ApplyTransform(transform_key, net):
     """
     transformed_net = caffe2_pb2.NetDef()
     transformed_str = C.apply_transform(
-        str(transform_key).encode('utf-8'),
+        str(transform_key).encode("utf-8"),
         net.SerializeToString(),
     )
     transformed_net.ParseFromString(transformed_str)
@@ -507,14 +517,15 @@ def ApplyTransformIfFaster(transform_key, net, init_net, **kwargs):
       Either a Transformed NetDef protobuf object, or the original netdef.
     """
 
-    warmup_runs = kwargs['warmup_runs'] if 'warmup_runs' in kwargs else 5
-    main_runs = kwargs['main_runs'] if 'main_runs' in kwargs else 10
-    improvement_threshold = kwargs['improvement_threshold'] \
-        if 'improvement_threshold' in kwargs else 1.01
+    warmup_runs = kwargs["warmup_runs"] if "warmup_runs" in kwargs else 5
+    main_runs = kwargs["main_runs"] if "main_runs" in kwargs else 10
+    improvement_threshold = (
+        kwargs["improvement_threshold"] if "improvement_threshold" in kwargs else 1.01
+    )
 
     transformed_net = caffe2_pb2.NetDef()
     transformed_str = C.apply_transform_if_faster(
-        str(transform_key).encode('utf-8'),
+        str(transform_key).encode("utf-8"),
         net.SerializeToString(),
         init_net.SerializeToString(),
         warmup_runs,
@@ -574,7 +585,7 @@ blobs = _BlobDict()
 
 _immediate_mode = False
 _immediate_workspace_name = "_CAFFE2_IMMEDIATE"
-_immediate_root_folder = ''
+_immediate_root_folder = ""
 
 
 def IsImmediate():
@@ -603,7 +614,8 @@ def StartImmediate(i_know=False):
     if i_know:
         # if the user doesn't want to see the warning message, sure...
         return
-    print("""
+    print(
+        """
     Enabling immediate mode in caffe2 python is an EXTREMELY EXPERIMENTAL
     feature and may very easily go wrong. This is because Caffe2 uses a
     declarative way of defining operators and models, which is essentially
@@ -636,7 +648,8 @@ def StartImmediate(i_know=False):
 
     Thus you should use immediate mode with extra care. If you still would
     like to, have fun [https://xkcd.com/149/].
-    """)
+    """
+    )
 
 
 def StopImmediate():
@@ -649,7 +662,7 @@ def StopImmediate():
     with WorkspaceGuard(_immediate_workspace_name):
         ResetWorkspace()
     shutil.rmtree(_immediate_root_folder)
-    _immediate_root_folder = ''
+    _immediate_root_folder = ""
     _immediate_mode = False
 
 
@@ -675,17 +688,19 @@ def FeedImmediate(*args, **kwargs):
 
 # C.Workspace methods.
 
+
 def _Workspace_create_net_with_exception_intercept(ws, net, overwrite=False):
     return CallWithExceptionIntercept(
         ws._create_net,
         ws._last_failed_op_net_position,
         GetNetName(net),
-        StringifyProto(net), overwrite,
+        StringifyProto(net),
+        overwrite,
     )
 
 
 def _Workspace_run(ws, obj):
-    if hasattr(obj, 'Proto'):
+    if hasattr(obj, "Proto"):
         obj = obj.Proto()
     if isinstance(obj, caffe2_pb2.PlanDef):
         return ws._run_plan(obj.SerializeToString())
@@ -699,14 +714,13 @@ def _Workspace_run(ws, obj):
         # return ws._run_net(obj.SerializeToString())
     if isinstance(obj, caffe2_pb2.OperatorDef):
         return ws._run_operator(obj.SerializeToString())
-    raise ValueError(
-        "Don't know how to do Workspace.run() on {}".format(type(obj)))
+    raise ValueError("Don't know how to do Workspace.run() on {}".format(type(obj)))
 
 
 def _Workspace_feed_blob(ws, name, arr, device_option=None):
     if type(arr) is caffe2_pb2.TensorProto:
         arr = utils.Caffe2TensorToNumpyArray(arr)
-    if type(arr) is np.ndarray and arr.dtype.kind in 'SU':
+    if type(arr) is np.ndarray and arr.dtype.kind in "SU":
         # Plain NumPy strings are weird, let's use objects instead
         arr = arr.astype(object)
 
@@ -714,12 +728,12 @@ def _Workspace_feed_blob(ws, name, arr, device_option=None):
         device_option = scope.CurrentDeviceScope()
 
     if device_option and device_option.device_type == caffe2_pb2.CUDA:
-        if arr.dtype == np.dtype('float64'):
+        if arr.dtype == np.dtype("float64"):
             logger.warning(
-                "CUDA operators do not support 64-bit doubles, " +
-                "please use arr.astype(np.float32) or np.int32 for ints." +
-                " Blob: {}".format(name) +
-                " type: {}".format(str(arr.dtype))
+                "CUDA operators do not support 64-bit doubles, "
+                + "please use arr.astype(np.float32) or np.int32 for ints."
+                + " Blob: {}".format(name)
+                + " type: {}".format(str(arr.dtype))
             )
 
     name = StringifyBlobName(name)
@@ -744,11 +758,13 @@ Workspace.remove_blob = _Workspace_remove_blob
 
 def _Blob_feed(blob, arg, device_option=None):
     # conservative type check to avoid unnecessary import
-    if type(arg).__name__ == 'Tensor' and type(arg).__module__ == 'torch':
+    if type(arg).__name__ == "Tensor" and type(arg).__module__ == "torch":
         import torch
-        if isinstance(arg, torch.Tensor):
-            assert device_option is None, \
-                "device_option doesn't make sense with PyTorch tensors"
+
+        if isinstance(arg, torch.TensorBase):
+            assert (
+                device_option is None
+            ), "device_option doesn't make sense with PyTorch tensors"
             handle = torch._C._tensor_impl_raw_handle(arg)
             blob._wrap_tensor_impl(handle)
             return True  # _feed() returns True for some reason
@@ -769,8 +785,10 @@ def _Tensor_to_torch(tensor):
     """
     # avoiding circular dependency
     import torch
+
     handle = tensor._tensor_impl_raw_handle()
     return torch._C._wrap_tensor_impl(handle)
+
 
 C.TensorCPU.to_torch = _Tensor_to_torch
 
@@ -779,5 +797,6 @@ def _Blob_to_torch(blob):
     if not blob.is_tensor():
         raise RuntimeError("Blob has to be a tensor")
     return blob.as_tensor().to_torch()
+
 
 C.Blob.to_torch = _Blob_to_torch

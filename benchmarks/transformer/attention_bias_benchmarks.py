@@ -101,10 +101,10 @@ class CompositeMHA(torch.nn.Module):
 
     def forward(
         self,
-        query: torch.Tensor,
-        key: torch.Tensor,
-        value: torch.Tensor,
-        mask: Union[torch.Tensor, CausalBias],
+        query: torch.TensorBase,
+        key: torch.TensorBase,
+        value: torch.TensorBase,
+        mask: Union[torch.TensorBase, CausalBias],
     ):
         query_projected = F.linear(query, self.q_proj_weight)
         key_projected = F.linear(key, self.k_proj_weight)

@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 
 
 def milstm_cell(x, hx, cx, w_ih, w_hh, alpha, beta_i, beta_h, bias):
@@ -26,13 +26,13 @@ def milstm_cell(x, hx, cx, w_ih, w_hh, alpha, beta_i, beta_h, bias):
 
 
 def lstm_cell(
-    input: Tensor,
-    hidden: Tuple[Tensor, Tensor],
-    w_ih: Tensor,
-    w_hh: Tensor,
-    b_ih: Tensor,
-    b_hh: Tensor,
-) -> Tuple[Tensor, Tensor]:
+    input: TensorBase,
+    hidden: Tuple[TensorBase, TensorBase],
+    w_ih: TensorBase,
+    w_hh: TensorBase,
+    b_ih: TensorBase,
+    b_hh: TensorBase,
+) -> Tuple[TensorBase, TensorBase]:
     hx, cx = hidden
     gates = torch.mm(input, w_ih.t()) + torch.mm(hx, w_hh.t()) + b_ih + b_hh
 
@@ -50,14 +50,14 @@ def lstm_cell(
 
 
 def flat_lstm_cell(
-    input: Tensor,
-    hx: Tensor,
-    cx: Tensor,
-    w_ih: Tensor,
-    w_hh: Tensor,
-    b_ih: Tensor,
-    b_hh: Tensor,
-) -> Tuple[Tensor, Tensor]:
+    input: TensorBase,
+    hx: TensorBase,
+    cx: TensorBase,
+    w_ih: TensorBase,
+    w_hh: TensorBase,
+    b_ih: TensorBase,
+    b_hh: TensorBase,
+) -> Tuple[TensorBase, TensorBase]:
     gates = torch.mm(input, w_ih.t()) + torch.mm(hx, w_hh.t()) + b_ih + b_hh
 
     ingate, forgetgate, cellgate, outgate = gates.chunk(4, 1)
@@ -74,12 +74,12 @@ def flat_lstm_cell(
 
 
 def premul_lstm_cell(
-    igates: Tensor,
-    hidden: Tuple[Tensor, Tensor],
-    w_hh: Tensor,
-    b_ih: Tensor,
-    b_hh: Tensor,
-) -> Tuple[Tensor, Tensor]:
+    igates: TensorBase,
+    hidden: Tuple[TensorBase, TensorBase],
+    w_hh: TensorBase,
+    b_ih: TensorBase,
+    b_hh: TensorBase,
+) -> Tuple[TensorBase, TensorBase]:
     hx, cx = hidden
     gates = igates + torch.mm(hx, w_hh.t()) + b_ih + b_hh
 
@@ -97,8 +97,11 @@ def premul_lstm_cell(
 
 
 def premul_lstm_cell_no_bias(
-    igates: Tensor, hidden: Tuple[Tensor, Tensor], w_hh: Tensor, b_hh: Tensor
-) -> Tuple[Tensor, Tensor]:
+    igates: TensorBase,
+    hidden: Tuple[TensorBase, TensorBase],
+    w_hh: TensorBase,
+    b_hh: TensorBase,
+) -> Tuple[TensorBase, TensorBase]:
     hx, cx = hidden
     gates = igates + torch.mm(hx, w_hh.t()) + b_hh
 

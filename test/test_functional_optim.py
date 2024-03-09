@@ -1,15 +1,16 @@
 # Owner(s): ["oncall: distributed"]
 
-from typing import List, Optional, Tuple
 import unittest
+from typing import List, Optional, Tuple
 
 import torch
 import torch.distributed
 import torch.nn as nn
 import torch.nn.functional as F
-from torch import Tensor
-from torch.optim import SGD, Adam, AdamW
-from torch.testing._internal.common_utils import TestCase, run_tests
+from torch import TensorBase
+from torch.optim import Adam, AdamW, SGD
+from torch.testing._internal.common_utils import run_tests, TestCase
+
 
 class MyModule(torch.nn.Module):
     def __init__(self):
@@ -21,11 +22,12 @@ class MyModule(torch.nn.Module):
     def forward(self, t1):
         return self.lin2(F.relu(self.lin1(t1)))
 
+
 # dummy class to showcase custom optimizer registration with functional wrapper
 class MyDummyFnOptimizer:
     def __init__(
         self,
-        params: List[Tensor],
+        params: List[TensorBase],
         lr: float = 1e-3,
         betas: Tuple[float, float] = (0.9, 0.999),
         eps: float = 1e-6,
@@ -55,20 +57,29 @@ class MyDummyFnOptimizer:
         if len(params) == 0 and not _allow_empty_param_list:
             raise ValueError("optimizer got an empty parameter list")
 
-    def step_param(self, param: Tensor, grad: Optional[Tensor]):
+    def step_param(self, param: TensorBase, grad: Optional[TensorBase]):
         # call the custom optimizer step_param implementation
         with torch.no_grad():
-            raise RuntimeError("MyDummyFnOptimizer does not support step_param() as of now")
+            raise RuntimeError(
+                "MyDummyFnOptimizer does not support step_param() as of now"
+            )
 
-    def step(self, gradients: List[Optional[Tensor]]):
+    def step(self, gradients: List[Optional[TensorBase]]):
         # call the custom optimizer step implementation
         with torch.no_grad():
             raise RuntimeError("MyDummyFnOptimizer does not support step() as of now")
 
-if torch.distributed.is_available():
-    from torch.distributed.optim.utils import functional_optim_map, register_functional_optim
 
-@unittest.skipIf(not torch.distributed.is_available(), "These are testing distributed functions")
+if torch.distributed.is_available():
+    from torch.distributed.optim.utils import (
+        functional_optim_map,
+        register_functional_optim,
+    )
+
+
+@unittest.skipIf(
+    not torch.distributed.is_available(), "These are testing distributed functions"
+)
 class TestFunctionalOptimParity(TestCase):
     def _validate_parameters(self, params_1, params_2):
         for p1, p2 in zip(params_1, params_2):

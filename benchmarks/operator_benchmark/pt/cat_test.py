@@ -143,7 +143,9 @@ class CatBenchmark(op_bench.TorchBenchmarkBase):
         self.inputs = {"result": result, "inputs": inputs, "dim": dim}
         self.set_module_name("cat")
 
-    def forward(self, result: torch.Tensor, inputs: List[torch.Tensor], dim: int):
+    def forward(
+        self, result: torch.TensorBase, inputs: List[torch.TensorBase], dim: int
+    ):
         return torch.cat(inputs, dim=dim, out=result)
 
 

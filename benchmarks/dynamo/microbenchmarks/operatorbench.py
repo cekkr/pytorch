@@ -227,7 +227,7 @@ def benchmark(
                 args, kwargs = inps
                 if channels_last:
                     args, kwargs = tree_map_only(
-                        torch.Tensor, to_channels_last, (args, kwargs)
+                        torch.TensorBase, to_channels_last, (args, kwargs)
                     )
 
             except StopIteration:

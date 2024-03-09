@@ -2,11 +2,17 @@
 
 import threading
 import time
-import torch
 import unittest
-from torch.futures import Future
-from torch.testing._internal.common_utils import IS_WINDOWS, TestCase, TemporaryFileName, run_tests
 from typing import TypeVar
+
+import torch
+from torch.futures import Future
+from torch.testing._internal.common_utils import (
+    IS_WINDOWS,
+    run_tests,
+    TemporaryFileName,
+    TestCase,
+)
 
 T = TypeVar("T")
 
@@ -55,7 +61,7 @@ class TestFuture(TestCase):
                 f.wait()
 
         f = Future[T]()  # type: ignore[valid-type]
-        t = threading.Thread(target=wait_future, args=(f, ))
+        t = threading.Thread(target=wait_future, args=(f,))
         t.start()
         f.set_exception(value_error)
         t.join()
@@ -69,13 +75,13 @@ class TestFuture(TestCase):
                 fut.wait()
 
         f = Future[T]()  # type: ignore[valid-type]
-        t = threading.Thread(target=then_future, args=(f, ))
+        t = threading.Thread(target=then_future, args=(f,))
         t.start()
         f.set_exception(value_error)
         t.join()
 
     def test_done(self) -> None:
-        f = Future[torch.Tensor]()
+        f = Future[torch.TensorBase]()
         self.assertFalse(f.done())
 
         f.set_result(torch.ones(2, 2))
@@ -87,7 +93,7 @@ class TestFuture(TestCase):
         def raise_exception(unused_future):
             raise RuntimeError(err_msg)
 
-        f1 = Future[torch.Tensor]()
+        f1 = Future[torch.TensorBase]()
         self.assertFalse(f1.done())
         f1.set_result(torch.ones(2, 2))
         self.assertTrue(f1.done())
@@ -98,7 +104,7 @@ class TestFuture(TestCase):
             f2.wait()
 
     def test_wait(self) -> None:
-        f = Future[torch.Tensor]()
+        f = Future[torch.TensorBase]()
         f.set_result(torch.ones(2, 2))
 
         self.assertEqual(f.wait(), torch.ones(2, 2))
@@ -109,7 +115,7 @@ class TestFuture(TestCase):
             time.sleep(0.5)
             fut.set_result(value)
 
-        f = Future[torch.Tensor]()
+        f = Future[torch.TensorBase]()
 
         t = threading.Thread(target=slow_set_future, args=(f, torch.ones(2, 2)))
         t.start()
@@ -121,8 +127,7 @@ class TestFuture(TestCase):
         fut = Future[int]()
         fut.set_result(1)
         with self.assertRaisesRegex(
-            RuntimeError,
-            "Future can only be marked completed once"
+            RuntimeError, "Future can only be marked completed once"
         ):
             fut.set_result(1)
 
@@ -134,7 +139,7 @@ class TestFuture(TestCase):
                 torch.save(fut, fname)
 
     def test_then(self):
-        fut = Future[torch.Tensor]()
+        fut = Future[torch.TensorBase]()
         then_fut = fut.then(lambda x: x.wait() + 1)
 
         fut.set_result(torch.ones(2, 2))
@@ -142,7 +147,7 @@ class TestFuture(TestCase):
         self.assertEqual(then_fut.wait(), torch.ones(2, 2) + 1)
 
     def test_chained_then(self):
-        fut = Future[torch.Tensor]()
+        fut = Future[torch.TensorBase]()
         futs = []
         last_fut = fut
         for _ in range(20):
@@ -192,7 +197,7 @@ class TestFuture(TestCase):
             fut.wait()
             callback_result = True
 
-        fut = Future[torch.Tensor]()
+        fut = Future[torch.TensorBase]()
         fut.add_done_callback(callback)
 
         self.assertFalse(callback_result)
@@ -213,7 +218,7 @@ class TestFuture(TestCase):
             fut.wait()
             callback_result = 2
 
-        fut = Future[torch.Tensor]()
+        fut = Future[torch.TensorBase]()
         fut.add_done_callback(callback_set1)
         fut.add_done_callback(callback_set2)
 
@@ -263,7 +268,7 @@ class TestFuture(TestCase):
             nonlocal callback_result
             return fut.wait() + callback_result
 
-        fut = Future[torch.Tensor]()
+        fut = Future[torch.TensorBase]()
         fut.add_done_callback(callback_set1)
         then_fut = fut.then(callback_then)
         fut.add_done_callback(callback_set2)
@@ -279,7 +284,7 @@ class TestFuture(TestCase):
         def raise_value_error(fut):
             raise ValueError("Expected error")
 
-        fut = Future[torch.Tensor]()
+        fut = Future[torch.TensorBase]()
         then_fut = fut.then(raise_value_error)
         fut.add_done_callback(raise_value_error)
         fut.set_result(torch.ones(2, 2))
@@ -323,6 +328,7 @@ class TestFuture(TestCase):
         # Version with an exception
         def raise_in_fut(fut):
             raise ValueError("Expected error")
+
         fut3 = fut1.then(raise_in_fut)
         with self.assertRaisesRegex(RuntimeError, "Expected error"):
             torch.futures.wait_all([fut3, fut2])
@@ -334,7 +340,13 @@ class TestFuture(TestCase):
         with self.assertRaisesRegex(RuntimeError, "Future can't be None"):
             torch.futures.wait_all((None,))  # type: ignore[arg-type]
         with self.assertRaisesRegex(RuntimeError, "Future can't be None"):
-            torch.futures.collect_all((fut1, None,))  # type: ignore[arg-type]
+            torch.futures.collect_all(
+                (
+                    fut1,
+                    None,
+                )
+            )  # type: ignore[arg-type]
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     run_tests()

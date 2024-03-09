@@ -79,7 +79,9 @@ class StackBenchmark(op_bench.TorchBenchmarkBase):
         self.inputs = {"result": result, "inputs": inputs, "dim": dim}
         self.set_module_name("stack")
 
-    def forward(self, result: torch.Tensor, inputs: List[torch.Tensor], dim: int):
+    def forward(
+        self, result: torch.TensorBase, inputs: List[torch.TensorBase], dim: int
+    ):
         return torch.stack(inputs, dim=dim, out=result)
 
 

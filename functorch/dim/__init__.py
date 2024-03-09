@@ -56,7 +56,7 @@ class _Tensor:
         return f"{tensor}\nwith dims={tuple(l + ndim if isinstance(l, int) else l for l in levels)} sizes={tuple(tensor.size())}"
 
 
-TensorLike = (_Tensor, torch.Tensor)
+TensorLike = (_Tensor, torch.TensorBase)
 
 
 class Dim(_C.Dim, _Tensor):
@@ -81,7 +81,7 @@ if use_c:
     _wrap = _C._wrap
 
     def _def(name, *args, **kwargs):
-        orig = getattr(torch.Tensor, name)
+        orig = getattr(torch.TensorBase, name)
         setattr(_Tensor, name, _C._instancemethod(_wrap(orig, *args, **kwargs)))
 
     t__getitem__ = _C._instancemethod(_C.__getitem__)
@@ -103,11 +103,11 @@ _Tensor.__getitem__ = t__getitem__
 # torch.Tensor.__setitem__ = t__setitem__
 _Tensor.__setitem__ = t__setitem__
 
-torch.Tensor.split = split
+torch.TensorBase.split = split
 _Tensor.split = split
-torch.Tensor.expand = _C._instancemethod(_C.expand)
-torch.Tensor.index = _C._instancemethod(_C.index)
-wrap_type(use_c, _Tensor, torch.Tensor, _Tensor.__torch_function__)
+torch.TensorBase.expand = _C._instancemethod(_C.expand)
+torch.TensorBase.index = _C._instancemethod(_C.index)
+wrap_type(use_c, _Tensor, torch.TensorBase, _Tensor.__torch_function__)
 del _Tensor.ndim
 
 if use_c:

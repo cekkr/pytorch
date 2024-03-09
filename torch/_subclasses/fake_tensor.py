@@ -1761,7 +1761,7 @@ class FakeCopyMode(TorchFunctionMode):
         kwargs = kwargs if kwargs else {}
 
         # clone will get called in Parameter deepcopy
-        if func == torch._C.TensorBase.clone:
+        if func == torch._C.Tensor.clone:
             return func(
                 self.fake_mode.from_tensor(args[0], static_shapes=True), **kwargs
             )

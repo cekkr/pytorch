@@ -22,7 +22,7 @@ dims = _C.dims
 @functools.lru_cache(256)
 def _create_rearrange_callable(
     tensor_ndim: int, pattern: str, **axes_lengths: int
-) -> Callable[[torch.Tensor], torch.Tensor]:
+) -> Callable[[torch.TensorBase], torch.TensorBase]:
     r"""Translate an `einops`-style pattern into a callable that performs the rearrange using first-class dimensions.
 
     Since the an equivalent result is computed for tensors with the same number of dimensions, with the same pattern and
@@ -147,10 +147,12 @@ def _create_rearrange_callable(
 
 
 def rearrange(
-    tensor: Union[torch.Tensor, List[torch.Tensor], Tuple[torch.Tensor, ...]],
+    tensor: Union[
+        torch.TensorBase, List[torch.TensorBase], Tuple[torch.TensorBase, ...]
+    ],
     pattern: str,
     **axes_lengths: int,
-) -> torch.Tensor:
+) -> torch.TensorBase:
     r"""A native implementation of `einops.rearrange`, a reader-friendly smart element reordering for multidimensional
     tensors. This operation includes functionality of transpose (axes permutation), reshape (view), squeeze, unsqueeze,
     stack, concatenate and other operations.
@@ -197,7 +199,7 @@ def rearrange(
         >>> rearrange(images, 'b (h h1) (w w1) c -> b h w (c h1 w1)', h1=2, w1=2).shape
         torch.Size([32, 15, 20, 12])
     """
-    if not isinstance(tensor, torch.Tensor):
+    if not isinstance(tensor, torch.TensorBase):
         tensor = torch.stack(tensor)
 
     rearrange_callable = _create_rearrange_callable(

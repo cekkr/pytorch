@@ -2,7 +2,7 @@ from collections import namedtuple
 from typing import List, Tuple
 
 import torch
-from torch import Tensor
+from torch import TensorBase
 
 from .cells import flat_lstm_cell, lstm_cell, premul_lstm_cell, premul_lstm_cell_no_bias
 
@@ -44,7 +44,7 @@ def lstm_backward_setup(lstm_outputs, seed=None):
 
 
 def simple_backward_setup(output, seed=None):
-    assert isinstance(output, torch.Tensor)
+    assert isinstance(output, torch.TensorBase)
     if seed:
         torch.manual_seed(seed)
     grad_output = torch.randn_like(output)
@@ -265,13 +265,13 @@ def varlen_pytorch_lstm_creator(**kwargs):
 
 def varlen_lstm_factory(cell, script):
     def dynamic_rnn(
-        sequences: List[Tensor],
-        hiddens: Tuple[Tensor, Tensor],
-        wih: Tensor,
-        whh: Tensor,
-        bih: Tensor,
-        bhh: Tensor,
-    ) -> Tuple[List[Tensor], Tuple[List[Tensor], List[Tensor]]]:
+        sequences: List[TensorBase],
+        hiddens: Tuple[TensorBase, TensorBase],
+        wih: TensorBase,
+        whh: TensorBase,
+        bih: TensorBase,
+        bhh: TensorBase,
+    ) -> Tuple[List[TensorBase], Tuple[List[TensorBase], List[TensorBase]]]:
         hx, cx = hiddens
         hxs = hx.unbind(1)
         cxs = cx.unbind(1)
@@ -405,13 +405,13 @@ def lstm_inputs(
 
 def lstm_factory(cell, script):
     def dynamic_rnn(
-        input: Tensor,
-        hidden: Tuple[Tensor, Tensor],
-        wih: Tensor,
-        whh: Tensor,
-        bih: Tensor,
-        bhh: Tensor,
-    ) -> Tuple[Tensor, Tuple[Tensor, Tensor]]:
+        input: TensorBase,
+        hidden: Tuple[TensorBase, TensorBase],
+        wih: TensorBase,
+        whh: TensorBase,
+        bih: TensorBase,
+        bhh: TensorBase,
+    ) -> Tuple[TensorBase, Tuple[TensorBase, TensorBase]]:
         hx, cx = hidden
         outputs = []
         inputs = input.unbind(0)
@@ -431,13 +431,13 @@ def lstm_factory(cell, script):
 # premul: we're going to premultiply the inputs & weights
 def lstm_factory_premul(premul_cell, script):
     def dynamic_rnn(
-        input: Tensor,
-        hidden: Tuple[Tensor, Tensor],
-        wih: Tensor,
-        whh: Tensor,
-        bih: Tensor,
-        bhh: Tensor,
-    ) -> Tuple[Tensor, Tuple[Tensor, Tensor]]:
+        input: TensorBase,
+        hidden: Tuple[TensorBase, TensorBase],
+        wih: TensorBase,
+        whh: TensorBase,
+        bih: TensorBase,
+        bhh: TensorBase,
+    ) -> Tuple[TensorBase, Tuple[TensorBase, TensorBase]]:
         hx, cx = hidden
         outputs = []
         inputs = torch.matmul(input, wih.t()).unbind(0)
@@ -457,13 +457,13 @@ def lstm_factory_premul(premul_cell, script):
 # premul: we're going to premultiply the inputs & weights, and add bias
 def lstm_factory_premul_bias(premul_cell, script):
     def dynamic_rnn(
-        input: Tensor,
-        hidden: Tuple[Tensor, Tensor],
-        wih: Tensor,
-        whh: Tensor,
-        bih: Tensor,
-        bhh: Tensor,
-    ) -> Tuple[Tensor, Tuple[Tensor, Tensor]]:
+        input: TensorBase,
+        hidden: Tuple[TensorBase, TensorBase],
+        wih: TensorBase,
+        whh: TensorBase,
+        bih: TensorBase,
+        bhh: TensorBase,
+    ) -> Tuple[TensorBase, Tuple[TensorBase, TensorBase]]:
         hx, cx = hidden
         outputs = []
         inpSize = input.size()
@@ -506,8 +506,10 @@ def lstm_factory_simple(cell, script):
 
 def lstm_factory_multilayer(cell, script):
     def dynamic_rnn(
-        input: Tensor, hidden: Tuple[Tensor, Tensor], params: List[Tensor]
-    ) -> Tuple[Tensor, Tuple[Tensor, Tensor]]:
+        input: TensorBase,
+        hidden: Tuple[TensorBase, TensorBase],
+        params: List[TensorBase],
+    ) -> Tuple[TensorBase, Tuple[TensorBase, TensorBase]]:
         params_stride = 4  # NB: this assumes that biases are there
         hx, cx = hidden
         hy, cy = hidden  # for scoping...

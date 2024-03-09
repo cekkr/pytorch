@@ -64,7 +64,7 @@ class Experiment:
 
 def get_input(
     config: ExperimentConfig,
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> Tuple[torch.TensorBase, torch.TensorBase, torch.TensorBase]:
     q = torch.randn(
         (config.batch_size, config.num_heads, config.q_seq_len, config.head_dim),
         dtype=config.dtype,

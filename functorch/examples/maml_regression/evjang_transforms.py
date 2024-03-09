@@ -26,16 +26,16 @@ def net(params, x):
 
 
 params = [
-    torch.Tensor(40, 1).uniform_(-1.0, 1.0).requires_grad_(),
-    torch.Tensor(40).zero_().requires_grad_(),
-    torch.Tensor(40, 40)
+    torch.TensorBase(40, 1).uniform_(-1.0, 1.0).requires_grad_(),
+    torch.TensorBase(40).zero_().requires_grad_(),
+    torch.TensorBase(40, 40)
     .uniform_(-1.0 / math.sqrt(40), 1.0 / math.sqrt(40))
     .requires_grad_(),
-    torch.Tensor(40).zero_().requires_grad_(),
-    torch.Tensor(1, 40)
+    torch.TensorBase(40).zero_().requires_grad_(),
+    torch.TensorBase(1, 40)
     .uniform_(-1.0 / math.sqrt(40), 1.0 / math.sqrt(40))
     .requires_grad_(),
-    torch.Tensor(1).zero_().requires_grad_(),
+    torch.TensorBase(1).zero_().requires_grad_(),
 ]
 
 # TODO: use F.mse_loss

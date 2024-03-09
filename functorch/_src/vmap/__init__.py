@@ -10,7 +10,7 @@ from torch._functorch.vmap import (
     _remove_batch_dim,
     _unwrap_batched,
     _validate_and_get_batch_size,
-    Tensor,
+    TensorBase,
     tree_flatten,
     tree_unflatten,
 )

@@ -409,13 +409,13 @@ def print_summary_table(data, print_dataframe=False):
 
 
 def tensor_is_on_xla(tensors):
-    def visit(x: torch.Tensor):
+    def visit(x: torch.TensorBase):
         nonlocal result
         if x.device.type == "xla":
             result = True
 
     result = False
-    tree_map_only(torch.Tensor, visit, tensors)
+    tree_map_only(torch.TensorBase, visit, tensors)
     return result
 
 
@@ -579,7 +579,7 @@ def recompile_profiler_experiment(args, model_iter_fn, model, example_inputs):
 def randomize_input(inputs):
     if isinstance(inputs, (list, tuple)):
         return type(inputs)([randomize_input(x) for x in inputs])
-    elif isinstance(inputs, torch.Tensor):
+    elif isinstance(inputs, torch.TensorBase):
         if inputs.dtype in (torch.float32, torch.float64):
             torch._dynamo.utils.counters["randomize_input"]["times"] += 1
             return torch.randn_like(inputs)
@@ -1076,7 +1076,7 @@ def xla(args, model_iter_fn, model, example_inputs):
     xla_dev = xm.xla_device(devkind=current_device)
     model_xla = copy.deepcopy(model).to("cpu").to(device=xla_dev)
     example_inputs_xla = tree_map_only(
-        torch.Tensor, lambda x: x.to("cpu").to(device=xla_dev), example_inputs
+        torch.TensorBase, lambda x: x.to("cpu").to(device=xla_dev), example_inputs
     )
     for _ in range(3):  # warmup
         timed(model, model_iter_fn, example_inputs)
@@ -1246,7 +1246,7 @@ class OnnxModel(abc.ABC):
         model.to(model_device)
 
         target_device_example_inputs = tree_map_only(
-            torch.Tensor, lambda x: x.to(device=target_device), example_inputs
+            torch.TensorBase, lambda x: x.to(device=target_device), example_inputs
         )
 
         return model_copy, target_device_example_inputs
@@ -1267,12 +1267,10 @@ class OnnxModel(abc.ABC):
         return model_path
 
     @abc.abstractmethod
-    def format_pt_inputs(self, pt_inputs: Any) -> Sequence[torch.Tensor]:
-        ...
+    def format_pt_inputs(self, pt_inputs: Any) -> Sequence[torch.TensorBase]: ...
 
     @abc.abstractmethod
-    def format_pt_outputs(self, pt_outputs: Any) -> Sequence[torch.Tensor]:
-        ...
+    def format_pt_outputs(self, pt_outputs: Any) -> Sequence[torch.TensorBase]: ...
 
     def adapt_pt_inputs_to_onnx(self, pt_inputs) -> Mapping[str, np.ndarray]:
         pt_inputs = self.format_pt_inputs(pt_inputs)
@@ -1465,12 +1463,12 @@ class OnnxModelFromTorchScript(OnnxModel):
         # like `model(*pt_inputs)`.
         if isinstance(pt_inputs, dict):
             pt_inputs = list(pt_inputs.values())
-        if isinstance(pt_inputs, torch.Tensor):
+        if isinstance(pt_inputs, torch.TensorBase):
             pt_inputs = (pt_inputs,)
         return tuple(arg.contiguous() for arg in pt_inputs)
 
     def format_pt_outputs(self, pt_outputs):
-        if isinstance(pt_outputs, torch.Tensor):
+        if isinstance(pt_outputs, torch.TensorBase):
             pt_outputs = (pt_outputs,)
 
         pt_outputs = pytree.tree_leaves(pt_outputs)
@@ -1628,14 +1626,14 @@ class _OnnxPatch:
         # Hack to put results from different runs on same device.
         # This is needed for ONNX CPU fallback benchmark, where PyTorch eager is run on GPU.
         # Assuming outputs from a single run are always on same device!
-        devices = [x.device for x in correct_result if isinstance(x, torch.Tensor)]
+        devices = [x.device for x in correct_result if isinstance(x, torch.TensorBase)]
         assert devices and all(
             x == devices[0] for x in devices
         ), "All tensors must be on same device!"
         device = devices[0]
         new_result = pytree.tree_leaves(new_result)
         new_result = pytree.tree_map(
-            lambda x: x.to(device=device) if isinstance(x, torch.Tensor) else x,
+            lambda x: x.to(device=device) if isinstance(x, torch.TensorBase) else x,
             new_result,
         )
         fp64_outputs = pytree.tree_leaves(fp64_outputs)
@@ -1876,9 +1874,11 @@ def cast_to(dtype, model, inputs):
         model = model.to(dtype)
 
     inputs = tree_map(
-        lambda x: x.to(dtype)
-        if isinstance(x, torch.Tensor) and x.is_floating_point()
-        else x,
+        lambda x: (
+            x.to(dtype)
+            if isinstance(x, torch.TensorBase) and x.is_floating_point()
+            else x
+        ),
         inputs,
     )
     return model, inputs
@@ -2305,9 +2305,11 @@ class BenchmarkRunner:
             model = FSDP(
                 model,
                 use_orig_params=True,
-                device_id=torch.cuda.current_device()
-                if self.args.devices[-1] == "cuda"
-                else None,
+                device_id=(
+                    torch.cuda.current_device()
+                    if self.args.devices[-1] == "cuda"
+                    else None
+                ),
                 mixed_precision=mp_policy,
                 limit_all_gathers=True,
                 auto_wrap_policy=self.get_fsdp_auto_wrap_policy(self.args.only),
@@ -2371,9 +2373,11 @@ class BenchmarkRunner:
                 self.init_optimizer(name, current_device, model_fp64.parameters())
                 fp64_outputs = self.run_n_iterations(model_fp64, inputs_fp64)
                 fp64_outputs = tree_map(
-                    lambda x: x.to(torch.float64)
-                    if isinstance(x, torch.Tensor) and x.is_floating_point()
-                    else x,
+                    lambda x: (
+                        x.to(torch.float64)
+                        if isinstance(x, torch.TensorBase) and x.is_floating_point()
+                        else x
+                    ),
                     fp64_outputs,
                 )
             except Exception:
@@ -2590,7 +2594,7 @@ class BenchmarkRunner:
                 elif isinstance(ref, dict):
                     for k in ref.keys():
                         dump_max_mean_values(tol, ref[k], res[k])
-                elif isinstance(ref, torch.Tensor):
+                elif isinstance(ref, torch.TensorBase):
                     res = res.to(base_device)
                     t = torch.abs(ref - res) / (1 + torch.abs(ref))
                     tol.append(t.flatten().to(torch.float32))
@@ -3781,7 +3785,7 @@ def run(runner, args, original_dir=None):
                 name = model.__class__.__name__
                 model = model.to(device=device)
                 example_inputs = tree_map_only(
-                    torch.Tensor, lambda x: x.to(device=device), example_inputs
+                    torch.TensorBase, lambda x: x.to(device=device), example_inputs
                 )
             else:
                 name = model_name
@@ -3857,7 +3861,7 @@ def run(runner, args, original_dir=None):
                 xla_dev = xm.xla_device()
                 model = model.to(device=xla_dev)
                 example_inputs = tree_map_only(
-                    torch.Tensor, lambda x: x.to(device=xla_dev), example_inputs
+                    torch.TensorBase, lambda x: x.to(device=xla_dev), example_inputs
                 )
 
             current_name = name
@@ -3886,7 +3890,7 @@ def run(runner, args, original_dir=None):
                 and batch_size > 1
                 and model_name not in CI_SKIP_DYNAMIC_BATCH_ONLY
             ):
-                tree_map_only(torch.Tensor, detect_and_mark_batch, example_inputs)
+                tree_map_only(torch.TensorBase, detect_and_mark_batch, example_inputs)
                 assert marked, f"nothing in example_inputs had a dim with {batch_size}"
 
             if args.log_operator_inputs:

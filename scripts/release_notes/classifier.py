@@ -153,7 +153,7 @@ class CommitClassifier(nn.Module):
     def convert_index_to_category_name(self, most_likely_index):
         if isinstance(most_likely_index, int):
             return self.categories[most_likely_index]
-        elif isinstance(most_likely_index, torch.Tensor):
+        elif isinstance(most_likely_index, torch.TensorBase):
             return [self.categories[i] for i in most_likely_index]
 
     def get_most_likely_category_name(self, inpt):

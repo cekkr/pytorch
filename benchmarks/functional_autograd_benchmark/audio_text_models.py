@@ -1,7 +1,7 @@
 import torch
 
 import torchaudio_models as models
-from torch import nn, Tensor
+from torch import nn, TensorBase
 
 from utils import check_for_functorch, extract_weights, GetterReturnType, load_weights
 
@@ -21,7 +21,7 @@ def get_wav2letter(device: torch.device) -> GetterReturnType:
     inputs = torch.rand([N, 1, input_frames], device=device)
     labels = torch.rand(N, 3, device=device).mul(vocab_size).long()
 
-    def forward(*new_params: Tensor) -> Tensor:
+    def forward(*new_params: TensorBase) -> TensorBase:
         load_weights(model, names, new_params)
         out = model(inputs)
 
@@ -72,7 +72,7 @@ def get_deepspeech(device: torch.device) -> GetterReturnType:
     criterion = nn.CTCLoss()
     params, names = extract_weights(model)
 
-    def forward(*new_params: Tensor) -> Tensor:
+    def forward(*new_params: TensorBase) -> TensorBase:
         load_weights(model, names, new_params)
         out, out_sizes = model(inputs, inputs_sizes)
         out = out.transpose(0, 1)  # For ctc loss
@@ -104,7 +104,7 @@ def get_transformer(device: torch.device) -> GetterReturnType:
     inputs = data.narrow(1, 0, seq_length)
     targets = data.narrow(1, 1, seq_length)
 
-    def forward(*new_params: Tensor) -> Tensor:
+    def forward(*new_params: TensorBase) -> TensorBase:
         load_weights(model, names, new_params)
         out = model(inputs)
 
@@ -144,7 +144,7 @@ def get_multiheadattn(device: torch.device) -> GetterReturnType:
     bias_k = bias_k.repeat(1, bsz, 1).reshape(1, bsz * nhead, -1)
     bias_v = bias_v.repeat(1, bsz, 1).reshape(1, bsz * nhead, -1)
 
-    def forward(*new_params: Tensor) -> Tensor:
+    def forward(*new_params: TensorBase) -> TensorBase:
         load_weights(model, names, new_params)
         mha_output, attn_weights = model(
             query, key, value, attn_mask=attn_mask, bias_k=bias_k, bias_v=bias_v

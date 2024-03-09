@@ -58,7 +58,7 @@ class QCatBenchmark(op_bench.TorchBenchmarkBase):
         self.inputs = {"input": self.input, "dim": dim}
         self.set_module_name("qcat")
 
-    def forward(self, input: List[torch.Tensor], dim: int):
+    def forward(self, input: List[torch.TensorBase], dim: int):
         return self.qf.cat(input, dim=dim)
 
 

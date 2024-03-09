@@ -5,8 +5,9 @@ between numpy arrays and torch tensors. See https://github.com/pytorch/pytorch/i
 was removed.
 """
 
+from typing import Any, Optional, Tuple
+
 import torch
-from typing import Tuple, Any, Optional
 
 _DTYPE_PRECISIONS = {
     torch.float16: (1e-3, 1e-3),
@@ -15,7 +16,9 @@ _DTYPE_PRECISIONS = {
 }
 
 
-def _get_default_rtol_and_atol(actual: torch.Tensor, expected: torch.Tensor) -> Tuple[float, float]:
+def _get_default_rtol_and_atol(
+    actual: torch.TensorBase, expected: torch.TensorBase
+) -> Tuple[float, float]:
     actual_rtol, actual_atol = _DTYPE_PRECISIONS.get(actual.dtype, (0.0, 0.0))
     expected_rtol, expected_atol = _DTYPE_PRECISIONS.get(expected.dtype, (0.0, 0.0))
     return max(actual_rtol, expected_rtol), max(actual_atol, expected_atol)
@@ -29,9 +32,9 @@ def assert_allclose(
     equal_nan: bool = True,
     msg: str = "",
 ) -> None:
-    if not isinstance(actual, torch.Tensor):
+    if not isinstance(actual, torch.TensorBase):
         actual = torch.tensor(actual)
-    if not isinstance(expected, torch.Tensor):
+    if not isinstance(expected, torch.TensorBase):
         expected = torch.tensor(expected, dtype=actual.dtype)
 
     if rtol is None and atol is None:

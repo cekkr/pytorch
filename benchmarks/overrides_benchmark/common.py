@@ -4,13 +4,13 @@ NUM_REPEATS = 1000
 NUM_REPEAT_OF_REPEATS = 1000
 
 
-class SubTensor(torch.Tensor):
+class SubTensor(torch.TensorBase):
     pass
 
 
 class WithTorchFunction:
     def __init__(self, data, requires_grad=False):
-        if isinstance(data, torch.Tensor):
+        if isinstance(data, torch.TensorBase):
             self._tensor = data
             return
 
@@ -24,7 +24,7 @@ class WithTorchFunction:
         return WithTorchFunction(args[0]._tensor + args[1]._tensor)
 
 
-class SubWithTorchFunction(torch.Tensor):
+class SubWithTorchFunction(torch.TensorBase):
     @classmethod
     def __torch_function__(cls, func, types, args=(), kwargs=None):
         if kwargs is None:

@@ -179,10 +179,10 @@ class EmbedddingBag4BitRowwiseOffsetsTest(op_bench.TorchBenchmarkBase):
         indices,
         offsets,
         mode: int,
-        per_sample_weights: Optional[torch.Tensor],
+        per_sample_weights: Optional[torch.TensorBase],
         include_last_offset: bool,
         is_pruned_weights: bool,
-        compressed_indices: Optional[torch.Tensor],
+        compressed_indices: Optional[torch.TensorBase],
     ):
         return self.op_func(
             prepacked_weights,
@@ -291,10 +291,10 @@ class EmbedddingBagByteRowwiseOffsetsTest(op_bench.TorchBenchmarkBase):
         indices,
         offsets,
         mode: int,
-        per_sample_weights: Optional[torch.Tensor],
+        per_sample_weights: Optional[torch.TensorBase],
         include_last_offset: bool,
         is_pruned_weights: bool,
-        compressed_indices: Optional[torch.Tensor],
+        compressed_indices: Optional[torch.TensorBase],
     ):
         return self.op_func(
             prepacked_weights,

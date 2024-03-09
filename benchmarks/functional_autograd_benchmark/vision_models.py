@@ -2,7 +2,7 @@ from typing import cast
 
 import torch
 import torchvision_models as models
-from torch import Tensor
+from torch import TensorBase
 
 from utils import check_for_functorch, extract_weights, GetterReturnType, load_weights
 
@@ -25,7 +25,7 @@ def get_resnet18(device: torch.device) -> GetterReturnType:
     inputs = torch.rand([N, 3, 224, 224], device=device)
     labels = torch.rand(N, device=device).mul(10).long()
 
-    def forward(*new_params: Tensor) -> Tensor:
+    def forward(*new_params: TensorBase) -> TensorBase:
         load_weights(model, names, new_params)
         out = model(inputs)
 
@@ -54,7 +54,7 @@ def get_fcn_resnet(device: torch.device) -> GetterReturnType:
     # Given model has 21 classes
     labels = torch.rand([N, 21, 480, 480], device=device)
 
-    def forward(*new_params: Tensor) -> Tensor:
+    def forward(*new_params: TensorBase) -> TensorBase:
         load_weights(model, names, new_params)
         out = model(inputs)["out"]
 
@@ -124,14 +124,14 @@ def get_detr(device: torch.device) -> GetterReturnType:
         targets["boxes"] = boxes.float()
         labels.append(targets)
 
-    def forward(*new_params: Tensor) -> Tensor:
+    def forward(*new_params: TensorBase) -> TensorBase:
         load_weights(model, names, new_params)
         out = model(inputs)
 
         loss = criterion(out, labels)
         weight_dict = criterion.weight_dict
         final_loss = cast(
-            Tensor,
+            TensorBase,
             sum(loss[k] * weight_dict[k] for k in loss.keys() if k in weight_dict),
         )
         return final_loss
